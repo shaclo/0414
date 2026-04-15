@@ -176,7 +176,14 @@ class Phase5Expansion(QWidget):
     # 生命周期
     # ------------------------------------------------------------------ #
     def on_enter(self):
-        """进入扩写阶段时刷新节点列表"""
+        """进入扩写阶段时刷新节点列表，并根据每集时长自动计算目标字数"""
+        # 根据 episode_duration 自动设置目标字数范围
+        duration = self.project_data.episode_duration
+        target_center = duration * 180  # 每分钟约 180 字
+        target_min = int(target_center * 0.9)  # -10%
+        target_max = int(target_center * 1.1)  # +10%
+        self._screenplay_editor.set_target_range(target_min, target_max)
+
         self._refresh_node_combo()
         if self._node_combo.count() > 0:
             self._node_combo.setCurrentIndex(0)
@@ -309,6 +316,7 @@ class Phase5Expansion(QWidget):
             hook=beat.get("hook", ""),
             target_word_count=target_word_count,
             ai_params=self._ai_settings.get_all_settings(),
+            episode_duration=self.project_data.episode_duration,
         )
         self._worker.progress.connect(self.status_message)
         self._worker.finished.connect(self._on_expand_done)

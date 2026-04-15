@@ -141,17 +141,61 @@ class Phase3Flesh(QWidget):
         right = QWidget()
         rl = QVBoxLayout(right)
         rl.setContentsMargins(0, 0, 0, 0)
-        rl.addWidget(QLabel("选中方案详情 (可直接编辑 JSON):"))
+
+        # 视图切换按钮
+        view_toggle_row = QHBoxLayout()
+        self._btn_readable_view = QPushButton("📖 可读视图")
+        self._btn_readable_view.setCheckable(True)
+        self._btn_readable_view.setChecked(True)
+        self._btn_readable_view.setStyleSheet(
+            "QPushButton{padding:4px 12px;border:1px solid #3498db;border-radius:4px;"
+            "color:#3498db;background:white;}"
+            "QPushButton:checked{background:#3498db;color:white;}"
+        )
+        self._btn_readable_view.clicked.connect(lambda: self._switch_detail_view("readable"))
+        view_toggle_row.addWidget(self._btn_readable_view)
+
+        self._btn_json_view = QPushButton("📝 JSON 编辑")
+        self._btn_json_view.setCheckable(True)
+        self._btn_json_view.setChecked(False)
+        self._btn_json_view.setStyleSheet(
+            "QPushButton{padding:4px 12px;border:1px solid #95a5a6;border-radius:4px;"
+            "color:#95a5a6;background:white;}"
+            "QPushButton:checked{background:#95a5a6;color:white;}"
+        )
+        self._btn_json_view.clicked.connect(lambda: self._switch_detail_view("json"))
+        view_toggle_row.addWidget(self._btn_json_view)
+        view_toggle_row.addStretch()
+        rl.addLayout(view_toggle_row)
+
+        # 可读视图（默认显示）
+        self._readable_view = QTextEdit()
+        self._readable_view.setReadOnly(True)
+        self._readable_view.setPlaceholderText("选择左侧卡片后，Beat 将以可读格式显示在此。")
+        self._readable_view.setStyleSheet(
+            "QTextEdit{font-family:'Microsoft YaHei','Noto Sans CJK SC',sans-serif;"
+            "font-size:12px;line-height:1.6;"
+            "border:1px solid #dcdde1;border-radius:4px;padding:8px;"
+            "background:#fafafa;}"
+        )
+        rl.addWidget(self._readable_view)
+
+        # JSON 编辑视图（默认隐藏）
         self._detail_edit = QTextEdit()
         self._detail_edit.setPlaceholderText("选择左侧卡片后，完整 JSON 显示在此，可手动修改。")
         self._detail_edit.setStyleSheet(
             "QTextEdit{font-family:Consolas,monospace;font-size:11px;"
             "border:1px solid #dcdde1;border-radius:4px;}"
         )
+        self._detail_edit.setVisible(False)
         rl.addWidget(self._detail_edit)
+
         result_splitter.addWidget(right)
         result_splitter.setSizes([460, 360])
         vl.addWidget(result_splitter, 1)
+
+        # 当前视图模式
+        self._current_view_mode = "readable"
 
         var_btn_row = QHBoxLayout()
         self._btn_regen_node = QPushButton("重新生成本节点")
@@ -395,10 +439,16 @@ class Phase3Flesh(QWidget):
 
     def _on_card_selected(self, persona_key: str):
         self._selected_persona_key = persona_key
+        self._current_beat_data = None
         for r in self._variation_results:
             if r["persona_key"] == persona_key and r.get("beat"):
+                self._current_beat_data = r["beat"]
+                # 更新两个视图
                 self._detail_edit.setPlainText(
                     json.dumps(r["beat"], ensure_ascii=False, indent=2)
+                )
+                self._readable_view.setPlainText(
+                    self._format_beat_readable(r["beat"])
                 )
                 break
         self._btn_confirm.setEnabled(True)
@@ -691,3 +741,94 @@ class Phase3Flesh(QWidget):
         self._set_busy_var(False)
         QMessageBox.critical(self, "AI 调用失败", msg)
         self.status_message.emit("错误: " + msg)
+
+    # ------------------------------------------------------------------ #
+    # 视图切换 + 可读格式化
+    # ------------------------------------------------------------------ #
+    def _switch_detail_view(self, mode: str):
+        """切换可读视图和 JSON 编辑视图"""
+        self._current_view_mode = mode
+        if mode == "readable":
+            self._readable_view.setVisible(True)
+            self._detail_edit.setVisible(False)
+            self._btn_readable_view.setChecked(True)
+            self._btn_json_view.setChecked(False)
+            # 同步 JSON 编辑器的内容到可读视图
+            raw = self._detail_edit.toPlainText().strip()
+            if raw:
+                try:
+                    beat = json.loads(raw)
+                    self._readable_view.setPlainText(self._format_beat_readable(beat))
+                except json.JSONDecodeError:
+                    pass
+        else:
+            self._readable_view.setVisible(False)
+            self._detail_edit.setVisible(True)
+            self._btn_readable_view.setChecked(False)
+            self._btn_json_view.setChecked(True)
+
+    @staticmethod
+    def _format_beat_readable(beat: dict) -> str:
+        """将 Beat JSON 渲染为人类可读的剧本摘要格式"""
+        lines = []
+
+        # 基本信息
+        persona = beat.get("persona_name", "")
+        node_id = beat.get("target_node_id", "")
+        if persona or node_id:
+            lines.append(f"═══ {node_id} | 人格: {persona} ═══")
+            lines.append("")
+
+        # 场景描述
+        setting = beat.get("setting", "")
+        if setting:
+            lines.append("┌─ 场景描述 ───────────────")
+            lines.append(f"│ {setting}")
+            lines.append("└────────────────────────")
+            lines.append("")
+
+        # 活跃角色
+        entities = beat.get("entities", [])
+        if entities:
+            lines.append("🎭 活跃角色")
+            for e in entities:
+                lines.append(f"  • {e}")
+            lines.append("")
+
+        # 因果事件链
+        events = beat.get("causal_events", [])
+        if events:
+            lines.append("ℹ️ 因果事件链")
+            lines.append("─" * 30)
+            for e in events:
+                eid = e.get("event_id", "?")
+                action = e.get("action", "")
+                impact = e.get("causal_impact", "")
+                prev = e.get("connects_to_previous", "")
+                # 序号图标
+                num_icons = {
+                    1: "❶", 2: "❷", 3: "❸", 4: "❹", 5: "❺",
+                    6: "❻", 7: "❼", 8: "❽", 9: "❾"
+                }
+                icon = num_icons.get(eid, f"[{eid}]")
+                lines.append(f"{icon} {action}")
+                if impact:
+                    lines.append(f"   → 导致: {impact}")
+                if prev:
+                    lines.append(f"   ← 前因: {prev}")
+                lines.append("")
+
+        # 悬念钩子
+        hook = beat.get("hook", "")
+        if hook:
+            lines.append("🌟 悬念钩子")
+            lines.append(f"  {hook}")
+            lines.append("")
+
+        # 创作理由
+        rationale = beat.get("rationale", "")
+        if rationale:
+            lines.append("💡 创作理由")
+            lines.append(f"  {rationale}")
+
+        return "\n".join(lines)

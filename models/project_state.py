@@ -30,6 +30,10 @@ class ProjectData:
     finale_condition: str = ""                              # 终局条件
     story_title: str = ""                                   # 暂定标题
 
+    # ----- Phase 1.5: 剧本结构配置 -----
+    total_episodes: int = 20            # 总集数
+    episode_duration: int = 3           # 每集时长（分钟）
+
     # ----- Phase 2: 骨架 -----
     cpg_title: str = ""
     cpg_nodes: List[dict] = field(default_factory=list)     # CPGNode 列表

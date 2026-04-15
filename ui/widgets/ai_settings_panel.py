@@ -111,3 +111,7 @@ class AISettingsPanel(QWidget):
     def set_suggested_temperature(self, temp: float):
         """设置建议温度值（切换阶段时调用）"""
         self._temp_slider.setValue(int(temp * 100))
+
+    def set_max_tokens(self, value: int):
+        """设置 Max Tokens 默认值（不同阶段可能需要不同值）"""
+        self._max_tokens_spin.setValue(value)

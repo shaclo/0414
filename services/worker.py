@@ -118,27 +118,39 @@ class WorldExtractWorker(BaseWorker):
 class CPGSkeletonWorker(BaseWorker):
     """
     后台执行 AI-Call-3。
-    输入: sparkle, world_variables (list), finale_condition, characters (list), AI 参数
+    输入: sparkle, world_variables (list), finale_condition, characters (list),
+           total_episodes, episode_duration, AI 参数
     输出: {"cpg_title": ..., "hauge_stages": [...], "causal_edges": [...]}
     """
     def __init__(self, sparkle: str, world_variables: list, finale_condition: str,
-                 ai_params: dict, characters: list = None):
+                 ai_params: dict, characters: list = None,
+                 total_episodes: int = 20, episode_duration: int = 3):
         super().__init__()
         self.sparkle = sparkle
         self.world_variables = world_variables
         self.finale_condition = finale_condition
         self.ai_params = ai_params
         self.characters = characters or []
+        self.total_episodes = total_episodes
+        self.episode_duration = episode_duration
 
     def run(self):
         try:
-            self.progress.emit("🏗️ 正在生成 CPG 骨架，请稍候…")
+            self.progress.emit(f"🏗️ 正在生成 {self.total_episodes} 集 CPG 骨架，请稍候…")
             # 组装角色概要注入 prompt
             chars_summary = "\n".join(
                 f"- [{c.get('role_type','配角')}] {c.get('name','')}: "
                 f"{c.get('personality','')} / 动机: {c.get('motivation','')}"
                 for c in self.characters
             ) or "（未设定角色）"
+
+            # 替换 system prompt 中的集数/时长占位符
+            system_prompt = (
+                SYSTEM_PROMPT_CPG_SKELETON
+                .replace("{total_episodes}", str(self.total_episodes))
+                .replace("{episode_duration}", str(self.episode_duration))
+            )
+
             user_prompt = (
                 USER_PROMPT_CPG_SKELETON
                 .replace("{sparkle}", self.sparkle)
@@ -146,14 +158,16 @@ class CPGSkeletonWorker(BaseWorker):
                          json.dumps(self.world_variables, ensure_ascii=False, indent=2))
                 .replace("{finale_condition}", self.finale_condition)
                 .replace("{characters_summary}", chars_summary)
+                .replace("{total_episodes}", str(self.total_episodes))
+                .replace("{episode_duration}", str(self.episode_duration))
             )
             result = ai_service.generate_json(
                 user_prompt=user_prompt,
-                system_prompt=SYSTEM_PROMPT_CPG_SKELETON,
+                system_prompt=system_prompt,
                 temperature=self.ai_params.get("temperature", SUGGESTED_TEMPERATURES["cpg_skeleton"]),
                 top_p=self.ai_params.get("top_p", 0.9),
                 top_k=self.ai_params.get("top_k", 40),
-                max_tokens=self.ai_params.get("max_tokens", 8192),
+                max_tokens=self.ai_params.get("max_tokens", 16384),
             )
             self.finished.emit(result)
         except Exception as e:
@@ -394,6 +408,7 @@ class ExpansionWorker(BaseWorker):
         hook: str,
         target_word_count: str,
         ai_params: dict,
+        episode_duration: int = 3,
     ):
         super().__init__()
         self.sparkle = sparkle
@@ -409,14 +424,17 @@ class ExpansionWorker(BaseWorker):
         self.hook = hook
         self.target_word_count = target_word_count
         self.ai_params = ai_params
+        self.episode_duration = episode_duration
 
     def run(self):
         try:
             self.progress.emit(f"🎬 正在扩写 {self.node_id}：{self.node_title}…")
 
-            # 注意：SYSTEM_PROMPT_EXPANSION 含有 {target_word_count} 占位符
-            system_prompt = SYSTEM_PROMPT_EXPANSION.replace(
-                "{target_word_count}", self.target_word_count
+            # 注意：SYSTEM_PROMPT_EXPANSION 含有占位符
+            system_prompt = (
+                SYSTEM_PROMPT_EXPANSION
+                .replace("{target_word_count}", self.target_word_count)
+                .replace("{episode_duration}", str(self.episode_duration))
             )
             user_prompt = (
                 USER_PROMPT_EXPANSION
