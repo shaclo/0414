@@ -1,0 +1,5 @@
+PySide6>=6.6.0
+google-genai>=1.0.0
+google-auth>=2.0.0
+# chromadb>=0.4.0  # 可选：需要 Rust 编译环境，安装失败时自动降级为纯 AI 审查模式
+faiss-cpu

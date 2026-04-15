@@ -1,0 +1,12 @@
+1. 理论基础架构：BVSR + Causal Distillation本方法论基于两个核心学术模型：NarrativeLoom (BVSR)：盲视变异与选择性保留。通过多角色人格生成（Variation）与人类筛选（Retention）解决 AI 叙事的平庸化问题 。Causal Graph (ITE)：因果图分析。通过计算个体处理效应（ITE）蒸馏出最小因果子图，确保叙事逻辑的严密性与高效率 。2. 系统核心组件 (Core Components)2.1 多人格生成矩阵 (Multi-Persona Ensemble)预置 10 个具有特定文学功能的 Agent，每个 Agent 拥有独立的 Identity Layer（身份层）和 Parameter Layer（参数层） ：启动型人格（Initiators）：如 Historical Researcher（历史研究者）和 Dystopian Visionary（反乌托邦远见者），负责奠定世界观和初始冲突 。推进型人格（Developers）：如 Mystery Solver（悬疑解谜者），负责操纵信息差和推动复杂剧情 。氛围型人格：如 Horror Atmosphere Creator（恐怖氛围营造者），负责情绪张力 。2.2 结构化故事节拍 (Structured Story Beat)所有生成内容必须遵循以下 JSON Schema 格式，以便于因果分析 ：JSON{
+  "beat_id": "integer",
+  "setting": "spatio-temporal context",
+  "entities": ["list of active characters/items"],
+  "causal_events": [
+    {"event_id": 1, "action": "string", "causal_impact": "string"},
+    {"event_id": 2, "action": "string", "causal_impact": "string"}
+  ],
+  "hook": "suspense_element"
+}
+3. 标准操作流程 (SOP)第一步：种子初始化 (Sparkle to Initial State)输入：一句话小说梗概（Sparkle） 。动作：执行“苏格拉底盘问”，锁定世界观变量（如：核辐射如何影响武学、母亲遗产的物理形态） 。第二步：盲视变异生成 (Blind Variation)动作：10 个 Persona 同时在当前 CPG 节点上生成后续分支 。技术要求：利用并行 API 调用，确保各人格独立产生叙事可能性，互不干扰 。第三步：人工深度干预与 ITE 蒸馏 (Selective Retention)人工动作：评估生成的多个 Beat，选择最佳路径或手动编辑 。AI 辅助动作：计算每个事件的 ITE (Individual Treatment Effect) ：
+$$\tau_{i} = \hat{Y}_{i}(1) - \hat{Y}_{i}(0)$$其中 $\hat{Y}_{i}(1)$ 是包含该事件时的结局达成预测值，$\hat{Y}_{i}(0)$ 是剔除该事件后的预测值 。蒸馏结果：剔除 $\tau_{i} \approx 0$ 的冗余节点，仅保留 最小因果子图 (Minimal Causal Subgraph) 。第四步：逻辑一致性监控 (RAG Plot Controller)机制：将所有选定的 CPG 节点存入向量数据库 。动作：在生成新 Beat 前，计算余弦相似度进行“真理校验”，若发现逻辑矛盾（如已损毁的“遗产”再次出现），标记逻辑错误并提示用户修正 。第五阶段：剧本层次化扩写 (Hierarchical Expansion)动作：将确定的 6-10 个逻辑节点 递归扩写为 800-1000 字的剧本段落 。干预：用户可实时通过 Refine Module（精炼模块）调整台词密度、动作节奏等微观属性 。4. 人机交互原则 (Interaction Principles)导演模式：人类只做决策和边界划定，AI 负责提供可能性探索。分层干预：Level 1 (逻辑层)：修改 CPG 节点的因果连线。Level 2 (节拍层)：在 Beat 之间强制插入“效果桥段”。Level 3 (文本层)：微调台词风格。透明边界：AI 在推荐选项时，必须附带其“推荐理由（Rationale）”和“因果权重” 。5. 针对你项目的特别参数设定 (Spec for "Nuclear-Ancient" Project)默认结构：Hauge 6 阶段框架（机会、变点、无路可退、主攻、大挫折、终局） 。实体跟踪：重点跟踪“智力遗产”作为因果变量在古代社会的 Spillover Effect（溢出效应） 。效果控制：每两个 CPG 节点必须产生一个 ITE 分数大于 0.15 的“剧烈反转事件” 。

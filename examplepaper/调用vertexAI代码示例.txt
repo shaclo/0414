@@ -1,0 +1,32 @@
+import vertexai
+from vertexai.generative_models import GenerativeModel, GenerationConfig
+from google.oauth2 import service_account
+
+# 1. 基础配置
+PROJECT_ID = "gen-lang-client-0682241933"
+KEY_PATH = "key/gen-lang-client-0682241933-c837790f65f2.json" # 你的 JSON 密钥文件路径
+
+# 2. 初始化环境
+credentials = service_account.Credentials.from_service_account_file(KEY_PATH)
+vertexai.init(project=PROJECT_ID, location="us-central1", credentials=credentials)
+
+# 3. 创建模型并设置 System Prompt (人设)
+model = GenerativeModel(
+    "gemini-2.5-flash",
+    system_instruction=["你是一个只用文言文回答问题的助手。"]
+)
+
+# 4. 配置参数 (如温度值)
+config = GenerationConfig(
+    temperature=0.5,
+    response_mime_type="text/plain"
+)
+
+# 5. 发送请求并直接获取结果 (非流式，无需循环)
+print("正在请求中...")
+response = model.generate_content("请问，陶瓷杯子是什么？", generation_config=config)
+
+# 6. 打印输出
+print("-" * 20)
+print(response.text)
+print("-" * 20)
