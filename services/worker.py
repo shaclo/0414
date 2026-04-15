@@ -236,6 +236,28 @@ class VariationWorker(BaseWorker):
                 f"- {s}" for s in self.target_node.get("event_summaries", [])
             )
 
+            # 构建当前节点的因果连线上下文
+            node_title_map = {n["node_id"]: n.get("title", "") for n in self.cpg_nodes}
+            edge_lines = []
+            for e in self.cpg_edges:
+                if e.get("to_node") == node_id:
+                    from_title = node_title_map.get(e["from_node"], "")
+                    ct = e.get("causal_type", "直接因果")
+                    desc = e.get("description", "")
+                    line = f"← 入边: {e['from_node']}({from_title}) --[{ct}]--> 本节点"
+                    if desc:
+                        line += f"  说明: {desc}"
+                    edge_lines.append(line)
+                if e.get("from_node") == node_id:
+                    to_title = node_title_map.get(e["to_node"], "")
+                    ct = e.get("causal_type", "直接因果")
+                    desc = e.get("description", "")
+                    line = f"→ 出边: 本节点 --[{ct}]--> {e['to_node']}({to_title})"
+                    if desc:
+                        line += f"  说明: {desc}"
+                    edge_lines.append(line)
+            edge_relations_context = "\n".join(edge_lines) if edge_lines else "（本节点无连线）"
+
             # 角色概要注入
             characters_summary = "\n".join(
                 f"- [{c.get('role_type','配角')}] {c.get('name','')}: "
@@ -260,6 +282,7 @@ class VariationWorker(BaseWorker):
                         hauge_stage_name=self.target_node.get("hauge_stage_name", ""),
                         node_event_summaries=node_event_summaries,
                         previous_confirmed_beats_json=prev_beats_json,
+                        edge_relations_context=edge_relations_context,
                         temperature=self.ai_params.get("temperature", SUGGESTED_TEMPERATURES["variation"]),
                         top_p=self.ai_params.get("top_p", 0.9),
                         top_k=self.ai_params.get("top_k", 40),
@@ -353,22 +376,25 @@ class CharacterGenWorker(BaseWorker):
     输入: sparkle, world_variables (list), finale_condition, AI 参数
     输出: {"characters": [...], "relations": [...], "design_notes": "..."}
     """
-    def __init__(self, sparkle: str, world_variables: list, finale_condition: str, ai_params: dict):
+    def __init__(self, sparkle: str, world_variables: list, finale_condition: str,
+                 ai_params: dict, char_count: int = 5):
         super().__init__()
         self.sparkle = sparkle
         self.world_variables = world_variables
         self.finale_condition = finale_condition
         self.ai_params = ai_params
+        self.char_count = char_count
 
     def run(self):
         try:
-            self.progress.emit("🎭 正在生成角色建议，请稍候…")
+            self.progress.emit(f"🎭 正在生成 {self.char_count} 个角色建议，请稍候…")
             user_prompt = (
                 USER_PROMPT_CHARACTER_GEN
                 .replace("{sparkle}", self.sparkle)
                 .replace("{world_variables_json}",
                          json.dumps(self.world_variables, ensure_ascii=False, indent=2))
                 .replace("{finale_condition}", self.finale_condition)
+                .replace("{char_count}", str(self.char_count))
             )
             result = ai_service.generate_json(
                 user_prompt=user_prompt,

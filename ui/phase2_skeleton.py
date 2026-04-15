@@ -7,7 +7,7 @@ import json
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QPushButton, QSplitter, QTextEdit, QMessageBox,
-    QGroupBox, QInputDialog, QSpinBox, QFrame,
+    QGroupBox, QInputDialog, QSpinBox, QFrame, QComboBox,
 )
 from PySide6.QtCore import Qt, Signal, QTimer
 
@@ -159,6 +159,7 @@ class Phase2Skeleton(QWidget):
 
         self._cpg_editor = CPGGraphEditor()
         self._cpg_editor.node_selected.connect(self._on_node_selected)
+        self._cpg_editor.edges_changed.connect(self._on_edges_changed)
         gc_layout.addWidget(self._cpg_editor)
 
         # Loading 遮罩（叠在图编辑器上面）
@@ -166,14 +167,15 @@ class Phase2Skeleton(QWidget):
 
         splitter.addWidget(graph_container)
 
-        # 下方控制区
+        # 下方控制区（使用 ScrollArea 避免挤压）
         bottom = QWidget()
         bl = QVBoxLayout(bottom)
         bl.setContentsMargins(0, 0, 0, 0)
+        bl.setSpacing(2)
 
-        # --- 剧本结构配置 ---
-        config_group = QGroupBox("📐 剧本结构配置")
-        config_layout = QHBoxLayout(config_group)
+        # --- 剧本结构配置（默认展开） ---
+        config_group, config_inner = self._make_collapsible("📐 剧本结构配置", expanded=True)
+        config_layout = QHBoxLayout()
 
         config_layout.addWidget(QLabel("总集数:"))
         self._episodes_spin = QSpinBox()
@@ -201,16 +203,16 @@ class Phase2Skeleton(QWidget):
         self._update_word_count_hint()
 
         config_layout.addStretch()
+        config_inner.addLayout(config_layout)
         bl.addWidget(config_group)
 
-        # --- 节点详情 ---
-        detail_group = QGroupBox("选中节点详情 (点击图中节点)")
-        dl = QVBoxLayout(detail_group)
+        # --- 节点详情（默认展开） ---
+        detail_group, detail_inner = self._make_collapsible("📋 选中节点详情 (点击图中节点)", expanded=True)
         self._detail_text = QTextEdit()
         self._detail_text.setMaximumHeight(120)
         self._detail_text.setReadOnly(True)
         self._detail_text.setPlaceholderText("点击图中的节点查看详情...")
-        dl.addWidget(self._detail_text)
+        detail_inner.addWidget(self._detail_text)
 
         edit_row = QHBoxLayout()
         self._btn_edit_node = QPushButton("编辑标题")
@@ -218,21 +220,40 @@ class Phase2Skeleton(QWidget):
         self._btn_edit_node.clicked.connect(self._on_edit_node)
         edit_row.addWidget(self._btn_edit_node)
 
+        # 节点编号修改
+        edit_row.addWidget(QLabel("  编号:"))
+        self._id_combo = QComboBox()
+        self._id_combo.setMinimumWidth(80)
+        self._id_combo.setEnabled(False)
+        edit_row.addWidget(self._id_combo)
+
+        self._btn_change_id = QPushButton("修改编号")
+        self._btn_change_id.setEnabled(False)
+        self._btn_change_id.clicked.connect(self._on_change_node_id)
+        edit_row.addWidget(self._btn_change_id)
+
         self._btn_delete_node = QPushButton("删除节点")
         self._btn_delete_node.setEnabled(False)
         self._btn_delete_node.clicked.connect(self._on_delete_node)
         edit_row.addWidget(self._btn_delete_node)
         edit_row.addStretch()
-        dl.addLayout(edit_row)
+        detail_inner.addLayout(edit_row)
         bl.addWidget(detail_group)
 
+        # --- AI 设置（默认折叠） ---
+        ai_group, ai_inner = self._make_collapsible("⚙️ AI 调用设置", expanded=False)
         self._ai_settings = AISettingsPanel(suggested_temp=SUGGESTED_TEMPERATURES["cpg_skeleton"])
-        bl.addWidget(self._ai_settings)
+        ai_inner.addWidget(self._ai_settings)
+        bl.addWidget(ai_group)
 
+        # --- Prompt 查看器（默认折叠） ---
+        prompt_group, prompt_inner = self._make_collapsible("📝 Prompt 模板预览", expanded=False)
         self._prompt_viewer = PromptViewer()
         self._prompt_viewer.set_prompt(SYSTEM_PROMPT_CPG_SKELETON, USER_PROMPT_CPG_SKELETON)
-        bl.addWidget(self._prompt_viewer)
+        prompt_inner.addWidget(self._prompt_viewer)
+        bl.addWidget(prompt_group)
 
+        bl.addStretch()
         splitter.addWidget(bottom)
         splitter.setSizes([450, 350])
         layout.addWidget(splitter)
@@ -262,6 +283,39 @@ class Phase2Skeleton(QWidget):
         layout.addLayout(btn_row)
 
     # ------------------------------------------------------------------ #
+    # 折叠面板辅助
+    # ------------------------------------------------------------------ #
+    @staticmethod
+    def _make_collapsible(title: str, expanded: bool = True):
+        """
+        创建可折叠的 QGroupBox。
+        返回 (group_box, inner_layout)。
+        点击标题栏的勾选框来展开/折叠。
+        """
+        group = QGroupBox(title)
+        group.setCheckable(True)
+        group.setChecked(expanded)
+        group.setStyleSheet(
+            "QGroupBox { font-weight: bold; padding-top: 16px; }"
+            "QGroupBox::indicator { width: 13px; height: 13px; }"
+        )
+
+        inner_widget = QWidget()
+        inner_layout = QVBoxLayout(inner_widget)
+        inner_layout.setContentsMargins(4, 4, 4, 4)
+        inner_layout.setSpacing(4)
+        inner_widget.setVisible(expanded)
+
+        outer_layout = QVBoxLayout(group)
+        outer_layout.setContentsMargins(8, 4, 8, 8)
+        outer_layout.addWidget(inner_widget)
+
+        # 勾选框控制展开/折叠
+        group.toggled.connect(inner_widget.setVisible)
+
+        return group, inner_layout
+
+    # ------------------------------------------------------------------ #
     # 配置变更
     # ------------------------------------------------------------------ #
     def _on_config_changed(self):
@@ -283,6 +337,12 @@ class Phase2Skeleton(QWidget):
         # 下限 16384，上限 65536（Gemini 2.5 Flash 输出上限）
         target = max(16384, min(65536, estimated_tokens))
         self._ai_settings.set_max_tokens(target)
+
+    def _on_edges_changed(self):
+        """用户在图中修改了连线，同步到 project_data"""
+        new_edges = self._cpg_editor.get_edges_data()
+        self.project_data.cpg_edges = new_edges
+        self.status_message.emit(f"因果关系已更新: {len(new_edges)} 条边")
 
     # ------------------------------------------------------------------ #
     # 生命周期
@@ -379,6 +439,8 @@ class Phase2Skeleton(QWidget):
         )
 
     def _load_to_editor(self):
+        # 先把当前图中的节点位置写回 project_data，避免重建后丢失
+        self._cpg_editor._save_node_positions()
         self._cpg_editor.load_cpg(
             self.project_data.cpg_nodes,
             self.project_data.cpg_edges,
@@ -391,6 +453,18 @@ class Phase2Skeleton(QWidget):
         self._selected_node_id = node_id
         self._btn_edit_node.setEnabled(True)
         self._btn_delete_node.setEnabled(True)
+        self._btn_change_id.setEnabled(True)
+        self._id_combo.setEnabled(True)
+
+        # 填充编号下拉框（根据总集数联动，不做冲突过滤）
+        total = max(self.project_data.total_episodes, len(self.project_data.cpg_nodes)) + 10
+        self._id_combo.clear()
+        self._id_combo.addItem(node_id)  # 当前编号在第一位
+        for i in range(1, total + 1):
+            nid = f"N{i}"
+            if nid != node_id:
+                self._id_combo.addItem(nid)
+        self._id_combo.setCurrentIndex(0)
 
         node = next((n for n in self.project_data.cpg_nodes if n["node_id"] == node_id), None)
         if not node:
@@ -427,6 +501,37 @@ class Phase2Skeleton(QWidget):
             self._load_to_editor()
             self.status_message.emit(f"节点 {self._selected_node_id} 已更新")
 
+    def _on_change_node_id(self):
+        """修改节点编号，同时更新所有边引用和 confirmed_beats"""
+        if not self._selected_node_id:
+            return
+        new_id = self._id_combo.currentText()
+        old_id = self._selected_node_id
+
+        if new_id == old_id:
+            return
+
+        # 1. 更新 cpg_nodes
+        node = next((n for n in self.project_data.cpg_nodes if n["node_id"] == old_id), None)
+        if node:
+            node["node_id"] = new_id
+
+        # 2. 更新 cpg_edges（from_node / to_node 引用）
+        for edge in self.project_data.cpg_edges:
+            if edge.get("from_node") == old_id:
+                edge["from_node"] = new_id
+            if edge.get("to_node") == old_id:
+                edge["to_node"] = new_id
+
+        # 3. 更新 confirmed_beats（key = node_id）
+        if old_id in self.project_data.confirmed_beats:
+            self.project_data.confirmed_beats[new_id] = self.project_data.confirmed_beats.pop(old_id)
+
+        # 4. 更新图编辑器（原地修改，不重建场景）
+        self._cpg_editor.update_node_id(old_id, new_id)
+        self._selected_node_id = new_id
+        self.status_message.emit(f"节点编号 {old_id} → {new_id} 已更新")
+
     def _on_delete_node(self):
         if not self._selected_node_id:
             return
@@ -458,6 +563,24 @@ class Phase2Skeleton(QWidget):
         if not self.project_data.cpg_nodes:
             QMessageBox.warning(self, "提示", "请先生成 CPG 骨架！")
             return
+
+        # ---- 编号冲突检测 ----
+        all_ids = [n.get("node_id", "") for n in self.project_data.cpg_nodes]
+        seen = set()
+        duplicates = set()
+        for nid in all_ids:
+            if nid in seen:
+                duplicates.add(nid)
+            seen.add(nid)
+        if duplicates:
+            dup_list = ", ".join(sorted(duplicates))
+            QMessageBox.warning(
+                self, "编号冲突",
+                f"以下节点编号存在重复：{dup_list}\n\n"
+                f"请先修改重复的编号，确保每个节点编号唯一后再进入下一阶段。",
+            )
+            return
+
         for node in self.project_data.cpg_nodes:
             nid = node.get("node_id", "")
             if nid and nid not in self.project_data.confirmed_beats:

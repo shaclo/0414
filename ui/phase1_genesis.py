@@ -244,11 +244,24 @@ class Phase1Genesis(QWidget):
             if reply == QMessageBox.No:
                 return
 
-        unanswered = sum(1 for p in qa_pairs if not p.get("answer"))
+        unanswered = []
+        for p in qa_pairs:
+            if not p.get("answer"):
+                qid = p.get("question_id", "?")
+                dim = p.get("dimension", "")
+                unanswered.append(f"  Q{qid} [{dim}]")
+
         if unanswered:
+            # 高亮未回答的问题
+            self._qa_panel.highlight_unanswered()
+
+            detail = "\n".join(unanswered[:5])
+            if len(unanswered) > 5:
+                detail += f"\n  ...及其余 {len(unanswered)-5} 个"
             reply = QMessageBox.question(
                 self, "确认",
-                f"还有 {unanswered} 个问题未回答，确定锁定吗？",
+                f"还有 {len(unanswered)} 个问题未回答：\n{detail}\n\n"
+                f"未回答的问题已用红色标记，确定跳过锁定吗？",
                 QMessageBox.Yes | QMessageBox.No,
             )
             if reply == QMessageBox.No:

@@ -58,6 +58,7 @@ class PersonaEngine:
         hauge_stage_name: str,
         node_event_summaries: str,
         previous_confirmed_beats_json: str,
+        edge_relations_context: str = "",
         temperature: float = None,
         top_p: float = 0.9,
         top_k: int = 40,
@@ -83,6 +84,7 @@ class PersonaEngine:
             .replace("{target_node_title}", target_node_title)
             .replace("{hauge_stage_name}", hauge_stage_name)
             .replace("{node_event_summaries}", node_event_summaries)
+            .replace("{edge_relations_context}", edge_relations_context or "（本节点无连线）")
             .replace("{previous_confirmed_beats_json}", previous_confirmed_beats_json)
         )
 
@@ -116,6 +118,7 @@ class PersonaEngine:
         hauge_stage_name: str,
         node_event_summaries: str,
         previous_confirmed_beats_json: str,
+        edge_relations_context: str = "",
         temperature: float = None,
         top_p: float = 0.9,
         top_k: int = 40,
@@ -136,6 +139,7 @@ class PersonaEngine:
             hauge_stage_name=hauge_stage_name,
             node_event_summaries=node_event_summaries,
             previous_confirmed_beats_json=previous_confirmed_beats_json,
+            edge_relations_context=edge_relations_context,
             temperature=temperature,
             top_p=top_p,
             top_k=top_k,

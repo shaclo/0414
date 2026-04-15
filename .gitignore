@@ -1,0 +1,6 @@
+key/
+.venv/
+__pycache__/
+vector_db/
+projects/
+*.pyc

@@ -188,29 +188,65 @@ class MainWindow(QMainWindow):
                 w.on_enter()
 
     def _update_nav_indicator(self, current: int):
+        highest = self._get_highest_completed_phase() if hasattr(self, 'project_data') else -1
         for i, lbl in enumerate(self._phase_labels):
-            if i < current:
-                lbl.setText(f"✅ {PHASE_NAMES[i]}")
-                lbl.setStyleSheet("color:#27ae60;font-size:13px;font-weight:bold;padding:0 10px;")
-            elif i == current:
+            if i == current:
                 lbl.setText(f"◉ {PHASE_NAMES[i]}")
                 lbl.setStyleSheet("color:#3498db;font-size:13px;font-weight:bold;padding:0 10px;")
+            elif i <= highest:
+                lbl.setText(f"✅ {PHASE_NAMES[i]}")
+                lbl.setStyleSheet("color:#27ae60;font-size:13px;font-weight:bold;padding:0 10px;cursor:pointer;")
             else:
                 lbl.setText(f"○ {PHASE_NAMES[i]}")
                 lbl.setStyleSheet("color:#7f8c8d;font-size:13px;font-weight:bold;padding:0 10px;")
 
     def _on_phase_nav_click(self, idx: int):
-        """点击导航标签可回退到已完成的阶段"""
+        """
+        点击导航标签跳转到已完成的阶段（前进或回退均可）。
+        - 已完成阶段（✅）：直接跳转，不丢失数据
+        - 当前阶段（◉）：忽略
+        - 未到达阶段（○）：不允许
+        """
         current = self._stack.currentIndex()
-        if idx >= current:
+        if idx == current:
             return
-        reply = QMessageBox.question(
-            self, "确认回退",
-            f"确定回退到「{PHASE_NAMES[idx]}」阶段？",
-            QMessageBox.Yes | QMessageBox.No,
-        )
-        if reply == QMessageBox.Yes:
-            self._switch_phase(idx, call_on_enter=(idx >= 1))
+
+        # 获取最高已完成阶段索引
+        highest = self._get_highest_completed_phase()
+
+        if idx > highest:
+            QMessageBox.information(
+                self, "提示",
+                f"「{PHASE_NAMES[idx]}」阶段尚未完成，无法跳转。\n"
+                f"请按流程完成前序阶段后再进入。",
+            )
+            return
+
+        self._switch_phase(idx, call_on_enter=True)
+
+    def _get_highest_completed_phase(self) -> int:
+        """根据 project_data 状态判断最高已完成的阶段索引"""
+        pd = self.project_data
+
+        # 根据 current_phase 和数据状态判断
+        phase_str = pd.current_phase
+        phase_idx = PHASE_TO_IDX.get(phase_str, 0)
+
+        # current_phase 指向的是"正在进行"的阶段，所以已完成的是它本身
+        # 但如果有数据支撑，可以回到该阶段
+        highest = phase_idx
+
+        # 额外检查：如果已有数据，允许回到对应阶段
+        if pd.world_variables:
+            highest = max(highest, 0)  # 创世完成
+        if pd.characters or pd.current_phase in ("skeleton", "flesh", "expansion", "locked"):
+            highest = max(highest, 1)  # 人物完成
+        if pd.cpg_nodes:
+            highest = max(highest, 2)  # 骨架完成
+        if any(v for v in pd.confirmed_beats.values()):
+            highest = max(highest, 3)  # 血肉（至少部分完成）
+
+        return highest
 
     # ------------------------------------------------------------------ #
     # Phase 完成回调

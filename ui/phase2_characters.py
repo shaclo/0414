@@ -8,7 +8,7 @@ import uuid
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QPushButton, QSplitter, QListWidget, QListWidgetItem,
-    QMessageBox, QInputDialog,
+    QMessageBox, QInputDialog, QSpinBox,
 )
 from PySide6.QtCore import Qt, Signal
 
@@ -95,6 +95,14 @@ class Phase2Characters(QWidget):
             "QPushButton:disabled{background:#bdc3c7;}"
         )
         btn_row.addWidget(self._btn_ai)
+
+        btn_row.addWidget(QLabel("数量:"))
+        self._char_count_spin = QSpinBox()
+        self._char_count_spin.setRange(1, 20)
+        self._char_count_spin.setValue(5)
+        self._char_count_spin.setToolTip("希望 AI 生成的角色数量")
+        self._char_count_spin.setMinimumWidth(60)
+        btn_row.addWidget(self._char_count_spin)
 
         self._btn_delete = QPushButton("－ 删除选中")
         self._btn_delete.clicked.connect(self._on_delete_character)
@@ -270,6 +278,7 @@ class Phase2Characters(QWidget):
             world_variables=self.project_data.world_variables,
             finale_condition=self.project_data.finale_condition,
             ai_params=self._ai_settings.get_all_settings(),
+            char_count=self._char_count_spin.value(),
         )
         self._worker.progress.connect(self.status_message)
         self._worker.finished.connect(self._on_ai_suggest_done)
