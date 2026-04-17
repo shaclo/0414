@@ -568,6 +568,10 @@ class Phase3Flesh(QWidget):
         self._btn_confirm.setEnabled(False)
         self._set_busy_var(True)
 
+        from env import DRAMA_STYLE_CONFIG
+        style_key = self.project_data.drama_style or "short_drama"
+        style_cfg = DRAMA_STYLE_CONFIG.get(style_key, {})
+
         self._worker = VariationWorker(
             sparkle=self.project_data.sparkle,
             world_variables=self.project_data.world_variables,
@@ -577,7 +581,8 @@ class Phase3Flesh(QWidget):
             confirmed_beats=self.project_data.confirmed_beats,
             selected_persona_keys=selected_keys,
             ai_params=self._ai_settings_var.get_all_settings(),
-            characters=self.project_data.characters,         # V2: 注入角色
+            characters=self.project_data.characters,
+            drama_style_block=style_cfg.get("variation_style_block", ""),
         )
         self._worker.progress.connect(self.status_message)
         self._worker.beat_ready.connect(self._on_beat_ready)

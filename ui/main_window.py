@@ -74,6 +74,13 @@ class MainWindow(QMainWindow):
             act.triggered.connect(slot)
             file_menu.addAction(act)
 
+        # 系统菜单
+        sys_menu = mb.addMenu("系统(&S)")
+        bvsr_act = QAction("🎭 BVSR 人格设置…", self)
+        bvsr_act.setStatusTip("管理 BVSR 多人格生成系统的人格定义（添加/删除/修改/激活）")
+        bvsr_act.triggered.connect(self._on_bvsr_settings)
+        sys_menu.addAction(bvsr_act)
+
     # ------------------------------------------------------------------ #
     # 主 UI
     # ------------------------------------------------------------------ #
@@ -323,6 +330,11 @@ class MainWindow(QMainWindow):
         if filepath:
             self._do_save(filepath)
             self._current_filepath = filepath
+
+    def _on_bvsr_settings(self):
+        from ui.widgets.bvsr_settings_dialog import BVSRSettingsDialog
+        dlg = BVSRSettingsDialog(parent=self)
+        dlg.exec()
 
     def _do_save(self, filepath: str):
         try:

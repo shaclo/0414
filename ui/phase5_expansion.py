@@ -133,16 +133,46 @@ class Phase5Expansion(QWidget):
         h_splitter.setSizes([340, 580])
         root.addWidget(h_splitter, 1)
 
-        # === 按钮行 ===
-        btn_row = QHBoxLayout()
+        # === 按钮行 1 ===
+        btn_row1 = QHBoxLayout()
 
         self._btn_back = QPushButton("← 返回血肉修改 Beat")
         self._btn_back.clicked.connect(self.go_back_to_flesh.emit)
-        btn_row.addWidget(self._btn_back)
+        btn_row1.addWidget(self._btn_back)
+
+        self._btn_save = QPushButton("💾 保存当前编辑")
+        self._btn_save.clicked.connect(self._on_save_current)
+        btn_row1.addWidget(self._btn_save)
 
         self._btn_rewrite = QPushButton("🔄 重新扩写当前节点")
         self._btn_rewrite.clicked.connect(self._on_expand_current)
-        btn_row.addWidget(self._btn_rewrite)
+        btn_row1.addWidget(self._btn_rewrite)
+
+        # 重新生成当前 + 后续 N 章
+        btn_row1.addWidget(QLabel("  从当前起重生:"))
+        from PySide6.QtWidgets import QSpinBox
+        self._regen_spin = QSpinBox()
+        self._regen_spin.setRange(1, 20)
+        self._regen_spin.setValue(1)
+        self._regen_spin.setSuffix(" 章")
+        self._regen_spin.setFixedWidth(80)
+        btn_row1.addWidget(self._regen_spin)
+
+        self._btn_regen_subsequent = QPushButton("🔄 重新生成")
+        self._btn_regen_subsequent.setStyleSheet(
+            "QPushButton{background:#e67e22;color:white;border:none;"
+            "border-radius:4px;padding:6px 14px;}"
+            "QPushButton:hover{background:#d35400;}"
+            "QPushButton:disabled{background:#bdc3c7;}"
+        )
+        self._btn_regen_subsequent.clicked.connect(self._on_regen_subsequent)
+        btn_row1.addWidget(self._btn_regen_subsequent)
+
+        btn_row1.addStretch()
+        root.addLayout(btn_row1)
+
+        # === 按钮行 2 ===
+        btn_row2 = QHBoxLayout()
 
         self._btn_batch = QPushButton("🚀 批量扩写全部节点")
         self._btn_batch.setStyleSheet(
@@ -152,13 +182,13 @@ class Phase5Expansion(QWidget):
             "QPushButton:disabled{background:#bdc3c7;}"
         )
         self._btn_batch.clicked.connect(self._on_expand_all)
-        btn_row.addWidget(self._btn_batch)
+        btn_row2.addWidget(self._btn_batch)
 
-        btn_row.addStretch()
+        btn_row2.addStretch()
 
         self._btn_export = QPushButton("📄 导出全部剧本")
         self._btn_export.clicked.connect(self._on_export)
-        btn_row.addWidget(self._btn_export)
+        btn_row2.addWidget(self._btn_export)
 
         self._btn_next = QPushButton("完成扩写，进入锁定 →")
         self._btn_next.setMinimumHeight(36)
@@ -168,9 +198,9 @@ class Phase5Expansion(QWidget):
             "QPushButton:hover{background:#229954;}"
         )
         self._btn_next.clicked.connect(self._on_proceed)
-        btn_row.addWidget(self._btn_next)
+        btn_row2.addWidget(self._btn_next)
 
-        root.addLayout(btn_row)
+        root.addLayout(btn_row2)
 
     # ------------------------------------------------------------------ #
     # 生命周期
@@ -204,13 +234,21 @@ class Phase5Expansion(QWidget):
 
         self._progress_label.setText(f"进度: {done}/{total} 个节点已扩写")
 
-        for node in self.project_data.cpg_nodes:
+        # 按节点编号数字排序显示
+        import re
+        sorted_nodes = sorted(
+            self.project_data.cpg_nodes,
+            key=lambda n: int(re.search(r'(\d+)', n.get('node_id', 'N0')).group(1))
+                          if re.search(r'(\d+)', n.get('node_id', '')) else 9999
+        )
+        for node in sorted_nodes:
             nid = node.get("node_id", "")
             if not confirmed.get(nid):
                 continue  # 只列出已确认Beat的节点
             has_text = bool(texts_dict.get(nid, "").strip())
             icon = "✅" if has_text else "⬜"
-            label = f"{icon} {nid}: {node.get('title', '')}"
+            ep_num = self._extract_episode_number(nid)
+            label = f"{icon} Ep_{ep_num} ({nid}): {node.get('title', '')}"
             self._node_combo.addItem(label, nid)
 
         self._node_combo.blockSignals(False)
@@ -270,6 +308,47 @@ class Phase5Expansion(QWidget):
             return
         self._expand_node(self._current_node_id)
 
+    def _on_save_current(self):
+        """显式保存当前编辑内容"""
+        if self._current_node_id:
+            text = self._screenplay_editor.get_text()
+            self.project_data.screenplay_texts[self._current_node_id] = text
+            self._refresh_node_combo()
+            self.status_message.emit(f"💾 已保存 {self._current_node_id} 的编辑内容")
+
+    def _on_regen_subsequent(self):
+        """从当前节点起重新生成 N 章"""
+        if not self._current_node_id:
+            return
+        count = self._regen_spin.value()
+        sorted_nodes = self._get_sorted_confirmed_nodes()
+        # 找到当前节点在排序列表中的位置
+        start_idx = -1
+        for i, n in enumerate(sorted_nodes):
+            if n.get("node_id") == self._current_node_id:
+                start_idx = i
+                break
+        if start_idx < 0:
+            return
+        target_nids = [n.get("node_id") for n in sorted_nodes[start_idx:start_idx + count]]
+        if not target_nids:
+            return
+        reply = QMessageBox.question(
+            self, "重新生成",
+            f"将重新扩写从 {target_nids[0]} 起的 {len(target_nids)} 个节点。\n"
+            "已有的扩写内容会被覆盖。确定吗？",
+            QMessageBox.Yes | QMessageBox.No,
+        )
+        if reply == QMessageBox.No:
+            return
+        self._batch_queue = list(target_nids[1:])
+        first_nid = target_nids[0]
+        for i in range(self._node_combo.count()):
+            if self._node_combo.itemData(i) == first_nid:
+                self._node_combo.setCurrentIndex(i)
+                break
+        self._expand_node(first_nid)
+
     def _expand_node(self, node_id: str):
         node = next((n for n in self.project_data.cpg_nodes
                      if n.get("node_id") == node_id), None)
@@ -279,14 +358,17 @@ class Phase5Expansion(QWidget):
             QMessageBox.warning(self, "提示", f"节点 {node_id} 尚未确认 Beat，无法扩写。")
             return
 
-        # 组装角色摘要
+        # 组装角色摘要（含重要性等级）
         chars_summary = "\n".join(
-            c.get("name", "") + "：" + c.get("personality", "") + "；动机：" + c.get("motivation", "")
+            f"[{c.get('importance_level','C')}] {c.get('name', '')}：{c.get('personality', '')}；动机：{c.get('motivation', '')}"
             for c in self.project_data.characters
         ) or "（未设定角色）"
 
-        # 前情提要（上一节点的 hook）
-        previous_hook = self._get_previous_hook(node_id)
+        # 集编号（从节点 ID 提取数字）
+        episode_number = self._extract_episode_number(node_id)
+
+        # 因果图入边：获取入边信息和前情摘要
+        incoming_edges_context, previous_screenplay_excerpt = self._get_incoming_context(node_id)
 
         # 因果事件文本
         events = beat.get("causal_events", [])
@@ -302,11 +384,22 @@ class Phase5Expansion(QWidget):
         self._set_busy(True)
         self.status_message.emit(f"🎬 正在扩写 {node_id}：{node.get('title','')}…")
 
+        from env import DRAMA_STYLE_CONFIG
+        style_key = self.project_data.drama_style or "short_drama"
+        style_cfg = DRAMA_STYLE_CONFIG.get(style_key, {})
+        expansion_block = (
+            style_cfg.get("expansion_style_block", "")
+            .replace("{scenes_per_episode}", self.project_data.scenes_per_episode or "1-2")
+            .replace("{target_word_count}", target_word_count)
+        )
+
         self._worker = ExpansionWorker(
             sparkle=self.project_data.sparkle,
             finale_condition=self.project_data.finale_condition,
             characters_summary=chars_summary,
-            previous_hook=previous_hook,
+            episode_number=episode_number,
+            incoming_edges_context=incoming_edges_context,
+            previous_screenplay_excerpt=previous_screenplay_excerpt,
             node_id=node_id,
             node_title=node.get("title", ""),
             hauge_stage_name=node.get("hauge_stage_name", ""),
@@ -317,24 +410,65 @@ class Phase5Expansion(QWidget):
             target_word_count=target_word_count,
             ai_params=self._ai_settings.get_all_settings(),
             episode_duration=self.project_data.episode_duration,
+            drama_style_block=expansion_block,
         )
         self._worker.progress.connect(self.status_message)
         self._worker.finished.connect(self._on_expand_done)
         self._worker.error.connect(self._on_error)
         self._worker.start()
 
-    def _get_previous_hook(self, current_node_id: str) -> str:
-        """获取上一个节点的 hook"""
-        nodes = self.project_data.cpg_nodes
-        prev_hook = ""
-        for i, n in enumerate(nodes):
-            if n.get("node_id") == current_node_id and i > 0:
-                prev_nid = nodes[i - 1].get("node_id", "")
-                prev_beat = self.project_data.confirmed_beats.get(prev_nid, {}) or {}
-                prev_hook = prev_beat.get("hook", "")
-                break
-        return prev_hook or "（故事开篇）"
+    def _extract_episode_number(self, node_id: str) -> int:
+        """从节点 ID（如 N3）提取集编号数字"""
+        import re
+        m = re.search(r'(\d+)', node_id)
+        return int(m.group(1)) if m else 1
 
+    def _get_incoming_context(self, current_node_id: str):
+        """
+        从因果图的入边获取前情上下文（而非按列表顺序）。
+        返回 (incoming_edges_context, previous_screenplay_excerpt)
+        """
+        edges = self.project_data.cpg_edges
+        node_title_map = {n["node_id"]: n.get("title", "") for n in self.project_data.cpg_nodes}
+
+        # 收集所有指向当前节点的入边
+        incoming = [e for e in edges if e.get("to_node") == current_node_id]
+
+        if not incoming:
+            return "（本节点无入边，为故事起点）", "（故事开篇，无前情）"
+
+        # 构建入边关系描述
+        edge_lines = []
+        for e in incoming:
+            from_id = e.get("from_node", "")
+            from_title = node_title_map.get(from_id, "")
+            ct = e.get("causal_type", "直接因果")
+            desc = e.get("description", "")
+            line = f"← {from_id}({from_title}) --[{ct}]--> 本节点"
+            if desc:
+                line += f"  说明: {desc}"
+            edge_lines.append(line)
+        incoming_edges_context = "\n".join(edge_lines)
+
+        # 从入边节点获取已扩写文本（取最后 500 字作为前情摘要）
+        excerpts = []
+        for e in incoming:
+            from_id = e.get("from_node", "")
+            existing_text = self.project_data.screenplay_texts.get(from_id, "").strip()
+            if existing_text:
+                # 取最后500字作为场景衔接参考
+                tail = existing_text[-500:] if len(existing_text) > 500 else existing_text
+                excerpts.append(f"[来自 {from_id} 的结尾片段]\n{tail}")
+            else:
+                # 没有扩写文本，用 Beat 的 hook
+                prev_beat = self.project_data.confirmed_beats.get(from_id, {}) or {}
+                hook = prev_beat.get("hook", "")
+                if hook:
+                    excerpts.append(f"[来自 {from_id} 的悬念钩子]\n{hook}")
+
+        previous_screenplay_excerpt = "\n\n".join(excerpts) if excerpts else "（前序节点尚未扩写）"
+
+        return incoming_edges_context, previous_screenplay_excerpt
     def _on_expand_done(self, result: dict):
         self._set_busy(False)
         text = result.get("text", "")
@@ -413,6 +547,17 @@ class Phase5Expansion(QWidget):
     # ------------------------------------------------------------------ #
     # 导出全部剧本
     # ------------------------------------------------------------------ #
+    def _get_sorted_confirmed_nodes(self) -> list:
+        """按节点编号数字排序，只返回已确认 Beat 的节点"""
+        import re
+        confirmed = self.project_data.confirmed_beats
+        nodes = [n for n in self.project_data.cpg_nodes
+                 if confirmed.get(n.get("node_id"))]
+        def sort_key(n):
+            m = re.search(r'(\d+)', n.get("node_id", ""))
+            return int(m.group(1)) if m else 9999
+        return sorted(nodes, key=sort_key)
+
     def _on_export(self):
         import os
         name = self.project_data.story_title or "untitled"
@@ -433,15 +578,29 @@ class Phase5Expansion(QWidget):
             "=" * 60,
             "",
         ]
-        STAGE_NAMES = {1:"机会",2:"变点",3:"无路可退",4:"挫折",5:"高潮",6:"终局"}
-        for node in self.project_data.cpg_nodes:
+        # 按节点编号数字排序导出
+        sorted_nodes = self._get_sorted_confirmed_nodes()
+        # 加上未确认但存在的节点
+        confirmed_ids = {n.get("node_id") for n in sorted_nodes}
+        import re
+        all_sorted = sorted(
+            self.project_data.cpg_nodes,
+            key=lambda n: int(re.search(r'(\d+)', n.get('node_id', 'N0')).group(1))
+                          if re.search(r'(\d+)', n.get('node_id', '')) else 9999
+        )
+        for node in all_sorted:
             nid = node.get("node_id", "")
             text = self.project_data.screenplay_texts.get(nid, "")
-            stage = STAGE_NAMES.get(node.get("hauge_stage_id", 0), "")
-            lines.append(f"【{nid}】{node.get('title', '')}  [{stage}]")
-            lines.append("-" * 40)
-            lines.append(text if text else "（尚未扩写）")
-            lines.append("")
+            if text and text.strip():
+                lines.append(text.strip())
+                lines.append("")
+            else:
+                ep_num = self._extract_episode_number(nid)
+                lines.append(f"--- Ep_{ep_num} ---")
+                lines.append(f"（{nid}: {node.get('title', '')} — 尚未扩写）")
+                lines.append("")
+                lines.append("==========================================")
+                lines.append("")
 
         try:
             with open(filepath, "w", encoding="utf-8") as f:
@@ -480,6 +639,8 @@ class Phase5Expansion(QWidget):
         self._btn_rewrite.setEnabled(not busy)
         self._btn_batch.setEnabled(not busy)
         self._btn_next.setEnabled(not busy)
+        self._btn_save.setEnabled(not busy)
+        self._btn_regen_subsequent.setEnabled(not busy)
         self._btn_rewrite.setText("生成中…" if busy else "🔄 重新扩写当前节点")
 
     def _on_error(self, msg: str):

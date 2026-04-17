@@ -48,6 +48,46 @@ class PersonaEngine:
         self._active_personas = set(keys)
         logger.info("激活人格: %s", keys)
 
+    def add_persona(self, key: str, name: str, category: str, identity_block: str):
+        """添加新人格（运行时）"""
+        if key in self._personas:
+            raise ValueError(f"人格 key '{key}' 已存在")
+        self._personas[key] = {
+            "name": name,
+            "category": category,
+            "identity_block": identity_block,
+        }
+        self._active_personas.add(key)
+        logger.info("添加人格: %s", key)
+
+    def update_persona(self, key: str, name: str, category: str, identity_block: str):
+        """更新已有人格定义"""
+        if key not in self._personas:
+            raise KeyError(f"人格 key '{key}' 不存在")
+        self._personas[key] = {
+            "name": name,
+            "category": category,
+            "identity_block": identity_block,
+        }
+        logger.info("更新人格: %s", key)
+
+    def remove_persona(self, key: str):
+        """删除人格"""
+        if key not in self._personas:
+            return
+        del self._personas[key]
+        self._active_personas.discard(key)
+        logger.info("删除人格: %s", key)
+
+    def is_active(self, key: str) -> bool:
+        return key in self._active_personas
+
+    def toggle_active(self, key: str, active: bool):
+        if active:
+            self._active_personas.add(key)
+        else:
+            self._active_personas.discard(key)
+
     def build_variation_calls(
         self,
         sparkle: str,
@@ -63,6 +103,7 @@ class PersonaEngine:
         top_p: float = 0.9,
         top_k: int = 40,
         max_tokens: int = 8192,
+        drama_style_block: str = "",
     ) -> list:
         """
         为每个激活的人格构建 AI 调用参数。
@@ -74,7 +115,6 @@ class PersonaEngine:
             temperature = SUGGESTED_TEMPERATURES["variation"]
 
         # 组装公共 User Prompt（所有人格共用同一个 User Prompt）
-        # 注意：prompt 里含有 JSON 示例的 {} 花括号，不能用 .format()，改用 str.replace()
         user_prompt = (
             USER_PROMPT_VARIATION
             .replace("{sparkle}", sparkle)
@@ -91,10 +131,12 @@ class PersonaEngine:
         calls = []
         for key, persona in self.get_active_personas().items():
             # 每个人格有自己的 System Prompt（身份块不同）
-            # 同样用 str.replace 替代 .format()，避免 JSON 花括号问题
             system_prompt = SYSTEM_PROMPT_VARIATION_FRAME.replace(
                 "{persona_identity_block}", persona["identity_block"]
             )
+            # 注入风格块
+            if drama_style_block:
+                system_prompt += "\n" + drama_style_block
             calls.append({
                 "user_prompt": user_prompt,
                 "system_prompt": system_prompt,
@@ -123,6 +165,7 @@ class PersonaEngine:
         top_p: float = 0.9,
         top_k: int = 40,
         max_tokens: int = 8192,
+        drama_style_block: str = "",
     ) -> List[dict]:
         """
         执行盲视变异：并行调用所有激活人格。
@@ -144,6 +187,7 @@ class PersonaEngine:
             top_p=top_p,
             top_k=top_k,
             max_tokens=max_tokens,
+            drama_style_block=drama_style_block,
         )
 
         raw_results = await ai_service.parallel_generate(calls)

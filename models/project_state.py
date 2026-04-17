@@ -33,6 +33,8 @@ class ProjectData:
     # ----- Phase 1.5: 剧本结构配置 -----
     total_episodes: int = 20            # 总集数
     episode_duration: int = 3           # 每集时长（分钟）
+    drama_style: str = "short_drama"    # "short_drama" | "traditional"
+    scenes_per_episode: str = "1-2"     # 默认每集场景数范围，如 "1-2" 或 "2-3"
 
     # ----- Phase 2: 骨架 -----
     cpg_title: str = ""

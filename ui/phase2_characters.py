@@ -31,6 +31,8 @@ ROLE_TYPE_ICONS = {
     "群演": "👥",
 }
 
+IMPORTANCE_ICONS = {"A": "★★★", "B": "★★☆", "C": "★☆☆"}
+
 
 class Phase2Characters(QWidget):
     """
@@ -180,7 +182,8 @@ class Phase2Characters(QWidget):
         self._char_list.clear()
         for char in self.project_data.characters:
             icon = ROLE_TYPE_ICONS.get(char.get("role_type", "配角"), "👤")
-            item = QListWidgetItem(f"{icon} {char.get('name', '未命名')}")
+            imp = IMPORTANCE_ICONS.get(char.get("importance_level", "C"), "★☆☆")
+            item = QListWidgetItem(f"{icon} {imp} {char.get('name', '未命名')}")
             item.setData(Qt.UserRole, char.get("char_id", ""))
             self._char_list.addItem(item)
         self._char_list.blockSignals(False)
@@ -210,7 +213,8 @@ class Phase2Characters(QWidget):
                 item = self._char_list.currentItem()
                 if item:
                     icon = ROLE_TYPE_ICONS.get(updated.get("role_type", "配角"), "👤")
-                    item.setText(f"{icon} {updated.get('name', '未命名')}")
+                    imp = IMPORTANCE_ICONS.get(updated.get("importance_level", "C"), "★☆☆")
+                    item.setText(f"{icon} {imp} {updated.get('name', '未命名')}")
                 self._update_relation_panel_chars()
                 break
 
@@ -218,7 +222,8 @@ class Phase2Characters(QWidget):
         new_id = f"char_{uuid.uuid4().hex[:6]}"
         new_char = {
             "char_id": new_id, "name": "新角色",
-            "role_type": "配角", "gender": "未知",
+            "role_type": "配角", "importance_level": "C",
+            "gender": "未知",
             "age": "", "position": "", "personality": "",
             "motivation": "", "appearance": "", "notes": "",
         }

@@ -159,7 +159,14 @@ class Phase4Lock(QWidget):
         self._stats_table.setRowCount(len(nodes))
         STAGE_NAMES = {1:"机会",2:"变点",3:"无路可退",4:"挫折",5:"高潮",6:"终局"}
 
-        for row, node in enumerate(nodes):
+        # 按节点编号排序
+        import re
+        sorted_nodes = sorted(
+            nodes,
+            key=lambda n: int(re.search(r'(\d+)', n.get('node_id', 'N0')).group(1))
+                          if re.search(r'(\d+)', n.get('node_id', '')) else 9999
+        )
+        for row, node in enumerate(sorted_nodes):
             nid = node.get("node_id", "")
             beat = beats.get(nid)
             events = beat.get("causal_events", []) if beat else []
@@ -246,7 +253,14 @@ class Phase4Lock(QWidget):
         ]
         STAGE_NAMES = {1:"机会",2:"变点",3:"无路可退",4:"挫折",5:"高潮",6:"终局"}
 
-        for node in self.project_data.cpg_nodes:
+        # 按节点编号数字排序
+        import re
+        sorted_nodes = sorted(
+            self.project_data.cpg_nodes,
+            key=lambda n: int(re.search(r'(\d+)', n.get('node_id', 'N0')).group(1))
+                          if re.search(r'(\d+)', n.get('node_id', '')) else 9999
+        )
+        for node in sorted_nodes:
             nid = node.get("node_id", "")
             beat = self.project_data.confirmed_beats.get(nid)
             stage = STAGE_NAMES.get(node.get("hauge_stage_id", 0), "")

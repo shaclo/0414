@@ -25,6 +25,8 @@ class CharacterEditor(QWidget):
 
     ROLE_TYPES  = ["主角", "反派", "辅助", "配角", "群演"]
     GENDERS     = ["男", "女", "其他", "未知"]
+    IMPORTANCE_LEVELS = ["A", "B", "C"]
+    IMPORTANCE_LABELS = {"A": "★★★ A级（核心）", "B": "★★☆ B级（重要）", "C": "★☆☆ C级（工具）"}
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -58,6 +60,13 @@ class CharacterEditor(QWidget):
         self._role_combo.addItems(self.ROLE_TYPES)
         self._role_combo.currentIndexChanged.connect(self._emit_change)
         form.addRow("类型：", self._role_combo)
+
+        # 重要性等级
+        self._importance_combo = QComboBox()
+        for k in self.IMPORTANCE_LEVELS:
+            self._importance_combo.addItem(self.IMPORTANCE_LABELS[k], k)
+        self._importance_combo.currentIndexChanged.connect(self._on_importance_changed)
+        form.addRow("重要性：", self._importance_combo)
 
         # 性别 + 年龄（同行）
         ga_row = QHBoxLayout()
@@ -113,6 +122,32 @@ class CharacterEditor(QWidget):
         self._notes_edit.textChanged.connect(self._emit_change)
         form.addRow("备注：", self._notes_edit)
 
+        # A级角色专属字段（默认隐藏）
+        self._a_group = QGroupBox("🌟 核心角色深度设计（仅A级）")
+        a_form = QFormLayout(self._a_group)
+        self._bg_edit = QLineEdit()
+        self._bg_edit.setPlaceholderText("成长环境/出身背景，影响性格形成")
+        self._bg_edit.textChanged.connect(self._emit_change)
+        a_form.addRow("成长背景：", self._bg_edit)
+
+        self._stress_edit = QLineEdit()
+        self._stress_edit.setPlaceholderText("面对压力时的典型反应，如：回避冲突/正面硬刚/冷静分析")
+        self._stress_edit.textChanged.connect(self._emit_change)
+        a_form.addRow("压力反应：", self._stress_edit)
+
+        self._fear_edit = QLineEdit()
+        self._fear_edit.setPlaceholderText("内心最深层恐惧，如：被抛弃/失控/暴露真实自我")
+        self._fear_edit.textChanged.connect(self._emit_change)
+        a_form.addRow("核心恐惧：", self._fear_edit)
+
+        self._desire_edit = QLineEdit()
+        self._desire_edit.setPlaceholderText("内心最深层渴望，如：被认可/掌控命运/爱与被爱")
+        self._desire_edit.textChanged.connect(self._emit_change)
+        a_form.addRow("核心渴望：", self._desire_edit)
+
+        self._a_group.setVisible(False)
+        gl.addWidget(self._a_group)
+
         gl.addLayout(form)
 
         # 分隔提示
@@ -139,6 +174,10 @@ class CharacterEditor(QWidget):
         idx = self.ROLE_TYPES.index(role) if role in self.ROLE_TYPES else 3
         self._role_combo.setCurrentIndex(idx)
 
+        imp = char_dict.get("importance_level", "C")
+        imp_idx = self.IMPORTANCE_LEVELS.index(imp) if imp in self.IMPORTANCE_LEVELS else 2
+        self._importance_combo.setCurrentIndex(imp_idx)
+
         gender = char_dict.get("gender", "未知")
         gidx = self.GENDERS.index(gender) if gender in self.GENDERS else 3
         self._gender_combo.setCurrentIndex(gidx)
@@ -150,6 +189,13 @@ class CharacterEditor(QWidget):
         self._appearance_edit.setText(char_dict.get("appearance", ""))
         self._notes_edit.setPlainText(char_dict.get("notes", ""))
 
+        # A级专属字段
+        self._bg_edit.setText(char_dict.get("background_environment", ""))
+        self._stress_edit.setText(char_dict.get("stress_reaction", ""))
+        self._fear_edit.setText(char_dict.get("core_fear", ""))
+        self._desire_edit.setText(char_dict.get("core_desire", ""))
+        self._a_group.setVisible(imp == "A")
+
         self._block_signals = False
         self._set_enabled(True)
 
@@ -159,6 +205,7 @@ class CharacterEditor(QWidget):
         self._block_signals = True
         self._name_edit.clear()
         self._role_combo.setCurrentIndex(3)
+        self._importance_combo.setCurrentIndex(2)  # 默认C级
         self._gender_combo.setCurrentIndex(3)
         self._age_edit.clear()
         self._position_edit.clear()
@@ -166,15 +213,21 @@ class CharacterEditor(QWidget):
         self._motivation_edit.clear()
         self._appearance_edit.clear()
         self._notes_edit.clear()
+        self._bg_edit.clear()
+        self._stress_edit.clear()
+        self._fear_edit.clear()
+        self._desire_edit.clear()
+        self._a_group.setVisible(False)
         self._block_signals = False
         self._set_enabled(False)
 
     def get_current_dict(self) -> dict:
         """读取表单当前值，返回 dict"""
-        return {
+        d = {
             "char_id":      self._current_char_id,
             "name":         self._name_edit.text().strip(),
             "role_type":    self._role_combo.currentText(),
+            "importance_level": self._importance_combo.currentData() or "C",
             "gender":       self._gender_combo.currentText(),
             "age":          self._age_edit.text().strip(),
             "position":     self._position_edit.text().strip(),
@@ -183,6 +236,13 @@ class CharacterEditor(QWidget):
             "appearance":   self._appearance_edit.text().strip(),
             "notes":        self._notes_edit.toPlainText().strip(),
         }
+        # A级角色专属字段
+        if d["importance_level"] == "A":
+            d["background_environment"] = self._bg_edit.text().strip()
+            d["stress_reaction"] = self._stress_edit.text().strip()
+            d["core_fear"] = self._fear_edit.text().strip()
+            d["core_desire"] = self._desire_edit.text().strip()
+        return d
 
     # ------------------------------------------------------------------ #
     # 内部
@@ -192,10 +252,17 @@ class CharacterEditor(QWidget):
             return
         self.character_changed.emit(self.get_current_dict())
 
+    def _on_importance_changed(self):
+        level = self._importance_combo.currentData() or "C"
+        self._a_group.setVisible(level == "A")
+        self._emit_change()
+
     def _set_enabled(self, enabled: bool):
         for w in [
-            self._name_edit, self._role_combo, self._gender_combo,
+            self._name_edit, self._role_combo, self._importance_combo,
+            self._gender_combo,
             self._age_edit, self._position_edit, self._personality_edit,
             self._motivation_edit, self._appearance_edit, self._notes_edit,
+            self._bg_edit, self._stress_edit, self._fear_edit, self._desire_edit,
         ]:
             w.setEnabled(enabled)

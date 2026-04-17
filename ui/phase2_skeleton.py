@@ -7,15 +7,16 @@ import json
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QPushButton, QSplitter, QTextEdit, QMessageBox,
-    QGroupBox, QInputDialog, QSpinBox, QFrame, QComboBox,
+    QGroupBox, QInputDialog, QSpinBox, QFrame, QComboBox, QLineEdit,
+    QListWidget, QListWidgetItem, QDialog, QDialogButtonBox, QFormLayout, QCheckBox,
 )
-from PySide6.QtCore import Qt, Signal, QTimer
+from PySide6.QtCore import Qt, Signal, QTimer, QSize
+from PySide6.QtGui import QColor
 
 from env import SYSTEM_PROMPT_CPG_SKELETON, USER_PROMPT_CPG_SKELETON, SUGGESTED_TEMPERATURES
 from services.worker import CPGSkeletonWorker
 from ui.widgets.ai_settings_panel import AISettingsPanel
 from ui.widgets.prompt_viewer import PromptViewer
-from ui.widgets.cpg_graph_editor import CPGGraphEditor
 
 STAGE_NAMES = {
     1: "机会 (Opportunity)",
@@ -152,17 +153,35 @@ class Phase2Skeleton(QWidget):
         splitter = QSplitter()
         splitter.setOrientation(Qt.Vertical)
 
-        # 图编辑器容器（叠加 Loading 遮罩）
+        # 卡片式节点列表（轻量高性能，替代 CPGGraphEditor）
         graph_container = QWidget()
         gc_layout = QVBoxLayout(graph_container)
         gc_layout.setContentsMargins(0, 0, 0, 0)
 
-        self._cpg_editor = CPGGraphEditor()
-        self._cpg_editor.node_selected.connect(self._on_node_selected)
-        self._cpg_editor.edges_changed.connect(self._on_edges_changed)
-        gc_layout.addWidget(self._cpg_editor)
+        self._node_list = QListWidget()
+        self._node_list.setViewMode(QListWidget.ListMode)
+        self._node_list.setSpacing(2)
+        self._node_list.setSelectionMode(QListWidget.SingleSelection)
+        self._node_list.setWordWrap(False)
+        self._node_list.setAlternatingRowColors(True)
+        self._node_list.setStyleSheet("""
+            QListWidget { background: #f5f6fa; border: 1px solid #dcdde1; border-radius: 6px; }
+            QListWidget::item {
+                background: #ffffff; border: 1px solid #dcdde1; border-radius: 4px;
+                padding: 6px 10px; margin: 1px 2px;
+                min-height: 28px;
+            }
+            QListWidget::item:selected {
+                background: #dfe6e9; border: 2px solid #0984e3;
+            }
+            QListWidget::item:hover {
+                background: #f0f3f8; border: 1px solid #74b9ff;
+            }
+        """)
+        self._node_list.itemDoubleClicked.connect(self._on_card_double_clicked)
+        gc_layout.addWidget(self._node_list)
 
-        # Loading 遮罩（叠在图编辑器上面）
+        # Loading 遮罩
         self._loading_overlay = LoadingOverlay(graph_container)
 
         splitter.addWidget(graph_container)
@@ -204,41 +223,45 @@ class Phase2Skeleton(QWidget):
 
         config_layout.addStretch()
         config_inner.addLayout(config_layout)
+
+        # --- 第二行：风格 + 场景数 ---
+        style_row = QHBoxLayout()
+
+        style_row.addWidget(QLabel("叙事风格:"))
+        from env import DRAMA_STYLE_CONFIG
+        self._style_combo = QComboBox()
+        for key, cfg in DRAMA_STYLE_CONFIG.items():
+            self._style_combo.addItem(cfg["label"], key)
+        # 设置当前值
+        current_style = self.project_data.drama_style or "short_drama"
+        for i in range(self._style_combo.count()):
+            if self._style_combo.itemData(i) == current_style:
+                self._style_combo.setCurrentIndex(i)
+                break
+        self._style_combo.currentIndexChanged.connect(self._on_style_changed)
+        self._style_combo.setMinimumWidth(200)
+        style_row.addWidget(self._style_combo)
+
+        style_row.addWidget(QLabel("  每集场景数:"))
+        self._scenes_input = QLineEdit()
+        self._scenes_input.setText(self.project_data.scenes_per_episode or "1-2")
+        self._scenes_input.setFixedWidth(60)
+        self._scenes_input.setToolTip("每集场景数范围，如 1-2 或 2-3，AI 根据情节自行决定")
+        self._scenes_input.textChanged.connect(self._on_config_changed)
+        style_row.addWidget(self._scenes_input)
+
+        self._style_desc = QLabel("")
+        self._style_desc.setStyleSheet("color: #7f8c8d; font-size: 11px;")
+        self._style_desc.setWordWrap(True)
+        self._update_style_desc()
+        style_row.addWidget(self._style_desc, 1)
+
+        style_row.addStretch()
+        config_inner.addLayout(style_row)
+
         bl.addWidget(config_group)
 
-        # --- 节点详情（默认展开） ---
-        detail_group, detail_inner = self._make_collapsible("📋 选中节点详情 (点击图中节点)", expanded=True)
-        self._detail_text = QTextEdit()
-        self._detail_text.setMaximumHeight(120)
-        self._detail_text.setReadOnly(True)
-        self._detail_text.setPlaceholderText("点击图中的节点查看详情...")
-        detail_inner.addWidget(self._detail_text)
-
-        edit_row = QHBoxLayout()
-        self._btn_edit_node = QPushButton("编辑标题")
-        self._btn_edit_node.setEnabled(False)
-        self._btn_edit_node.clicked.connect(self._on_edit_node)
-        edit_row.addWidget(self._btn_edit_node)
-
-        # 节点编号修改
-        edit_row.addWidget(QLabel("  编号:"))
-        self._id_combo = QComboBox()
-        self._id_combo.setMinimumWidth(80)
-        self._id_combo.setEnabled(False)
-        edit_row.addWidget(self._id_combo)
-
-        self._btn_change_id = QPushButton("修改编号")
-        self._btn_change_id.setEnabled(False)
-        self._btn_change_id.clicked.connect(self._on_change_node_id)
-        edit_row.addWidget(self._btn_change_id)
-
-        self._btn_delete_node = QPushButton("删除节点")
-        self._btn_delete_node.setEnabled(False)
-        self._btn_delete_node.clicked.connect(self._on_delete_node)
-        edit_row.addWidget(self._btn_delete_node)
-        edit_row.addStretch()
-        detail_inner.addLayout(edit_row)
-        bl.addWidget(detail_group)
+        # 节点详情已改为双击卡片弹窗，不再需要内嵌面板
 
         # --- AI 设置（默认折叠） ---
         ai_group, ai_inner = self._make_collapsible("⚙️ AI 调用设置", expanded=False)
@@ -321,8 +344,26 @@ class Phase2Skeleton(QWidget):
     def _on_config_changed(self):
         self.project_data.total_episodes = self._episodes_spin.value()
         self.project_data.episode_duration = self._duration_spin.value()
+        self.project_data.scenes_per_episode = self._scenes_input.text().strip() or "1-2"
         self._update_word_count_hint()
         self._update_dynamic_max_tokens()
+
+    def _on_style_changed(self):
+        from env import DRAMA_STYLE_CONFIG
+        style_key = self._style_combo.currentData() or "short_drama"
+        self.project_data.drama_style = style_key
+        cfg = DRAMA_STYLE_CONFIG.get(style_key, {})
+        # 自动填充默认值
+        self._duration_spin.setValue(cfg.get("default_episode_duration", 3))
+        self._scenes_input.setText(cfg.get("default_scenes_per_episode", "1-2"))
+        self._update_style_desc()
+        self._on_config_changed()
+
+    def _update_style_desc(self):
+        from env import DRAMA_STYLE_CONFIG
+        style_key = self._style_combo.currentData() or "short_drama"
+        cfg = DRAMA_STYLE_CONFIG.get(style_key, {})
+        self._style_desc.setText(cfg.get("description", ""))
 
     def _update_word_count_hint(self):
         duration = self._duration_spin.value()
@@ -338,12 +379,6 @@ class Phase2Skeleton(QWidget):
         target = max(16384, min(65536, estimated_tokens))
         self._ai_settings.set_max_tokens(target)
 
-    def _on_edges_changed(self):
-        """用户在图中修改了连线，同步到 project_data"""
-        new_edges = self._cpg_editor.get_edges_data()
-        self.project_data.cpg_edges = new_edges
-        self.status_message.emit(f"因果关系已更新: {len(new_edges)} 条边")
-
     # ------------------------------------------------------------------ #
     # 生命周期
     # ------------------------------------------------------------------ #
@@ -351,32 +386,111 @@ class Phase2Skeleton(QWidget):
         # 同步 UI 与 project_data
         self._episodes_spin.setValue(self.project_data.total_episodes)
         self._duration_spin.setValue(self.project_data.episode_duration)
+        self._scenes_input.setText(self.project_data.scenes_per_episode or "1-2")
+        # 同步风格选择器
+        current_style = self.project_data.drama_style or "short_drama"
+        for i in range(self._style_combo.count()):
+            if self._style_combo.itemData(i) == current_style:
+                self._style_combo.setCurrentIndex(i)
+                break
+        self._update_style_desc()
         self._update_word_count_hint()
         self._update_dynamic_max_tokens()
 
         if self.project_data.cpg_nodes:
             self._load_to_editor()
         else:
-            # 不自动生成——让用户先调整集数和时长，然后手动点击"生成骨架"
             self.status_message.emit("请先设置总集数和每集时长，然后点击「重新生成骨架」")
+
+    # ------------------------------------------------------------------ #
+    # 卡片列表
+    # ------------------------------------------------------------------ #
+    def _load_to_editor(self):
+        """将 cpg_nodes 渲染到卡片列表"""
+        self._node_list.clear()
+        edges = self.project_data.cpg_edges or []
+        sorted_nodes = sorted(
+            self.project_data.cpg_nodes,
+            key=lambda n: self._parse_node_num(n.get("node_id", ""))
+        )
+        for node in sorted_nodes:
+            nid = node.get("node_id", "")
+            ep = self._nid_to_ep(nid)
+            title = node.get("title", "")
+            stage = STAGE_NAMES_SHORT.get(node.get("hauge_stage_id", 1), "")
+            # 构建入口/出口显示
+            ins = [self._nid_to_ep(e['from_node']) for e in edges if e.get('to_node') == nid]
+            outs = [self._nid_to_ep(e['to_node']) for e in edges if e.get('from_node') == nid]
+            in_str = ','.join(ins) if ins else '-'
+            out_str = ','.join(outs) if outs else '-'
+            label = f"{ep}  {stage}: {title}    [←{in_str}  →{out_str}]"
+            item = QListWidgetItem(label)
+            item.setData(Qt.UserRole, nid)
+            item.setToolTip(
+                f"节点: {ep} ({nid})\n阶段: {stage}\n标题: {title}\n"
+                f"入口: {in_str}\n出口: {out_str}\n"
+                f"钩子: {node.get('episode_hook','')}"
+            )
+            sid = node.get("hauge_stage_id", 1)
+            colors = {1:"#dfe6e9", 2:"#ffeaa7", 3:"#fab1a0", 4:"#ff7675", 5:"#fd79a8", 6:"#a29bfe"}
+            item.setBackground(QColor(colors.get(sid, "#ffffff")))
+            self._node_list.addItem(item)
+
+    @staticmethod
+    def _nid_to_ep(nid: str) -> str:
+        """将 N3 显示为 Ep3"""
+        import re
+        m = re.search(r'\d+', nid or '')
+        return f"Ep{m.group()}" if m else nid
+
+    @staticmethod
+    def _parse_node_num(nid: str) -> int:
+        import re
+        m = re.search(r'\d+', nid)
+        return int(m.group()) if m else 0
+
+    def _on_card_double_clicked(self, item: QListWidgetItem):
+        """双击卡片弹出节点详情对话框"""
+        node_id = item.data(Qt.UserRole)
+        node = next((n for n in self.project_data.cpg_nodes if n.get("node_id") == node_id), None)
+        if not node:
+            return
+        dlg = NodeDetailDialog(node, self.project_data, parent=self)
+        result = dlg.exec()
+        if result == QDialog.Accepted:
+            action = dlg.get_action()
+            if action == "edited":
+                self._load_to_editor()
+                self.status_message.emit(f"节点 {node_id} 已更新")
+            elif action == "deleted":
+                nid = node.get("node_id", node_id)
+                self.project_data.cpg_nodes = [
+                    n for n in self.project_data.cpg_nodes if n.get("node_id") != nid
+                ]
+                self.project_data.cpg_edges = [
+                    e for e in self.project_data.cpg_edges
+                    if e.get("from_node") != nid and e.get("to_node") != nid
+                ]
+                self._load_to_editor()
+                self.status_message.emit(f"节点 {nid} 已删除")
+            elif action and action.startswith("id_changed:"):
+                new_id = action.split(":", 1)[1]
+                self._load_to_editor()
+                self.status_message.emit(f"节点编号已更改为 {new_id}")
 
     # ------------------------------------------------------------------ #
     # Loading 遮罩
     # ------------------------------------------------------------------ #
     def _show_loading(self):
-        """显示 Loading 遮罩"""
-        # 调整遮罩大小到图编辑器区域
         parent = self._loading_overlay.parent()
         if parent:
             self._loading_overlay.setGeometry(parent.rect())
         self._loading_overlay.start()
 
     def _hide_loading(self):
-        """隐藏 Loading 遮罩"""
         self._loading_overlay.stop()
 
     def resizeEvent(self, event):
-        """窗口大小变化时同步遮罩大小"""
         super().resizeEvent(event)
         parent = self._loading_overlay.parent()
         if parent and self._loading_overlay.isVisible():
@@ -392,6 +506,10 @@ class Phase2Skeleton(QWidget):
         self._set_busy(True)
         self._show_loading()
 
+        from env import DRAMA_STYLE_CONFIG
+        style_key = self.project_data.drama_style or "short_drama"
+        style_cfg = DRAMA_STYLE_CONFIG.get(style_key, {})
+
         self._worker = CPGSkeletonWorker(
             sparkle=self.project_data.sparkle,
             world_variables=self.project_data.world_variables,
@@ -400,6 +518,7 @@ class Phase2Skeleton(QWidget):
             characters=self.project_data.characters,
             total_episodes=self._episodes_spin.value(),
             episode_duration=self._duration_spin.value(),
+            drama_style_block=style_cfg.get("skeleton_style_block", ""),
         )
         self._worker.progress.connect(self.status_message)
         self._worker.finished.connect(self._on_skeleton_done)
@@ -437,124 +556,6 @@ class Phase2Skeleton(QWidget):
         self.status_message.emit(
             f"CPG 骨架完成: {len(nodes)} 集/节点, {len(self.project_data.cpg_edges)} 条边"
         )
-
-    def _load_to_editor(self):
-        # 先把当前图中的节点位置写回 project_data，避免重建后丢失
-        self._cpg_editor._save_node_positions()
-        self._cpg_editor.load_cpg(
-            self.project_data.cpg_nodes,
-            self.project_data.cpg_edges,
-        )
-
-    # ------------------------------------------------------------------ #
-    # 节点交互
-    # ------------------------------------------------------------------ #
-    def _on_node_selected(self, node_id: str):
-        self._selected_node_id = node_id
-        self._btn_edit_node.setEnabled(True)
-        self._btn_delete_node.setEnabled(True)
-        self._btn_change_id.setEnabled(True)
-        self._id_combo.setEnabled(True)
-
-        # 填充编号下拉框（根据总集数联动，不做冲突过滤）
-        total = max(self.project_data.total_episodes, len(self.project_data.cpg_nodes)) + 10
-        self._id_combo.clear()
-        self._id_combo.addItem(node_id)  # 当前编号在第一位
-        for i in range(1, total + 1):
-            nid = f"N{i}"
-            if nid != node_id:
-                self._id_combo.addItem(nid)
-        self._id_combo.setCurrentIndex(0)
-
-        node = next((n for n in self.project_data.cpg_nodes if n["node_id"] == node_id), None)
-        if not node:
-            return
-        stage = STAGE_NAMES_SHORT.get(node.get("hauge_stage_id", 1), "")
-        events = "\n".join(
-            f"  {i+1}. {e}" for i, e in enumerate(node.get("event_summaries", []))
-        )
-        hook = node.get("episode_hook", "")
-        self._detail_text.setPlainText(
-            f"节点: {node_id}   阶段: {stage}\n"
-            f"标题: {node.get('title','')}\n"
-            f"环境: {node.get('setting','')}\n"
-            f"角色: {', '.join(node.get('characters',[]))}\n"
-            f"事件:\n{events}\n"
-            f"情感: {node.get('emotional_tone','')}\n"
-            f"本集钩子: {hook}"
-        )
-
-    def _on_edit_node(self):
-        if not self._selected_node_id:
-            return
-        node = next(
-            (n for n in self.project_data.cpg_nodes if n["node_id"] == self._selected_node_id),
-            None,
-        )
-        if not node:
-            return
-        new_title, ok = QInputDialog.getText(
-            self, "编辑节点标题", "标题:", text=node.get("title", "")
-        )
-        if ok and new_title.strip():
-            node["title"] = new_title.strip()
-            self._load_to_editor()
-            self.status_message.emit(f"节点 {self._selected_node_id} 已更新")
-
-    def _on_change_node_id(self):
-        """修改节点编号，同时更新所有边引用和 confirmed_beats"""
-        if not self._selected_node_id:
-            return
-        new_id = self._id_combo.currentText()
-        old_id = self._selected_node_id
-
-        if new_id == old_id:
-            return
-
-        # 1. 更新 cpg_nodes
-        node = next((n for n in self.project_data.cpg_nodes if n["node_id"] == old_id), None)
-        if node:
-            node["node_id"] = new_id
-
-        # 2. 更新 cpg_edges（from_node / to_node 引用）
-        for edge in self.project_data.cpg_edges:
-            if edge.get("from_node") == old_id:
-                edge["from_node"] = new_id
-            if edge.get("to_node") == old_id:
-                edge["to_node"] = new_id
-
-        # 3. 更新 confirmed_beats（key = node_id）
-        if old_id in self.project_data.confirmed_beats:
-            self.project_data.confirmed_beats[new_id] = self.project_data.confirmed_beats.pop(old_id)
-
-        # 4. 更新图编辑器（原地修改，不重建场景）
-        self._cpg_editor.update_node_id(old_id, new_id)
-        self._selected_node_id = new_id
-        self.status_message.emit(f"节点编号 {old_id} → {new_id} 已更新")
-
-    def _on_delete_node(self):
-        if not self._selected_node_id:
-            return
-        reply = QMessageBox.question(
-            self, "确认删除",
-            f"确定删除节点 {self._selected_node_id}？相关边也会被删除。",
-            QMessageBox.Yes | QMessageBox.No,
-        )
-        if reply == QMessageBox.No:
-            return
-        nid = self._selected_node_id
-        self.project_data.cpg_nodes = [
-            n for n in self.project_data.cpg_nodes if n["node_id"] != nid
-        ]
-        self.project_data.cpg_edges = [
-            e for e in self.project_data.cpg_edges
-            if e.get("from_node") != nid and e.get("to_node") != nid
-        ]
-        self._selected_node_id = None
-        self._btn_edit_node.setEnabled(False)
-        self._btn_delete_node.setEnabled(False)
-        self._detail_text.clear()
-        self._load_to_editor()
 
     # ------------------------------------------------------------------ #
     # 进入 Phase 3
@@ -606,3 +607,213 @@ class Phase2Skeleton(QWidget):
         self._hide_loading()
         QMessageBox.critical(self, "AI 调用失败", msg)
         self.status_message.emit("错误: " + msg)
+
+
+# ================================================================
+# 节点详情对话框（双击卡片弹出）
+# ================================================================
+class NodeDetailDialog(QDialog):
+    """
+    CPG 节点详情弹窗：查看/编辑/删除/改号 + 入口出口编辑 + 事件摘要编辑
+    """
+
+    def __init__(self, node: dict, project_data, parent=None):
+        super().__init__(parent)
+        self._node = node
+        self._project_data = project_data
+        self._action = None
+        nid = node.get('node_id', '')
+        ep = self._nid_to_ep(nid)
+        self.setWindowTitle(f"节点详情 — {ep} ({nid})")
+        self.setMinimumSize(580, 520)
+        self._setup_ui()
+
+    def get_action(self):
+        return self._action
+
+    @staticmethod
+    def _nid_to_ep(nid: str) -> str:
+        import re
+        m = re.search(r'\d+', nid or '')
+        return f"Ep{m.group()}" if m else nid
+
+    def _get_all_nids(self):
+        return sorted(
+            [n.get('node_id','') for n in self._project_data.cpg_nodes],
+            key=lambda x: int(__import__('re').search(r'\d+', x or '0').group()) if __import__('re').search(r'\d+', x or '0') else 0
+        )
+
+    def _setup_ui(self):
+        layout = QVBoxLayout(self)
+        node = self._node
+        nid = node.get('node_id', '')
+        ep = self._nid_to_ep(nid)
+
+        # 基本信息
+        form = QFormLayout()
+        form.addRow("集号:", QLabel(f"{ep} (ID: {nid})"))
+        form.addRow("阶段:", QLabel(node.get('hauge_stage_name', '')))
+
+        self._title_edit = QLineEdit(node.get('title', ''))
+        form.addRow("标题:", self._title_edit)
+
+        form.addRow("环境:", QLabel(node.get('setting', '') or '—'))
+        form.addRow("角色:", QLabel(', '.join(node.get('characters', [])) or '—'))
+        form.addRow("情感基调:", QLabel(node.get('emotional_tone', '') or '—'))
+        form.addRow("本集钩子:", QLabel(node.get('episode_hook', '') or '—'))
+        layout.addLayout(form)
+
+        # 入口/出口节点编辑
+        edge_group = QGroupBox("🔗 因果连接（入口/出口）")
+        edge_layout = QFormLayout(edge_group)
+
+        all_nids = self._get_all_nids()
+        all_labels = [(n, self._nid_to_ep(n)) for n in all_nids if n != nid]
+
+        # 入口：哪些节点指向我
+        current_ins = {e['from_node'] for e in (self._project_data.cpg_edges or [])
+                       if e.get('to_node') == nid}
+        self._in_checks = {}
+        in_widget = QWidget()
+        in_flow = QHBoxLayout(in_widget)
+        in_flow.setContentsMargins(0, 0, 0, 0)
+        in_flow.setSpacing(4)
+        for n, lbl in all_labels:
+            cb = QCheckBox(lbl)
+            cb.setChecked(n in current_ins)
+            self._in_checks[n] = cb
+            in_flow.addWidget(cb)
+        in_flow.addStretch()
+        edge_layout.addRow("← 入口:", in_widget)
+
+        # 出口：我指向哪些节点
+        current_outs = {e['to_node'] for e in (self._project_data.cpg_edges or [])
+                        if e.get('from_node') == nid}
+        self._out_checks = {}
+        out_widget = QWidget()
+        out_flow = QHBoxLayout(out_widget)
+        out_flow.setContentsMargins(0, 0, 0, 0)
+        out_flow.setSpacing(4)
+        for n, lbl in all_labels:
+            cb = QCheckBox(lbl)
+            cb.setChecked(n in current_outs)
+            self._out_checks[n] = cb
+            out_flow.addWidget(cb)
+        out_flow.addStretch()
+        edge_layout.addRow("→ 出口:", out_widget)
+
+        layout.addWidget(edge_group)
+
+        # 事件摘要（可编辑）
+        layout.addWidget(QLabel("📌 事件摘要 (每行一个事件，可直接编辑):"))
+        self._events_edit = QTextEdit()
+        self._events_edit.setMaximumHeight(140)
+        events = node.get('event_summaries', [])
+        self._events_edit.setPlainText('\n'.join(events))
+        layout.addWidget(self._events_edit)
+
+        # 编号修改行
+        id_row = QHBoxLayout()
+        id_row.addWidget(QLabel("修改编号:"))
+        self._id_combo = QComboBox()
+        total = max(self._project_data.total_episodes, len(self._project_data.cpg_nodes)) + 10
+        self._id_combo.addItem(f"{self._nid_to_ep(nid)} ({nid})")
+        for i in range(1, total + 1):
+            cid = f"N{i}"
+            if cid != nid:
+                self._id_combo.addItem(f"Ep{i} ({cid})", cid)
+        self._id_combo.setCurrentIndex(0)
+        id_row.addWidget(self._id_combo)
+        btn_change = QPushButton("应用新编号")
+        btn_change.clicked.connect(self._do_change_id)
+        id_row.addWidget(btn_change)
+        id_row.addStretch()
+        layout.addLayout(id_row)
+
+        # 操作按钮
+        btn_row = QHBoxLayout()
+        btn_save = QPushButton("✅ 保存修改")
+        btn_save.clicked.connect(self._do_save)
+        btn_row.addWidget(btn_save)
+
+        btn_delete = QPushButton("🗑 删除节点")
+        btn_delete.setStyleSheet("color: #e74c3c;")
+        btn_delete.clicked.connect(self._do_delete)
+        btn_row.addWidget(btn_delete)
+
+        btn_row.addStretch()
+        btn_close = QPushButton("关闭")
+        btn_close.clicked.connect(self.reject)
+        btn_row.addWidget(btn_close)
+        layout.addLayout(btn_row)
+
+    def _do_save(self):
+        nid = self._node.get('node_id', '')
+
+        # 保存标题
+        new_title = self._title_edit.text().strip()
+        if new_title:
+            self._node['title'] = new_title
+
+        # 保存事件摘要
+        raw = self._events_edit.toPlainText().strip()
+        self._node['event_summaries'] = [line.strip() for line in raw.split('\n') if line.strip()]
+
+        # 保存入口/出口边
+        edges = self._project_data.cpg_edges
+        # 移除旧边
+        edges[:] = [e for e in edges
+                    if not (e.get('to_node') == nid or e.get('from_node') == nid)]
+        # 添加新入口边
+        for from_nid, cb in self._in_checks.items():
+            if cb.isChecked():
+                edges.append({'from_node': from_nid, 'to_node': nid, 'relation': 'causal'})
+        # 添加新出口边
+        for to_nid, cb in self._out_checks.items():
+            if cb.isChecked():
+                edges.append({'from_node': nid, 'to_node': to_nid, 'relation': 'causal'})
+
+        self._action = 'edited'
+        self.accept()
+
+    def _do_delete(self):
+        reply = QMessageBox.question(
+            self, "确认删除",
+            f"确定删除节点 {self._node.get('node_id', '')}？\n相关边也会被删除。",
+            QMessageBox.Yes | QMessageBox.No,
+        )
+        if reply == QMessageBox.Yes:
+            self._action = 'deleted'
+            self.accept()
+
+    def _do_change_id(self):
+        idx = self._id_combo.currentIndex()
+        if idx == 0:
+            return  # 第一项是当前编号
+        new_id = self._id_combo.currentData()
+        if not new_id:
+            return
+        old_id = self._node.get('node_id', '')
+
+        # 检查冲突
+        existing = {n.get('node_id') for n in self._project_data.cpg_nodes}
+        if new_id in existing:
+            QMessageBox.warning(self, "编号冲突", f"编号 {new_id} 已存在，请选择其他编号。")
+            return
+
+        # 1. 更新节点
+        self._node['node_id'] = new_id
+
+        # 2. 更新边
+        for edge in self._project_data.cpg_edges:
+            if edge.get('from_node') == old_id:
+                edge['from_node'] = new_id
+            if edge.get('to_node') == old_id:
+                edge['to_node'] = new_id
+
+        # 3. 更新 confirmed_beats
+        if old_id in self._project_data.confirmed_beats:
+            self._project_data.confirmed_beats[new_id] = self._project_data.confirmed_beats.pop(old_id)
+
+        self._action = f'id_changed:{new_id}'
+        self.accept()

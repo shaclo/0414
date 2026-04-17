@@ -124,7 +124,8 @@ class CPGSkeletonWorker(BaseWorker):
     """
     def __init__(self, sparkle: str, world_variables: list, finale_condition: str,
                  ai_params: dict, characters: list = None,
-                 total_episodes: int = 20, episode_duration: int = 3):
+                 total_episodes: int = 20, episode_duration: int = 3,
+                 drama_style_block: str = ""):
         super().__init__()
         self.sparkle = sparkle
         self.world_variables = world_variables
@@ -133,23 +134,26 @@ class CPGSkeletonWorker(BaseWorker):
         self.characters = characters or []
         self.total_episodes = total_episodes
         self.episode_duration = episode_duration
+        self.drama_style_block = drama_style_block
 
     def run(self):
         try:
             self.progress.emit(f"🏗️ 正在生成 {self.total_episodes} 集 CPG 骨架，请稍候…")
-            # 组装角色概要注入 prompt
+            # 组装角色概要注入 prompt（含重要性等级）
             chars_summary = "\n".join(
-                f"- [{c.get('role_type','配角')}] {c.get('name','')}: "
+                f"- [{c.get('importance_level','C')}/{c.get('role_type','配角')}] {c.get('name','')}: "
                 f"{c.get('personality','')} / 动机: {c.get('motivation','')}"
                 for c in self.characters
             ) or "（未设定角色）"
 
-            # 替换 system prompt 中的集数/时长占位符
+            # 替换 system prompt 中的集数/时长占位符 + 注入风格块
             system_prompt = (
                 SYSTEM_PROMPT_CPG_SKELETON
                 .replace("{total_episodes}", str(self.total_episodes))
                 .replace("{episode_duration}", str(self.episode_duration))
             )
+            if self.drama_style_block:
+                system_prompt += "\n" + self.drama_style_block
 
             user_prompt = (
                 USER_PROMPT_CPG_SKELETON
@@ -200,6 +204,7 @@ class VariationWorker(BaseWorker):
         selected_persona_keys: list,
         ai_params: dict,
         characters: list = None,
+        drama_style_block: str = "",
     ):
         super().__init__()
         self.sparkle = sparkle
@@ -211,6 +216,7 @@ class VariationWorker(BaseWorker):
         self.selected_persona_keys = selected_persona_keys
         self.ai_params = ai_params
         self.characters = characters or []
+        self.drama_style_block = drama_style_block
 
     def run(self):
         try:
@@ -260,7 +266,7 @@ class VariationWorker(BaseWorker):
 
             # 角色概要注入
             characters_summary = "\n".join(
-                f"- [{c.get('role_type','配角')}] {c.get('name','')}: "
+                f"- [{c.get('importance_level','C')}/{c.get('role_type','配角')}] {c.get('name','')}: "
                 f"{c.get('personality','')} / 动机: {c.get('motivation','')}"
                 for c in self.characters
             ) or "（未设定角色）"
@@ -287,6 +293,7 @@ class VariationWorker(BaseWorker):
                         top_p=self.ai_params.get("top_p", 0.9),
                         top_k=self.ai_params.get("top_k", 40),
                         max_tokens=self.ai_params.get("max_tokens", 8192),
+                        drama_style_block=self.drama_style_block,
                     )
                 )
             finally:
@@ -424,7 +431,9 @@ class ExpansionWorker(BaseWorker):
         sparkle: str,
         finale_condition: str,
         characters_summary: str,
-        previous_hook: str,
+        episode_number: int,
+        incoming_edges_context: str,
+        previous_screenplay_excerpt: str,
         node_id: str,
         node_title: str,
         hauge_stage_name: str,
@@ -435,12 +444,15 @@ class ExpansionWorker(BaseWorker):
         target_word_count: str,
         ai_params: dict,
         episode_duration: int = 3,
+        drama_style_block: str = "",
     ):
         super().__init__()
         self.sparkle = sparkle
         self.finale_condition = finale_condition
         self.characters_summary = characters_summary
-        self.previous_hook = previous_hook
+        self.episode_number = episode_number
+        self.incoming_edges_context = incoming_edges_context
+        self.previous_screenplay_excerpt = previous_screenplay_excerpt
         self.node_id = node_id
         self.node_title = node_title
         self.hauge_stage_name = hauge_stage_name
@@ -451,6 +463,7 @@ class ExpansionWorker(BaseWorker):
         self.target_word_count = target_word_count
         self.ai_params = ai_params
         self.episode_duration = episode_duration
+        self.drama_style_block = drama_style_block
 
     def run(self):
         try:
@@ -462,12 +475,16 @@ class ExpansionWorker(BaseWorker):
                 .replace("{target_word_count}", self.target_word_count)
                 .replace("{episode_duration}", str(self.episode_duration))
             )
+            if self.drama_style_block:
+                system_prompt += "\n" + self.drama_style_block
             user_prompt = (
                 USER_PROMPT_EXPANSION
                 .replace("{sparkle}", self.sparkle)
                 .replace("{finale_condition}", self.finale_condition)
                 .replace("{characters_summary}", self.characters_summary)
-                .replace("{previous_hook}", self.previous_hook)
+                .replace("{episode_number}", str(self.episode_number))
+                .replace("{incoming_edges_context}", self.incoming_edges_context)
+                .replace("{previous_screenplay_excerpt}", self.previous_screenplay_excerpt)
                 .replace("{node_id}", self.node_id)
                 .replace("{node_title}", self.node_title)
                 .replace("{hauge_stage_name}", self.hauge_stage_name)
