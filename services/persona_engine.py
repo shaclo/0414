@@ -1,11 +1,6 @@
-# ============================================================
-# services/persona_engine.py
-# 多人格并行生成引擎
-# 职责：管理10个人格，组装prompt，发起并行盲视变异调用
-# ============================================================
-
 import json
 import logging
+import os
 from typing import List, Dict, Optional
 
 from env import (
@@ -18,6 +13,10 @@ from services.ai_service import ai_service
 
 logger = logging.getLogger(__name__)
 
+# 持久化文件路径（与项目同级的用户配置）
+_CONFIG_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "config")
+_PERSONA_FILE = os.path.join(_CONFIG_DIR, "bvsr_personas.json")
+
 
 class PersonaEngine:
     """
@@ -28,12 +27,50 @@ class PersonaEngine:
     2. 为指定 CPG 节点组装每个人格的完整 prompt
     3. 发起并行 AI 调用（通过 ai_service.parallel_generate）
     4. 收集并返回多人格的 StoryBeat 结果
+
+    持久化：
+    - 自动保存到 config/bvsr_personas.json
+    - 启动时自动加载，若文件不存在则使用 env.py 默认值
     """
 
     def __init__(self):
+        self._personas: Dict[str, dict] = {}
+        self._active_personas: set = set()
+        self._load()
+
+    # ------------------------------------------------------------------ #
+    # 持久化
+    # ------------------------------------------------------------------ #
+    def _load(self):
+        """从配置文件加载，失败时使用 env.py 默认值"""
+        if os.path.exists(_PERSONA_FILE):
+            try:
+                with open(_PERSONA_FILE, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                self._personas = data.get("personas", {})
+                self._active_personas = set(data.get("active", list(self._personas.keys())))
+                logger.info("从 %s 加载了 %d 个人格", _PERSONA_FILE, len(self._personas))
+                return
+            except Exception as e:
+                logger.warning("加载人格配置失败: %s, 使用默认值", e)
+
+        # 使用默认值
         self._personas = dict(PERSONA_DEFINITIONS)
-        # 默认全部激活
-        self._active_personas: set = set(self._personas.keys())
+        self._active_personas = set(self._personas.keys())
+
+    def _save(self):
+        """保存到配置文件"""
+        try:
+            os.makedirs(_CONFIG_DIR, exist_ok=True)
+            data = {
+                "personas": self._personas,
+                "active": list(self._active_personas),
+            }
+            with open(_PERSONA_FILE, 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+            logger.info("人格配置已保存到 %s", _PERSONA_FILE)
+        except Exception as e:
+            logger.error("保存人格配置失败: %s", e)
 
     def get_all_personas(self) -> Dict[str, dict]:
         """获取所有人格定义"""
@@ -46,10 +83,11 @@ class PersonaEngine:
     def set_active_personas(self, keys: List[str]):
         """设置激活的人格列表（由用户在 UI 中选择）"""
         self._active_personas = set(keys)
+        self._save()
         logger.info("激活人格: %s", keys)
 
     def add_persona(self, key: str, name: str, category: str, identity_block: str):
-        """添加新人格（运行时）"""
+        """添加新人格"""
         if key in self._personas:
             raise ValueError(f"人格 key '{key}' 已存在")
         self._personas[key] = {
@@ -58,6 +96,7 @@ class PersonaEngine:
             "identity_block": identity_block,
         }
         self._active_personas.add(key)
+        self._save()
         logger.info("添加人格: %s", key)
 
     def update_persona(self, key: str, name: str, category: str, identity_block: str):
@@ -69,6 +108,7 @@ class PersonaEngine:
             "category": category,
             "identity_block": identity_block,
         }
+        self._save()
         logger.info("更新人格: %s", key)
 
     def remove_persona(self, key: str):
@@ -77,6 +117,7 @@ class PersonaEngine:
             return
         del self._personas[key]
         self._active_personas.discard(key)
+        self._save()
         logger.info("删除人格: %s", key)
 
     def is_active(self, key: str) -> bool:
@@ -87,6 +128,7 @@ class PersonaEngine:
             self._active_personas.add(key)
         else:
             self._active_personas.discard(key)
+        self._save()
 
     def build_variation_calls(
         self,

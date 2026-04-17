@@ -19,6 +19,7 @@ from env import (
 from services.worker import CharacterGenWorker
 from ui.widgets.character_editor import CharacterEditor
 from ui.widgets.character_relation_panel import CharacterRelationPanel
+from ui.widgets.character_graph_widget import CharacterGraphWidget
 from ui.widgets.ai_settings_panel import AISettingsPanel
 from ui.widgets.prompt_viewer import PromptViewer
 
@@ -100,8 +101,8 @@ class Phase2Characters(QWidget):
 
         btn_row.addWidget(QLabel("数量:"))
         self._char_count_spin = QSpinBox()
-        self._char_count_spin.setRange(1, 20)
-        self._char_count_spin.setValue(5)
+        self._char_count_spin.setRange(1, 99)
+        self._char_count_spin.setValue(15)
         self._char_count_spin.setToolTip("希望 AI 生成的角色数量")
         self._char_count_spin.setMinimumWidth(60)
         btn_row.addWidget(self._char_count_spin)
@@ -114,6 +115,7 @@ class Phase2Characters(QWidget):
         ll.addLayout(btn_row)
 
         self._char_list = QListWidget()
+        self._char_list.setSelectionMode(QListWidget.ExtendedSelection)
         self._char_list.currentItemChanged.connect(self._on_char_selected)
         ll.addWidget(self._char_list, 1)
 
@@ -135,9 +137,15 @@ class Phase2Characters(QWidget):
         h_splitter.setSizes([380, 540])
         root.addWidget(h_splitter, 1)
 
-        # === 关系面板 ===
+        # === 关系图 + 列表双视图 ===
+        self._relation_graph = CharacterGraphWidget()
+        self._relation_graph.relations_changed.connect(self._on_relations_changed_graph)
+        root.addWidget(self._relation_graph)
+
+        # 保留表格面板作为 fallback（默认隐藏）
         self._relation_panel = CharacterRelationPanel()
         self._relation_panel.relations_changed.connect(self._on_relations_changed)
+        self._relation_panel.setVisible(False)
         root.addWidget(self._relation_panel)
 
         # === 底部按钮 ===
@@ -172,6 +180,7 @@ class Phase2Characters(QWidget):
         self._refresh_list()
         self._relation_panel.set_characters(self.project_data.characters)
         self._relation_panel.set_relations(self.project_data.character_relations)
+        self._refresh_graph()
 
     # ------------------------------------------------------------------ #
     # 列表操作
@@ -192,10 +201,17 @@ class Phase2Characters(QWidget):
     def _update_relation_panel_chars(self):
         self._relation_panel.set_characters(self.project_data.characters)
 
+    def _refresh_graph(self):
+        """刷新力导向关系图"""
+        self._relation_graph.set_data(
+            self.project_data.characters,
+            self.project_data.character_relations,
+        )
+
     def _on_char_selected(self, current, previous):
         if current is None:
             self._char_editor.clear()
-            self._btn_delete.setEnabled(False)
+            self._btn_delete.setEnabled(len(self._char_list.selectedItems()) > 0)
             return
         char_id = current.data(Qt.UserRole)
         char = next((c for c in self.project_data.characters if c.get("char_id") == char_id), None)
@@ -234,30 +250,43 @@ class Phase2Characters(QWidget):
         self.status_message.emit(f"已添加角色 (ID: {new_id})")
 
     def _on_delete_character(self):
-        item = self._char_list.currentItem()
-        if not item:
+        selected = self._char_list.selectedItems()
+        if not selected:
             return
-        char_id = item.data(Qt.UserRole)
-        char = next((c for c in self.project_data.characters if c.get("char_id") == char_id), None)
-        name = char.get("name", "未命名") if char else "未命名"
+        # 收集选中的角色ID和名字
+        ids_to_delete = []
+        names = []
+        for item in selected:
+            cid = item.data(Qt.UserRole)
+            ids_to_delete.append(cid)
+            char = next((c for c in self.project_data.characters if c.get("char_id") == cid), None)
+            names.append(char.get("name", "未命名") if char else "未命名")
+
+        if len(names) == 1:
+            msg = f"确定删除角色「{names[0]}」？"
+        else:
+            msg = f"确定批量删除以下 {len(names)} 个角色？\n" + "、".join(names)
+
         reply = QMessageBox.question(
-            self, "确认删除", f"确定删除角色「{name}」？",
+            self, "确认删除", msg,
             QMessageBox.Yes | QMessageBox.No,
         )
         if reply == QMessageBox.No:
             return
+        delete_set = set(ids_to_delete)
         self.project_data.characters = [
-            c for c in self.project_data.characters if c.get("char_id") != char_id
+            c for c in self.project_data.characters if c.get("char_id") not in delete_set
         ]
         # 删除相关关系
         self.project_data.character_relations = [
             r for r in self.project_data.character_relations
-            if r.get("from_char_id") != char_id and r.get("to_char_id") != char_id
+            if r.get("from_char_id") not in delete_set and r.get("to_char_id") not in delete_set
         ]
         self._char_editor.clear()
         self._btn_delete.setEnabled(False)
         self._refresh_list()
         self._relation_panel.set_relations(self.project_data.character_relations)
+        self._refresh_graph()
 
     # ------------------------------------------------------------------ #
     # AI 建议角色
@@ -284,6 +313,7 @@ class Phase2Characters(QWidget):
             finale_condition=self.project_data.finale_condition,
             ai_params=self._ai_settings.get_all_settings(),
             char_count=self._char_count_spin.value(),
+            existing_characters=self.project_data.characters,
         )
         self._worker.progress.connect(self.status_message)
         self._worker.finished.connect(self._on_ai_suggest_done)
@@ -298,19 +328,28 @@ class Phase2Characters(QWidget):
         new_relations = result.get("relations", [])
         notes = result.get("design_notes", "")
 
-        # 追加角色（重新生成 ID 避免冲突）
+        # 追加角色（重新生成 ID 避免冲突，同时记录映射表）
+        id_map = {}  # old_temp_id -> new_uuid_id
         for c in new_chars:
-            c["char_id"] = f"char_{uuid.uuid4().hex[:6]}"
+            old_id = c.get("char_id", "")
+            new_id = f"char_{uuid.uuid4().hex[:6]}"
+            id_map[old_id] = new_id
+            # 也按名称映射（AI有时用名称作 char_id）
+            id_map[c.get("name", "")] = new_id
+            c["char_id"] = new_id
             self.project_data.characters.append(c)
 
-        # 追加关系（ID重映射）
-        # 注意：AI返回的 from_char_id/to_char_id 引用的是临时ID，
-        # 此处简单追加，用户确认后可以手动关联
+        # 追加关系 — 用映射表修正 from_char_id / to_char_id
         for r in new_relations:
+            old_from = r.get("from_char_id", "")
+            old_to = r.get("to_char_id", "")
+            r["from_char_id"] = id_map.get(old_from, old_from)
+            r["to_char_id"] = id_map.get(old_to, old_to)
             self.project_data.character_relations.append(r)
 
         self._refresh_list()
         self._relation_panel.set_relations(self.project_data.character_relations)
+        self._refresh_graph()
 
         msg = f"AI 建议了 {len(new_chars)} 个角色"
         if notes:
@@ -323,6 +362,12 @@ class Phase2Characters(QWidget):
     # ------------------------------------------------------------------ #
     def _on_relations_changed(self):
         self.project_data.character_relations = self._relation_panel.get_relations()
+        self._refresh_graph()
+
+    def _on_relations_changed_graph(self):
+        """关系图中编辑了关系"""
+        self.project_data.character_relations = self._relation_graph.get_relations()
+        self._relation_panel.set_relations(self.project_data.character_relations)
 
     # ------------------------------------------------------------------ #
     # 进入下一阶段 / 跳过

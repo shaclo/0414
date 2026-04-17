@@ -15,10 +15,10 @@ from PySide6.QtCore import Qt, QSize
 
 
 CATEGORY_OPTIONS = [
-    ("initiator",  "🚀 启动型 (Initiator)"),
-    ("developer",  "⚙️ 推进型 (Developer)"),
-    ("atmosphere", "🌫️ 氛围型 (Atmosphere)"),
-    ("finisher",   "🏁 终结型 (Finisher)"),
+    ("initiator",  "启动型 (Initiator)"),
+    ("developer",  "推进型 (Developer)"),
+    ("atmosphere", "氛围型 (Atmosphere)"),
+    ("finisher",   "终结型 (Finisher)"),
 ]
 CATEGORY_KEYS  = [c[0] for c in CATEGORY_OPTIONS]
 CATEGORY_LABELS = [c[1] for c in CATEGORY_OPTIONS]
@@ -38,7 +38,7 @@ class BVSRSettingsDialog(QDialog):
         self._engine = persona_engine
         self._selected_key: str = ""
 
-        self.setWindowTitle("⚙️ BVSR 人格系统设置")
+        self.setWindowTitle("BVSR 人格系统设置")
         self.setMinimumSize(860, 600)
         self._setup_ui()
         self._refresh_list()
@@ -65,7 +65,7 @@ class BVSRSettingsDialog(QDialog):
         lv = QVBoxLayout(left)
         lv.setContentsMargins(0, 0, 4, 0)
 
-        lv.addWidget(QLabel("📋 人格列表 (双击选中 / 勾选启用):"))
+        lv.addWidget(QLabel("人格列表 (双击选中 / 勾选启用):"))
         self._list = QListWidget()
         self._list.setAlternatingRowColors(True)
         self._list.currentItemChanged.connect(self._on_list_selection_changed)
@@ -73,11 +73,11 @@ class BVSRSettingsDialog(QDialog):
         lv.addWidget(self._list)
 
         btn_row = QHBoxLayout()
-        self._btn_new = QPushButton("➕ 新建人格")
+        self._btn_new = QPushButton("新建人格")
         self._btn_new.clicked.connect(self._on_new_persona)
         btn_row.addWidget(self._btn_new)
 
-        self._btn_delete = QPushButton("🗑 删除")
+        self._btn_delete = QPushButton("删除")
         self._btn_delete.setEnabled(False)
         self._btn_delete.setStyleSheet("color: #e74c3c;")
         self._btn_delete.clicked.connect(self._on_delete_persona)
@@ -87,7 +87,7 @@ class BVSRSettingsDialog(QDialog):
         splitter.addWidget(left)
 
         # ---- 右侧：编辑表单 ----
-        right = QGroupBox("✏️ 人格详情")
+        right = QGroupBox("人格详情")
         rv = QVBoxLayout(right)
 
         form = QFormLayout()
@@ -109,7 +109,7 @@ class BVSRSettingsDialog(QDialog):
         rv.addLayout(form)
 
         # Identity Block
-        rv.addWidget(QLabel("📝 人格身份描述 (identity_block) — 这段文字直接注入 System Prompt:"))
+        rv.addWidget(QLabel("人格身份描述 (identity_block) — 这段文字直接注入 System Prompt:"))
         self._identity_edit = QTextEdit()
         self._identity_edit.setPlaceholderText(
             "你是「xxx」。\n你的专长是……\n你偏好：……\n你排斥：……"
@@ -118,7 +118,7 @@ class BVSRSettingsDialog(QDialog):
 
         # 保存按钮
         save_row = QHBoxLayout()
-        self._btn_save = QPushButton("✅ 保存修改")
+        self._btn_save = QPushButton("保存修改")
         self._btn_save.setEnabled(False)
         self._btn_save.clicked.connect(self._on_save_persona)
         save_row.addWidget(self._btn_save)
@@ -235,12 +235,12 @@ class BVSRSettingsDialog(QDialog):
             if self._selected_key and self._selected_key == key:
                 # 更新已有人格
                 self._engine.update_persona(key, name, cat, identity)
-                self._status_label.setText(f"✅ 已更新：{name}")
+                self._status_label.setText(f"已更新：{name}")
             else:
                 # 新建人格
                 self._engine.add_persona(key, name, cat, identity)
                 self._selected_key = key
-                self._status_label.setText(f"✅ 已添加：{name}")
+                self._status_label.setText(f"已添加：{name}")
             self._refresh_list(select_key=key)
         except (ValueError, KeyError) as e:
             QMessageBox.warning(self, "保存失败", str(e))

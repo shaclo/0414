@@ -238,8 +238,8 @@ class Phase5Expansion(QWidget):
         import re
         sorted_nodes = sorted(
             self.project_data.cpg_nodes,
-            key=lambda n: int(re.search(r'(\d+)', n.get('node_id', 'N0')).group(1))
-                          if re.search(r'(\d+)', n.get('node_id', '')) else 9999
+            key=lambda n: tuple(int(x) for x in re.findall(r'\d+', n.get('node_id', 'Ep0')))
+                          if re.search(r'\d+', n.get('node_id', '')) else (9999,)
         )
         for node in sorted_nodes:
             nid = node.get("node_id", "")
@@ -385,6 +385,7 @@ class Phase5Expansion(QWidget):
         self.status_message.emit(f"🎬 正在扩写 {node_id}：{node.get('title','')}…")
 
         from env import DRAMA_STYLE_CONFIG
+        from services.genre_manager import genre_manager
         style_key = self.project_data.drama_style or "short_drama"
         style_cfg = DRAMA_STYLE_CONFIG.get(style_key, {})
         expansion_block = (
@@ -392,6 +393,12 @@ class Phase5Expansion(QWidget):
             .replace("{scenes_per_episode}", self.project_data.scenes_per_episode or "1-2")
             .replace("{target_word_count}", target_word_count)
         )
+
+        genre_key = getattr(self.project_data, 'story_genre', 'custom')
+        genre_cfg = genre_manager.get(genre_key)
+        genre_exp = genre_cfg.get("expansion_block", "")
+        if genre_exp:
+            expansion_block = (expansion_block + "\n\n" + genre_exp).strip()
 
         self._worker = ExpansionWorker(
             sparkle=self.project_data.sparkle,
@@ -585,8 +592,8 @@ class Phase5Expansion(QWidget):
         import re
         all_sorted = sorted(
             self.project_data.cpg_nodes,
-            key=lambda n: int(re.search(r'(\d+)', n.get('node_id', 'N0')).group(1))
-                          if re.search(r'(\d+)', n.get('node_id', '')) else 9999
+            key=lambda n: tuple(int(x) for x in re.findall(r'\d+', n.get('node_id', 'Ep0')))
+                          if re.search(r'\d+', n.get('node_id', '')) else (9999,)
         )
         for node in all_sorted:
             nid = node.get("node_id", "")

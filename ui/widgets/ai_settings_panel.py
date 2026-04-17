@@ -36,7 +36,17 @@ class AISettingsPanel(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
 
         group = QGroupBox("⚙️ AI 调用设置")
-        group_layout = QVBoxLayout(group)
+        group.setCheckable(True)
+        group.setChecked(False)
+        group.setStyleSheet(
+            "QGroupBox { font-weight: bold; padding-top: 16px; }"
+            "QGroupBox::indicator { width: 13px; height: 13px; }"
+        )
+        inner_widget = QWidget()
+        inner_widget.setVisible(False)
+        group_layout = QVBoxLayout(inner_widget)
+        group_layout.setContentsMargins(4, 4, 4, 4)
+        group_layout.setSpacing(4)
 
         # --- 温度 ---
         temp_row = QHBoxLayout()
@@ -79,6 +89,12 @@ class AISettingsPanel(QWidget):
         topp_row.addWidget(self._max_tokens_spin)
 
         group_layout.addLayout(topp_row)
+
+        outer_layout = QVBoxLayout(group)
+        outer_layout.setContentsMargins(8, 4, 8, 8)
+        outer_layout.addWidget(inner_widget)
+        group.toggled.connect(inner_widget.setVisible)
+
         layout.addWidget(group)
 
     def _on_temp_slider_changed(self, value):

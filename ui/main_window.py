@@ -9,6 +9,7 @@ import os
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QPushButton, QStackedWidget, QFileDialog, QMessageBox, QStatusBar,
+    QScrollArea,
 )
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction, QFont
@@ -64,10 +65,10 @@ class MainWindow(QMainWindow):
         file_menu = mb.addMenu("文件(&F)")
 
         for text, shortcut, slot in [
-            ("📄 新建项目",    "Ctrl+N",       self._on_new),
-            ("📂 打开项目…",  "Ctrl+O",       self._on_open),
-            ("💾 保存项目",    "Ctrl+S",       self._on_save),
-            ("💾 另存为…",    "Ctrl+Shift+S", self._on_save_as),
+            ("新建项目",    "Ctrl+N",       self._on_new),
+            ("打开项目...",  "Ctrl+O",       self._on_open),
+            ("保存项目",    "Ctrl+S",       self._on_save),
+            ("另存为...",    "Ctrl+Shift+S", self._on_save_as),
         ]:
             act = QAction(text, self)
             act.setShortcut(shortcut)
@@ -76,10 +77,15 @@ class MainWindow(QMainWindow):
 
         # 系统菜单
         sys_menu = mb.addMenu("系统(&S)")
-        bvsr_act = QAction("🎭 BVSR 人格设置…", self)
+        bvsr_act = QAction("BVSR 人格设置...", self)
         bvsr_act.setStatusTip("管理 BVSR 多人格生成系统的人格定义（添加/删除/修改/激活）")
         bvsr_act.triggered.connect(self._on_bvsr_settings)
         sys_menu.addAction(bvsr_act)
+
+        genre_act = QAction("题材预设...", self)
+        genre_act.setStatusTip("查看并切换当前项目的写作题材预设（犯罪/爱情/悬疑/复仇等）")
+        genre_act.triggered.connect(self._on_genre_settings)
+        sys_menu.addAction(genre_act)
 
     # ------------------------------------------------------------------ #
     # 主 UI
@@ -133,47 +139,63 @@ class MainWindow(QMainWindow):
         self._build_phases()
         self._update_nav_indicator(0)
 
+    def _wrap_in_scroll(self, widget: QWidget) -> QScrollArea:
+        """将 Phase 页面包裹在 QScrollArea 中，防止窗口过小时内容被挤压"""
+        scroll = QScrollArea()
+        scroll.setWidget(widget)
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QScrollArea.NoFrame)
+        return scroll
+
     def _build_phases(self):
         """创建 6 个 Phase 页面并连接信号"""
+        self._phase_widgets = []  # 保存原始 Phase 引用
+
         # Phase 0: 创世
         p1 = Phase1Genesis(self.project_data)
         p1.phase_completed.connect(self._on_p1_done)
         p1.status_message.connect(self._show_status)
-        self._stack.addWidget(p1)            # index 0
+        self._stack.addWidget(self._wrap_in_scroll(p1))  # index 0
+        self._phase_widgets.append(p1)
 
         # Phase 1: 人物
         p2 = Phase2Characters(self.project_data)
         p2.phase_completed.connect(self._on_p2_done)
         p2.go_back.connect(lambda: self._switch_phase(0))
         p2.status_message.connect(self._show_status)
-        self._stack.addWidget(p2)            # index 1
+        self._stack.addWidget(self._wrap_in_scroll(p2))  # index 1
+        self._phase_widgets.append(p2)
 
         # Phase 2: 骨架
         p3 = Phase2Skeleton(self.project_data)
         p3.phase_completed.connect(self._on_p3_done)
         p3.go_back.connect(lambda: self._switch_phase(1, call_on_enter=True))
         p3.status_message.connect(self._show_status)
-        self._stack.addWidget(p3)            # index 2
+        self._stack.addWidget(self._wrap_in_scroll(p3))  # index 2
+        self._phase_widgets.append(p3)
 
         # Phase 3: 血肉
         p4 = Phase3Flesh(self.project_data)
         p4.phase_completed.connect(self._on_p4_done)
         p4.go_back_to_skeleton.connect(lambda: self._switch_phase(2, call_on_enter=True))
         p4.status_message.connect(self._show_status)
-        self._stack.addWidget(p4)            # index 3
+        self._stack.addWidget(self._wrap_in_scroll(p4))  # index 3
+        self._phase_widgets.append(p4)
 
         # Phase 4: 扩写
         p5 = Phase5Expansion(self.project_data)
         p5.phase_completed.connect(self._on_p5_done)
         p5.go_back_to_flesh.connect(lambda: self._switch_phase(3, call_on_enter=True))
         p5.status_message.connect(self._show_status)
-        self._stack.addWidget(p5)            # index 4
+        self._stack.addWidget(self._wrap_in_scroll(p5))  # index 4
+        self._phase_widgets.append(p5)
 
         # Phase 5: 锁定
         p6 = Phase4Lock(self.project_data)
         p6.go_back_to_flesh.connect(lambda: self._switch_phase(4, call_on_enter=True))
         p6.status_message.connect(self._show_status)
-        self._stack.addWidget(p6)            # index 5
+        self._stack.addWidget(self._wrap_in_scroll(p6))  # index 5
+        self._phase_widgets.append(p6)
 
     def _setup_statusbar(self):
         self._statusbar = QStatusBar()
@@ -190,7 +212,7 @@ class MainWindow(QMainWindow):
         self._stack.setCurrentIndex(idx)
         self._update_nav_indicator(idx)
         if call_on_enter:
-            w = self._stack.currentWidget()
+            w = self._phase_widgets[idx]
             if hasattr(w, "on_enter"):
                 w.on_enter()
 
@@ -335,11 +357,23 @@ class MainWindow(QMainWindow):
         from ui.widgets.bvsr_settings_dialog import BVSRSettingsDialog
         dlg = BVSRSettingsDialog(parent=self)
         dlg.exec()
+        # 刷新所有 Phase3Flesh 中的人格选择面板
+        from ui.phase3_flesh import Phase3Flesh
+        for w in self._phase_widgets:
+            if isinstance(w, Phase3Flesh) and hasattr(w, '_persona_selector'):
+                w._persona_selector.refresh()
+
+    def _on_genre_settings(self):
+        from ui.widgets.genre_settings_dialog import GenreSettingsDialog
+        dlg = GenreSettingsDialog(project_data=self.project_data, parent=self)
+        dlg.exec()
 
     def _do_save(self, filepath: str):
         try:
             self.project_data.save_to_file(filepath)
+            basename = os.path.basename(filepath)
             self._show_status(f"💾 已保存: {filepath}")
+            QMessageBox.information(self, "保存成功", f"工程文件已保存。\n文件: {basename}\n路径: {filepath}")
         except Exception as e:
             QMessageBox.critical(self, "保存失败", str(e))
 

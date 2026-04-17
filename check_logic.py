@@ -24,11 +24,11 @@ pd.world_variables = [
     {"id": "v1", "category": "世界规则", "name": "测试", "definition": "定义", "constraints": "无"}
 ]
 pd.confirmed_beats = {
-    "N1": {"persona_name": "test", "causal_events": [], "entities": [], "hook": ""}
+    "Ep1": {"persona_name": "test", "causal_events": [], "entities": [], "hook": ""}
 }
 pd.cpg_nodes = [
     {
-        "node_id": "N1", "title": "开端", "hauge_stage_id": 1,
+        "node_id": "Ep1", "title": "开端", "hauge_stage_id": 1,
         "hauge_stage_name": "机会", "event_summaries": ["事件1"],
         "setting": "", "characters": [],
     }
@@ -36,7 +36,7 @@ pd.cpg_nodes = [
 pd.save_to_file("projects/_check.story.json")
 pd2 = ProjectData.load_from_file("projects/_check.story.json")
 assert pd2.sparkle == "test sparkle"
-assert pd2.confirmed_beats.get("N1") is not None
+assert pd2.confirmed_beats.get("Ep1") is not None
 os.remove("projects/_check.story.json")
 print("[2] ProjectData save/load round-trip OK")
 
@@ -46,7 +46,7 @@ calls = persona_engine.build_variation_calls(
     sparkle="测试种子",
     world_variables_json='{"vars":[]}',
     cpg_skeleton_json='{"nodes":[],"edges":[]}',
-    target_node_id="N1",
+    target_node_id="Ep1",
     target_node_title="开端",
     hauge_stage_name="机会 (Opportunity)",
     node_event_summaries="事件1、事件2",
@@ -60,8 +60,8 @@ print(f"[3] PersonaEngine build_variation_calls OK: {len(calls)} calls")
 # ─── 4. ITE 冗余筛选 ──────────────────────────────────────────
 ite_mock = {
     "event_evaluations": [
-        {"node_id": "N1", "event_id": 1, "ite_score": 0.02, "verdict": "冗余", "reasoning": "X"},
-        {"node_id": "N1", "event_id": 2, "ite_score": 0.80, "verdict": "关键", "reasoning": "Y"},
+        {"node_id": "Ep1", "event_id": 1, "ite_score": 0.02, "verdict": "冗余", "reasoning": "X"},
+        {"node_id": "Ep1", "event_id": 2, "ite_score": 0.80, "verdict": "关键", "reasoning": "Y"},
     ]
 }
 prunable = ite_calculator.get_prunable_events(ite_mock, threshold=0.05)
@@ -76,7 +76,7 @@ print("[5] HaugeStage enum OK")
 
 # ─── 6. get_confirmed_beat_count ─────────────────────────────
 pd3 = ProjectData()
-pd3.confirmed_beats = {"N1": {"a": 1}, "N2": None, "N3": {"b": 2}}
+pd3.confirmed_beats = {"Ep1": {"a": 1}, "Ep2": None, "Ep3": {"b": 2}}
 assert pd3.get_confirmed_beat_count() == 2
 print("[6] get_confirmed_beat_count OK")
 

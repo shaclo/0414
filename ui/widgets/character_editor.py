@@ -7,7 +7,7 @@
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QFormLayout,
     QLabel, QLineEdit, QComboBox, QTextEdit, QPushButton,
-    QGroupBox, QFrame,
+    QGroupBox, QFrame, QScrollArea,
 )
 from PySide6.QtCore import Qt, Signal
 
@@ -158,7 +158,12 @@ class CharacterEditor(QWidget):
         tip.setWordWrap(True)
         gl.addWidget(tip)
 
-        root.addWidget(group)
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QScrollArea.NoFrame)
+        scroll.setWidget(group)
+        
+        root.addWidget(scroll)
 
     # ------------------------------------------------------------------ #
     # 公开接口

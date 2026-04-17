@@ -52,7 +52,7 @@ class ScreenplayEditor(QWidget):
         self._min_spin.setRange(100, 5000)
         self._min_spin.setSingleStep(100)
         self._min_spin.setValue(self._target_min)
-        self._min_spin.setMaximumWidth(70)
+        self._min_spin.setMaximumWidth(105)
         self._min_spin.valueChanged.connect(self._on_target_changed)
         toolbar.addWidget(self._min_spin)
 
@@ -62,7 +62,7 @@ class ScreenplayEditor(QWidget):
         self._max_spin.setRange(100, 5000)
         self._max_spin.setSingleStep(100)
         self._max_spin.setValue(self._target_max)
-        self._max_spin.setMaximumWidth(70)
+        self._max_spin.setMaximumWidth(105)
         self._max_spin.valueChanged.connect(self._on_target_changed)
         toolbar.addWidget(self._max_spin)
 

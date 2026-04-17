@@ -57,7 +57,7 @@ class SocraticWorker(BaseWorker):
                 temperature=self.ai_params.get("temperature", SUGGESTED_TEMPERATURES["socratic"]),
                 top_p=self.ai_params.get("top_p", 0.9),
                 top_k=self.ai_params.get("top_k", 40),
-                max_tokens=self.ai_params.get("max_tokens", 4096),
+                max_tokens=self.ai_params.get("max_tokens", 8192),
             )
             self.finished.emit(result)
         except Exception as e:
@@ -104,7 +104,7 @@ class WorldExtractWorker(BaseWorker):
                 temperature=self.ai_params.get("temperature", SUGGESTED_TEMPERATURES["world_extract"]),
                 top_p=self.ai_params.get("top_p", 0.9),
                 top_k=self.ai_params.get("top_k", 40),
-                max_tokens=self.ai_params.get("max_tokens", 4096),
+                max_tokens=self.ai_params.get("max_tokens", 8192),
             )
             self.finished.emit(result)
         except Exception as e:
@@ -138,45 +138,185 @@ class CPGSkeletonWorker(BaseWorker):
 
     def run(self):
         try:
-            self.progress.emit(f"🏗️ 正在生成 {self.total_episodes} 集 CPG 骨架，请稍候…")
-            # 组装角色概要注入 prompt（含重要性等级）
-            chars_summary = "\n".join(
-                f"- [{c.get('importance_level','C')}/{c.get('role_type','配角')}] {c.get('name','')}: "
-                f"{c.get('personality','')} / 动机: {c.get('motivation','')}"
-                for c in self.characters
-            ) or "（未设定角色）"
+            if self.total_episodes <= 30:
+                self._run_single_shot()
+            else:
+                self._run_staged()
+        except Exception as e:
+            logger.error("CPGSkeletonWorker 失败: %s", e, exc_info=True)
+            self.error.emit(f"CPG 骨架生成失败：{str(e)}")
 
-            # 替换 system prompt 中的集数/时长占位符 + 注入风格块
-            system_prompt = (
-                SYSTEM_PROMPT_CPG_SKELETON
-                .replace("{total_episodes}", str(self.total_episodes))
-                .replace("{episode_duration}", str(self.episode_duration))
+    def _run_single_shot(self):
+        """单次生成（≤30 集）"""
+        self.progress.emit(f"🏗️ 正在生成 {self.total_episodes} 集 CPG 骨架，请稍候…")
+        chars_summary = self._build_chars_summary()
+        system_prompt = self._build_system_prompt()
+        user_prompt = (
+            USER_PROMPT_CPG_SKELETON
+            .replace("{sparkle}", self.sparkle)
+            .replace("{world_variables_json}",
+                     json.dumps(self.world_variables, ensure_ascii=False, indent=2))
+            .replace("{finale_condition}", self.finale_condition)
+            .replace("{characters_summary}", chars_summary)
+            .replace("{total_episodes}", str(self.total_episodes))
+            .replace("{episode_duration}", str(self.episode_duration))
+        )
+        result = ai_service.generate_json(
+            user_prompt=user_prompt,
+            system_prompt=system_prompt,
+            temperature=self.ai_params.get("temperature", SUGGESTED_TEMPERATURES["cpg_skeleton"]),
+            top_p=self.ai_params.get("top_p", 0.9),
+            top_k=self.ai_params.get("top_k", 40),
+            max_tokens=self.ai_params.get("max_tokens", 65536),
+        )
+        self.finished.emit(result)
+
+    def _run_staged(self):
+        """两遍生成法（>30 集）: 全局大纲 → 逐阶段展开"""
+        from env import (SYSTEM_PROMPT_CPG_OUTLINE, USER_PROMPT_CPG_OUTLINE,
+                         SYSTEM_PROMPT_CPG_EXPAND, USER_PROMPT_CPG_EXPAND)
+
+        STAGE_NAMES_MAP = {
+            1: "机会 (Opportunity)", 2: "变点 (Change of Plans)",
+            3: "无路可退 (Point of No Return)", 4: "主攻/挫折 (Major Setback)",
+            5: "高潮 (Climax)", 6: "终局 (Aftermath)",
+        }
+
+        chars_summary = self._build_chars_summary()
+        world_json = json.dumps(self.world_variables, ensure_ascii=False, indent=2)
+
+        # ========== Pass 1: 全局大纲 ==========
+        self.progress.emit(
+            f"📋 [Pass 1/2] 正在生成 {self.total_episodes} 集全局大纲…"
+        )
+
+        outline_sys = (
+            SYSTEM_PROMPT_CPG_OUTLINE
+            .replace("{total_episodes}", str(self.total_episodes))
+            .replace("{episode_duration}", str(self.episode_duration))
+        )
+        if self.drama_style_block:
+            outline_sys += "\n" + self.drama_style_block
+
+        outline_usr = (
+            USER_PROMPT_CPG_OUTLINE
+            .replace("{sparkle}", self.sparkle)
+            .replace("{world_variables_json}", world_json)
+            .replace("{finale_condition}", self.finale_condition)
+            .replace("{characters_summary}", chars_summary)
+            .replace("{total_episodes}", str(self.total_episodes))
+            .replace("{episode_duration}", str(self.episode_duration))
+        )
+
+        outline_result = ai_service.generate_json(
+            user_prompt=outline_usr,
+            system_prompt=outline_sys,
+            temperature=self.ai_params.get("temperature", SUGGESTED_TEMPERATURES["cpg_skeleton"]),
+            top_p=self.ai_params.get("top_p", 0.9),
+            top_k=self.ai_params.get("top_k", 40),
+            max_tokens=self.ai_params.get("max_tokens", 65536),
+        )
+
+        outline_items = outline_result.get("outline", [])
+        cpg_title = outline_result.get("cpg_title", "骨架")
+        logger.info("Pass 1 完成: 大纲 %d 条 (目标 %d)", len(outline_items), self.total_episodes)
+        self.progress.emit(
+            f"📋 大纲已生成 {len(outline_items)} 条，开始逐阶段展开…"
+        )
+
+        # 按 hauge_stage_id 分组
+        from collections import defaultdict
+        stage_groups = defaultdict(list)
+        for item in outline_items:
+            sid = item.get("hauge_stage_id", 1)
+            stage_groups[sid].append(item)
+
+        full_outline_json = json.dumps(outline_items, ensure_ascii=False, indent=1)
+
+        # ========== Pass 2: 逐阶段展开 ==========
+        all_stages = []
+        all_edges = []
+
+        for sid in range(1, 7):
+            items = stage_groups.get(sid, [])
+            if not items:
+                continue  # 该阶段无节点
+            stage_name = STAGE_NAMES_MAP[sid]
+            short_name = stage_name.split("(")[0].strip()
+
+            self.progress.emit(
+                f"🏗️ [Pass 2 — {sid}/6] 展开「{short_name}」"
+                f"（{len(items)} 集: {items[0]['node_id']}~{items[-1]['node_id']}）…"
+            )
+
+            # 本阶段大纲摘录
+            excerpt_lines = []
+            for item in items:
+                excerpt_lines.append(
+                    f"- {item['node_id']}: {item.get('title','')} — "
+                    f"{item.get('one_line_summary','')} "
+                    f"[钩子: {item.get('episode_hook','')}]"
+                )
+            stage_excerpt = "\n".join(excerpt_lines)
+
+            expand_sys = (
+                SYSTEM_PROMPT_CPG_EXPAND
+                .replace("{stage_id}", str(sid))
+                .replace("{stage_name}", stage_name)
             )
             if self.drama_style_block:
-                system_prompt += "\n" + self.drama_style_block
+                expand_sys += "\n" + self.drama_style_block
 
-            user_prompt = (
-                USER_PROMPT_CPG_SKELETON
+            expand_usr = (
+                USER_PROMPT_CPG_EXPAND
                 .replace("{sparkle}", self.sparkle)
-                .replace("{world_variables_json}",
-                         json.dumps(self.world_variables, ensure_ascii=False, indent=2))
-                .replace("{finale_condition}", self.finale_condition)
                 .replace("{characters_summary}", chars_summary)
-                .replace("{total_episodes}", str(self.total_episodes))
-                .replace("{episode_duration}", str(self.episode_duration))
+                .replace("{full_outline_json}", full_outline_json)
+                .replace("{stage_id}", str(sid))
+                .replace("{stage_name}", stage_name)
+                .replace("{stage_outline_excerpt}", stage_excerpt)
             )
+
             result = ai_service.generate_json(
-                user_prompt=user_prompt,
-                system_prompt=system_prompt,
+                user_prompt=expand_usr,
+                system_prompt=expand_sys,
                 temperature=self.ai_params.get("temperature", SUGGESTED_TEMPERATURES["cpg_skeleton"]),
                 top_p=self.ai_params.get("top_p", 0.9),
                 top_k=self.ai_params.get("top_k", 40),
                 max_tokens=self.ai_params.get("max_tokens", 16384),
             )
-            self.finished.emit(result)
-        except Exception as e:
-            logger.error("CPGSkeletonWorker 失败: %s", e, exc_info=True)
-            self.error.emit(f"CPG 骨架生成失败：{str(e)}")
+
+            for stage in result.get("hauge_stages", []):
+                stage["stage_id"] = sid
+                stage["stage_name"] = stage_name
+                all_stages.append(stage)
+            all_edges.extend(result.get("causal_edges", []))
+
+        # 组装最终结果
+        merged = {
+            "cpg_title": cpg_title,
+            "total_episodes": self.total_episodes,
+            "hauge_stages": all_stages,
+            "causal_edges": all_edges,
+        }
+        self.finished.emit(merged)
+
+    def _build_chars_summary(self) -> str:
+        return "\n".join(
+            f"- [{c.get('importance_level','C')}/{c.get('role_type','配角')}] {c.get('name','')}: "
+            f"{c.get('personality','')} / 动机: {c.get('motivation','')}"
+            for c in self.characters
+        ) or "（未设定角色）"
+
+    def _build_system_prompt(self) -> str:
+        system_prompt = (
+            SYSTEM_PROMPT_CPG_SKELETON
+            .replace("{total_episodes}", str(self.total_episodes))
+            .replace("{episode_duration}", str(self.episode_duration))
+        )
+        if self.drama_style_block:
+            system_prompt += "\n" + self.drama_style_block
+        return system_prompt
 
 
 # ============================================================
@@ -366,7 +506,7 @@ class RAGWorker(BaseWorker):
                 temperature=self.ai_params.get("temperature", SUGGESTED_TEMPERATURES["rag_check"]),
                 top_p=self.ai_params.get("top_p", 0.9),
                 top_k=self.ai_params.get("top_k", 40),
-                max_tokens=self.ai_params.get("max_tokens", 4096),
+                max_tokens=self.ai_params.get("max_tokens", 8192),
             )
             self.finished.emit(result)
         except Exception as e:
@@ -380,21 +520,47 @@ class RAGWorker(BaseWorker):
 class CharacterGenWorker(BaseWorker):
     """
     后台执行 AI-Call-1.5：角色自动生成。
-    输入: sparkle, world_variables (list), finale_condition, AI 参数
+    输入: sparkle, world_variables (list), finale_condition, AI 参数, existing_characters
     输出: {"characters": [...], "relations": [...], "design_notes": "..."}
     """
     def __init__(self, sparkle: str, world_variables: list, finale_condition: str,
-                 ai_params: dict, char_count: int = 5):
+                 ai_params: dict, char_count: int = 5,
+                 existing_characters: list = None):
         super().__init__()
         self.sparkle = sparkle
         self.world_variables = world_variables
         self.finale_condition = finale_condition
         self.ai_params = ai_params
         self.char_count = char_count
+        self.existing_characters = existing_characters or []
 
     def run(self):
         try:
             self.progress.emit(f"🎭 正在生成 {self.char_count} 个角色建议，请稍候…")
+
+            # 构建已有角色排除块
+            if self.existing_characters:
+                lines = []
+                for c in self.existing_characters:
+                    lines.append(
+                        f"- {c.get('name','?')} [{c.get('role_type','?')}/{c.get('importance_level','C')}]: "
+                        f"{c.get('personality','')} / 动机: {c.get('motivation','')}"
+                    )
+                existing_block = (
+                    "## ⚠️ 已有角色（严禁重复）\n"
+                    "以下角色已经存在，你新生成的角色必须：\n"
+                    "1. 名字完全不同（不能相同或相似）\n"
+                    "2. 身份/职位/背景不能雷同\n"
+                    "3. 应与已有角色形成互补或新的冲突关系\n\n"
+                    + "\n".join(lines)
+                )
+            else:
+                existing_block = ""
+
+            system_prompt = SYSTEM_PROMPT_CHARACTER_GEN.replace(
+                "{char_count}", str(self.char_count)
+            )
+
             user_prompt = (
                 USER_PROMPT_CHARACTER_GEN
                 .replace("{sparkle}", self.sparkle)
@@ -402,14 +568,15 @@ class CharacterGenWorker(BaseWorker):
                          json.dumps(self.world_variables, ensure_ascii=False, indent=2))
                 .replace("{finale_condition}", self.finale_condition)
                 .replace("{char_count}", str(self.char_count))
+                .replace("{existing_characters_block}", existing_block)
             )
             result = ai_service.generate_json(
                 user_prompt=user_prompt,
-                system_prompt=SYSTEM_PROMPT_CHARACTER_GEN,
+                system_prompt=system_prompt,
                 temperature=self.ai_params.get("temperature", TEMPERATURE_CHARACTER_GEN),
                 top_p=self.ai_params.get("top_p", 0.9),
                 top_k=self.ai_params.get("top_k", 40),
-                max_tokens=self.ai_params.get("max_tokens", 4096),
+                max_tokens=self.ai_params.get("max_tokens", 8192),
             )
             self.finished.emit(result)
         except Exception as e:
@@ -508,3 +675,191 @@ class ExpansionWorker(BaseWorker):
         except Exception as e:
             logger.error("ExpansionWorker 失败: %s", e, exc_info=True)
             self.error.emit(f"剧本扩写失败：{str(e)}")
+
+
+# ====================================================================
+# NodeRefineWorker — 骨架节点 AI 优化
+# 支持模式:
+#   "chat"         — 单次对话，检测返回中是否含修改 JSON
+#   "quick_regen"  — 单次或多人格并行重生成
+#   "bvsr_rewrite" — 多人格并行重写，返回每个人格的候选版本
+#   "split_refine" — 拆分后补全/扩写
+#   "merge"        — 合并两个节点
+# ====================================================================
+
+class NodeRefineWorker(QThread):
+    finished = Signal(dict)   # 根据 mode 不同内容不同，见下
+    error    = Signal(str)
+    progress = Signal(str)
+
+    def __init__(
+        self,
+        mode: str,
+        system_prompt: str,
+        user_prompt: str,
+        ai_params: dict,
+        # BVSR 多人格专用
+        persona_calls: list = None,   # [{"persona_key":str,"system_prompt":str,"user_prompt":str}]
+    ):
+        super().__init__()
+        self.mode           = mode
+        self.system_prompt  = system_prompt
+        self.user_prompt    = user_prompt
+        self.ai_params      = ai_params
+        self.persona_calls  = persona_calls or []
+
+    def run(self):
+        import asyncio, json, re
+        try:
+            if self.mode in ("bvsr_rewrite", "quick_regen") and self.persona_calls:
+                # 多人格并行调用
+                self.progress.emit(f"正在启动 {len(self.persona_calls)} 个人格并行调用…")
+                calls = [{
+                    "user_prompt":   c["user_prompt"],
+                    "system_prompt": c["system_prompt"],
+                    "temperature":   self.ai_params.get("temperature", 1.0),
+                    "top_p":         self.ai_params.get("top_p", 0.9),
+                    "top_k":         self.ai_params.get("top_k", 40),
+                    "max_tokens":    self.ai_params.get("max_tokens", 8192),
+                    "persona_key":   c["persona_key"],
+                } for c in self.persona_calls]
+
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                try:
+                    raw_results = loop.run_until_complete(
+                        ai_service.parallel_generate(calls)
+                    )
+                finally:
+                    loop.close()
+
+                candidates = []
+                for r in raw_results:
+                    if r.get("error"):
+                        candidates.append({
+                            "persona_key": r["persona_key"],
+                            "node": None,
+                            "error": r["error"],
+                        })
+                    else:
+                        node = self._parse_node_json(r.get("result", ""))
+                        candidates.append({
+                            "persona_key": r["persona_key"],
+                            "node": node,
+                            "error": None if node else "JSON 解析失败",
+                        })
+                self.finished.emit({"mode": self.mode, "candidates": candidates})
+
+            elif self.mode == "chat":
+                # 单次对话调用（generate 是同步方法）
+                raw = ai_service.generate(
+                    user_prompt=self.user_prompt,
+                    system_prompt=self.system_prompt,
+                    temperature=self.ai_params.get("temperature", 0.8),
+                    top_p=self.ai_params.get("top_p", 0.9),
+                    top_k=self.ai_params.get("top_k", 40),
+                    max_tokens=self.ai_params.get("max_tokens", 8192),
+                )
+                # 检测返回中是否含 {"action":"modify"} JSON
+                modify_node = self._extract_modify_json(raw or "")
+                self.finished.emit({
+                    "mode": "chat",
+                    "response": raw or "",
+                    "modify_node": modify_node,   # None 表示仅讨论
+                })
+
+            else:
+                # 单次调用（quick_regen 无人格 / split_refine / merge）
+                mime = "application/json" if self.mode in ("split_refine", "merge", "quick_regen") else None
+                raw = ai_service.generate(
+                    user_prompt=self.user_prompt,
+                    system_prompt=self.system_prompt,
+                    temperature=self.ai_params.get("temperature", 0.7),
+                    top_p=self.ai_params.get("top_p", 0.9),
+                    top_k=self.ai_params.get("top_k", 40),
+                    max_tokens=self.ai_params.get("max_tokens", 8192),
+                    response_mime_type=mime,
+                )
+
+                if self.mode == "split_refine":
+                    # 期望返回 JSON 数组
+                    nodes = self._parse_nodes_array(raw or "")
+                    self.finished.emit({"mode": "split_refine", "nodes": nodes})
+                else:
+                    # quick_regen / merge — 期望单个节点 JSON
+                    node = self._parse_node_json(raw or "")
+                    self.finished.emit({"mode": self.mode, "node": node})
+
+        except Exception as e:
+            logger.error("NodeRefineWorker[%s] 失败: %s", self.mode, e, exc_info=True)
+            self.error.emit(f"AI 调用失败: {str(e)}")
+
+    # ---- 解析工具 ----
+
+    @staticmethod
+    def _parse_node_json(text: str) -> dict | None:
+        """从 AI 返回文本中提取单个节点 JSON"""
+        import json, re
+        # 先尝试代码块
+        m = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', text, re.DOTALL)
+        if m:
+            raw = m.group(1)
+        else:
+            # 找第一个 { ... }
+            m = re.search(r'\{.*\}', text, re.DOTALL)
+            raw = m.group(0) if m else ""
+        if not raw:
+            return None
+        try:
+            data = json.loads(raw)
+            # 验证必要字段
+            if "title" in data or "event_summaries" in data:
+                return data
+        except json.JSONDecodeError:
+            pass
+        return None
+
+    @staticmethod
+    def _parse_nodes_array(text: str) -> list:
+        """从 AI 返回文本中提取节点 JSON 数组"""
+        import json, re
+        m = re.search(r'```(?:json)?\s*(\[.*?\])\s*```', text, re.DOTALL)
+        if m:
+            raw = m.group(1)
+        else:
+            m = re.search(r'\[.*\]', text, re.DOTALL)
+            raw = m.group(0) if m else ""
+        if not raw:
+            return []
+        try:
+            data = json.loads(raw)
+            if isinstance(data, list):
+                return data
+        except json.JSONDecodeError:
+            pass
+        return []
+
+    @staticmethod
+    def _extract_modify_json(text: str) -> dict | None:
+        """检测 Chat 回复中是否含 {"action":"modify",...} JSON"""
+        import json, re
+        m = re.search(r'```(?:json)?\s*(\{.*?"action"\s*:\s*"modify".*?\})\s*```',
+                      text, re.DOTALL)
+        if m:
+            raw = m.group(1)
+        else:
+            m = re.search(r'\{[^{}]*"action"\s*:\s*"modify"[^{}]*\}', text, re.DOTALL)
+            if not m:
+                # 宽松匹配包含嵌套的情况
+                m = re.search(r'\{.*?"action"\s*:\s*"modify".*?\}', text, re.DOTALL)
+            raw = m.group(0) if m else ""
+        if not raw:
+            return None
+        try:
+            data = json.loads(raw)
+            if data.get("action") == "modify" and "node" in data:
+                return data["node"]
+        except json.JSONDecodeError:
+            pass
+        return None
+

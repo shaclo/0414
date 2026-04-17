@@ -5,7 +5,7 @@
 
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-    QTextEdit, QPushButton, QSplitter, QMessageBox,
+    QTextEdit, QPushButton, QSplitter, QMessageBox, QComboBox,
 )
 from PySide6.QtCore import Qt, Signal
 
@@ -14,6 +14,7 @@ from env import (
     SYSTEM_PROMPT_WORLD_EXTRACT, USER_PROMPT_WORLD_EXTRACT,
     SUGGESTED_TEMPERATURES,
 )
+from services.genre_manager import genre_manager
 from services.worker import SocraticWorker, WorldExtractWorker
 from services.rag_controller import rag_controller
 from ui.widgets.ai_settings_panel import AISettingsPanel
@@ -68,6 +69,23 @@ class Phase1Genesis(QWidget):
         self._sparkle_input.setMinimumHeight(100)
         self._sparkle_input.setMaximumHeight(160)
         il.addWidget(self._sparkle_input)
+
+        # 题材选择
+        genre_row = QHBoxLayout()
+        genre_row.addWidget(QLabel("题材类型:"))
+        self._genre_combo = QComboBox()
+        self._genre_combo.setMinimumWidth(200)
+        all_genres = genre_manager.get_all()
+        for key, preset in all_genres.items():
+            self._genre_combo.addItem(preset.get("label", key), key)
+        self._genre_combo.setCurrentIndex(max(0, len(all_genres) - 1))  # default: last (custom)
+        self._genre_combo.currentIndexChanged.connect(self._on_genre_changed)
+        genre_row.addWidget(self._genre_combo)
+        default_desc = genre_manager.get("custom").get("description", "") if genre_manager.get("custom") else ""
+        self._genre_desc = QLabel(default_desc)
+        self._genre_desc.setStyleSheet("color: #7f8c8d; font-size: 11px;")
+        genre_row.addWidget(self._genre_desc, 1)
+        il.addLayout(genre_row)
 
         self._ai_settings_1 = AISettingsPanel(
             suggested_temp=SUGGESTED_TEMPERATURES["socratic"]
@@ -152,6 +170,12 @@ class Phase1Genesis(QWidget):
             self._switch_to_qa()
         if self.project_data.world_variables:
             self._var_table.set_variables(self.project_data.world_variables)
+        # 恢复题材选择
+        genre = getattr(self.project_data, 'story_genre', 'custom')
+        for i in range(self._genre_combo.count()):
+            if self._genre_combo.itemData(i) == genre:
+                self._genre_combo.setCurrentIndex(i)
+                break
 
     # ------------------------------------------------------------------ #
     # 视图切换
@@ -269,6 +293,7 @@ class Phase1Genesis(QWidget):
 
         self.project_data.qa_pairs         = qa_pairs
         self.project_data.world_variables  = variables
+        self.project_data.story_genre      = self._genre_combo.currentData() or "custom"
         self.project_data.current_phase    = "skeleton"
         self.project_data.push_history("lock_world")
 
@@ -295,3 +320,9 @@ class Phase1Genesis(QWidget):
         self._set_busy(self._btn_extract, False, "AI 提炼变量")
         QMessageBox.critical(self, "AI 调用失败", msg)
         self.status_message.emit("错误: " + msg)
+
+    def _on_genre_changed(self, index: int):
+        key = self._genre_combo.itemData(index)
+        preset = genre_manager.get(key)
+        self._genre_desc.setText(preset.get("description", ""))
+        self.project_data.story_genre = key or "custom"

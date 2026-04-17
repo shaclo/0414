@@ -11,12 +11,10 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Signal
 from typing import List, Dict
 
-from env import PERSONA_DEFINITIONS
-
 
 class PersonaSelector(QWidget):
     """
-    10 人格多选面板。
+    人格多选面板。
     按类别（启动型/推进型/氛围型/终结型）分组展示，
     用户通过复选框选择参与生成的人格。
 
@@ -37,19 +35,49 @@ class PersonaSelector(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self._checkboxes: Dict[str, QCheckBox] = {}
+        self._group = None
+        self._group_layout = None
+        self._count_label = None
         self._setup_ui()
 
-    def _setup_ui(self):
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
+    def _get_personas(self) -> dict:
+        """从 persona_engine 获取最新人格列表"""
+        from services.persona_engine import persona_engine
+        return persona_engine.get_all_personas()
 
-        group = QGroupBox("🎭 选择参与生成的人格")
-        group_layout = QVBoxLayout(group)
+    def _setup_ui(self):
+        self._main_layout = QVBoxLayout(self)
+        self._main_layout.setContentsMargins(0, 0, 0, 0)
+        self._build_content()
+
+    def _build_content(self):
+        """构建/重建人格选择面板内容"""
+        # 清理旧内容
+        if self._group:
+            self._main_layout.removeWidget(self._group)
+            self._group.deleteLater()
+            self._group = None
+
+        self._checkboxes.clear()
+
+        self._group = QGroupBox("🎭 选择参与生成的人格")
+        self._group.setCheckable(True)
+        self._group.setChecked(True)
+        self._group.setStyleSheet(
+            "QGroupBox { font-weight: bold; padding-top: 16px; }"
+            "QGroupBox::indicator { width: 13px; height: 13px; }"
+        )
+        self._inner_widget = QWidget()
+        self._group_layout = QVBoxLayout(self._inner_widget)
+        self._group_layout.setContentsMargins(4, 4, 4, 4)
+        self._group_layout.setSpacing(4)
+
+        personas = self._get_personas()
 
         # 按类别分组
         personas_by_category = {}
-        for key, persona in PERSONA_DEFINITIONS.items():
-            cat = persona["category"]
+        for key, persona in personas.items():
+            cat = persona.get("category", "initiator")
             if cat not in personas_by_category:
                 personas_by_category[cat] = []
             personas_by_category[cat].append((key, persona))
@@ -58,18 +86,23 @@ class PersonaSelector(QWidget):
             if cat_key not in personas_by_category:
                 continue
 
-            row = QHBoxLayout()
-            row.addWidget(QLabel(f"{cat_label}:"))
+            # 类别标签
+            self._group_layout.addWidget(QLabel(f"{cat_label}:"))
 
-            for key, persona in personas_by_category[cat_key]:
-                cb = QCheckBox(persona["name"])
-                cb.setChecked(True)  # 默认全选
-                cb.stateChanged.connect(self._on_changed)
-                row.addWidget(cb)
-                self._checkboxes[key] = cb
-
-            row.addStretch()
-            group_layout.addLayout(row)
+            # 每行最多4个复选框，自动换行
+            items = personas_by_category[cat_key]
+            MAX_PER_ROW = 4
+            for i in range(0, len(items), MAX_PER_ROW):
+                row = QHBoxLayout()
+                row.setContentsMargins(16, 0, 0, 0)
+                for key, persona in items[i:i + MAX_PER_ROW]:
+                    cb = QCheckBox(persona.get("name", key))
+                    cb.setChecked(True)  # 默认全选
+                    cb.stateChanged.connect(self._on_changed)
+                    row.addWidget(cb)
+                    self._checkboxes[key] = cb
+                row.addStretch()
+                self._group_layout.addLayout(row)
 
         # 全选/全不选 按钮
         btn_row = QHBoxLayout()
@@ -82,14 +115,32 @@ class PersonaSelector(QWidget):
         btn_row.addWidget(btn_deselect_all)
 
         # 选中计数
-        self._count_label = QLabel("已选: 10 个人格")
+        self._count_label = QLabel("")
         btn_row.addWidget(self._count_label)
         btn_row.addStretch()
 
-        group_layout.addLayout(btn_row)
-        layout.addWidget(group)
+        self._group_layout.addLayout(btn_row)
+
+        # 将内容组件加入 GroupBox，并连接折叠
+        outer_layout = QVBoxLayout(self._group)
+        outer_layout.setContentsMargins(8, 4, 8, 8)
+        outer_layout.addWidget(self._inner_widget)
+        self._group.toggled.connect(self._inner_widget.setVisible)
+
+        self._main_layout.addWidget(self._group)
 
         self._update_count()
+
+    def refresh(self):
+        """刷新人格列表（BVSR 设置修改后调用）"""
+        # 记住当前选中的 keys
+        prev_selected = self.get_selected_keys()
+        self._build_content()
+        # 恢复之前的选中状态（对仍存在的 key）
+        if prev_selected:
+            for k, cb in self._checkboxes.items():
+                cb.setChecked(k in prev_selected)
+            self._update_count()
 
     def _on_changed(self):
         self._update_count()
@@ -101,7 +152,8 @@ class PersonaSelector(QWidget):
 
     def _update_count(self):
         count = len(self.get_selected_keys())
-        self._count_label.setText(f"已选: {count} 个人格")
+        if self._count_label:
+            self._count_label.setText(f"已选: {count} 个人格")
 
     def get_selected_keys(self) -> List[str]:
         """获取当前选中的人格 key 列表"""

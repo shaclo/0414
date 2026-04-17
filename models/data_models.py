@@ -121,7 +121,7 @@ class QAPair:
 @dataclass
 class CPGNode:
     """CPG 图中的节点"""
-    node_id: str                        # 如 "N1"
+    node_id: str                        # 如 "Ep1"
     title: str                          # 节点标题
     hauge_stage_id: int                 # Hauge 阶段 ID (1-6)
     setting: str = ""                   # 时空环境

@@ -34,6 +34,7 @@ class ProjectData:
     total_episodes: int = 20            # 总集数
     episode_duration: int = 3           # 每集时长（分钟）
     drama_style: str = "short_drama"    # "short_drama" | "traditional"
+    story_genre: str = "custom"          # "crime" | "romance" | "suspense" | "revenge" | "fantasy" | "urban" | "comedy" | "custom"
     scenes_per_episode: str = "1-2"     # 默认每集场景数范围，如 "1-2" 或 "2-3"
 
     # ----- Phase 2: 骨架 -----
@@ -48,19 +49,19 @@ class ProjectData:
 
     # ----- Phase 4: 血肉 -----
     confirmed_beats: Dict[str, Optional[dict]] = field(default_factory=dict)
-    # { "N1": {...StoryBeat dict...}, "N2": null, ... }
+    # { "Ep1": {...StoryBeat dict...}, "Ep2": null, ... }
 
     ite_results: Optional[dict] = None      # 最近一次 ITE 分析结果
     rag_results: Dict[str, dict] = field(default_factory=dict)
 
     # ----- Phase 5: 扩写 -----
     screenplay_texts: Dict[str, str] = field(default_factory=dict)  # {node_id: 剧本正文}
-    # { "N1": {...RAG check result...}, ... }
+    # { "Ep1": {...RAG check result...}, ... }
 
     # ----- 操作历史（用于回退） -----
     generation_history: List[dict] = field(default_factory=list)
     # [{ "timestamp": "...", "action": "confirm_beat|generate_skeleton|...",
-    #    "node": "N1", "snapshot": {...} }]
+    #    "node": "Ep1", "snapshot": {...} }]
 
     def save_to_file(self, filepath: str) -> None:
         """保存项目到 .story.json 文件"""
@@ -134,3 +135,77 @@ class ProjectData:
             self.current_phase = "flesh"
         # 记录回退操作
         self.push_history(f"reset_to_{phase}")
+
+
+# ================================================================
+# 节点版本管理工具函数
+# ================================================================
+
+def make_node_snapshot(node: dict) -> dict:
+    """提取节点内容字段为版本快照"""
+    result = {}
+    for k in ("title", "setting", "emotional_tone", "episode_hook"):
+        result[k] = node.get(k, "")
+    for k in ("characters", "event_summaries"):
+        v = node.get(k, [])
+        result[k] = list(v) if isinstance(v, list) else []
+    return result
+
+
+def apply_snapshot(node: dict, snapshot: dict):
+    """将版本快照应用到节点"""
+    for k, v in snapshot.items():
+        node[k] = list(v) if isinstance(v, list) else v
+
+
+def add_version(node: dict, source: str, label: str = "") -> int:
+    """
+    为节点追加当前内容为新版本。
+    source: ai_generate | manual | chat_refine | quick_regen | bvsr_rewrite | split | merge
+    返回新版本的 ver_id。
+    """
+    from datetime import datetime
+    if "versions" not in node:
+        node["versions"] = []
+    ver_id = len(node["versions"])
+    node["versions"].append({
+        "ver_id": ver_id,
+        "source": source,
+        "timestamp": datetime.now().isoformat(),
+        "label": label or source,
+        "snapshot": make_node_snapshot(node),
+    })
+    node["active_version"] = ver_id
+    return ver_id
+
+
+def get_active_version_snapshot(node: dict) -> dict:
+    """获取当前激活版本的快照，若无版本就返回当前字段"""
+    versions = node.get("versions", [])
+    active_v = node.get("active_version", 0)
+    if versions and active_v < len(versions):
+        return versions[active_v]["snapshot"]
+    return make_node_snapshot(node)
+
+
+def update_version(node: dict, ver_idx: int = None):
+    """
+    覆盖保存：将节点当前内容更新到指定版本的 snapshot。
+    ver_idx 为 None 时，更新 active_version。
+    """
+    from datetime import datetime
+    versions = node.get("versions", [])
+    if ver_idx is None:
+        ver_idx = node.get("active_version", 0)
+    if versions and 0 <= ver_idx < len(versions):
+        versions[ver_idx]["snapshot"] = make_node_snapshot(node)
+        versions[ver_idx]["timestamp"] = datetime.now().isoformat()
+
+
+def set_active_version(node: dict, ver_idx: int):
+    """设置激活版本并应用其快照"""
+    versions = node.get("versions", [])
+    if 0 <= ver_idx < len(versions):
+        node["active_version"] = ver_idx
+        apply_snapshot(node, versions[ver_idx]["snapshot"])
+

@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (
     QTextEdit, QGroupBox, QMessageBox, QRadioButton,
     QButtonGroup, QTableWidget, QTableWidgetItem,
     QHeaderView, QAbstractItemView, QFrame, QSpinBox,
+    QSizePolicy,
 )
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QColor
@@ -52,7 +53,9 @@ class Phase3Flesh(QWidget):
         self._selected_persona_key = None
         self._confirmed_beat_data = None
         self._batch_mode          = False
+        self._batch_auto_confirm  = False
         self._batch_remaining     = 0
+        self._batch_persona_key   = None
         self._setup_ui()
 
     # ------------------------------------------------------------------ #
@@ -87,44 +90,33 @@ class Phase3Flesh(QWidget):
 
         self._view_var.setVisible(True)
         self._view_ana.setVisible(False)
-        root.addWidget(self._view_var)
-        root.addWidget(self._view_ana)
-
-        # 底部全局回退
-        back_row = QHBoxLayout()
-        btn_back_skel = QPushButton("<- 返回骨架 (整体重生)")
-        btn_back_skel.clicked.connect(self.go_back_to_skeleton.emit)
-        back_row.addWidget(btn_back_skel)
-        back_row.addStretch()
-        root.addLayout(back_row)
+        root.addWidget(self._view_var, 1)
+        root.addWidget(self._view_ana, 1)
 
     def _build_variation_view(self, parent: QWidget):
         vl = QVBoxLayout(parent)
         vl.setContentsMargins(0, 0, 0, 0)
         vl.setSpacing(2)
 
-        # 上下分割：上方控制区 + 下方结果区，可拖动
-        main_splitter = QSplitter(Qt.Vertical)
+        # 左右分割：左侧(控制+卡片) + 右侧(编辑视图)
+        main_splitter = QSplitter(Qt.Horizontal)
 
-        # === 上方控制区 ===
-        control_widget = QWidget()
-        cl = QVBoxLayout(control_widget)
+        # === 左侧控制与卡片区 ===
+        left_widget = QWidget()
+        left_widget.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
+        cl = QVBoxLayout(left_widget)
         cl.setContentsMargins(0, 0, 0, 0)
-        cl.setSpacing(2)
+        cl.setSpacing(8)
 
-        # 人格选择（可折叠）
-        persona_group, persona_inner = self._make_collapsible("🎭 选择参与生成的人格", expanded=True)
+        # 人格选择（直接添加，PersonaSelector 内部有自己的 QGroupBox）
         self._persona_selector = PersonaSelector()
-        persona_inner.addWidget(self._persona_selector)
-        cl.addWidget(persona_group)
+        cl.addWidget(self._persona_selector)
 
-        # AI 设置（可折叠，默认收起）
-        ai_group, ai_inner = self._make_collapsible("⚙️ AI 调用设置", expanded=False)
+        # AI 设置（直接添加，AISettingsPanel 内部有自己的 QGroupBox）
         self._ai_settings_var = AISettingsPanel(
             suggested_temp=SUGGESTED_TEMPERATURES["variation"]
         )
-        ai_inner.addWidget(self._ai_settings_var)
-        cl.addWidget(ai_group)
+        cl.addWidget(self._ai_settings_var)
 
         # Prompt 查看器（可折叠，默认收起）
         prompt_group, prompt_inner = self._make_collapsible("📝 Prompt 模板预览", expanded=False)
@@ -148,7 +140,7 @@ class Phase3Flesh(QWidget):
 
         gen_row.addWidget(QLabel("  批量生成后续"))
         self._batch_count_spin = QSpinBox()
-        self._batch_count_spin.setRange(1, 10)
+        self._batch_count_spin.setRange(1, 99)
         self._batch_count_spin.setValue(3)
         self._batch_count_spin.setSuffix(" 章")
         self._batch_count_spin.setToolTip("一键按当前人格配置生成后续多个章节")
@@ -166,19 +158,26 @@ class Phase3Flesh(QWidget):
         self._btn_batch.clicked.connect(self._on_batch_generate)
         gen_row.addWidget(self._btn_batch)
 
+        self._btn_autopilot = QPushButton("✈️ 全自动生成")
+        self._btn_autopilot.setMinimumHeight(38)
+        self._btn_autopilot.setToolTip(
+            "本功能只能选择一个人格！如果选择了多个人格，则默认只执行排序靠前的第一个生成\n"
+            "选定一个人格，自动生成指定集数的 Beat 并自动确认，\n"
+            "无需手动选择和确认。适合演示和快速原型。"
+        )
+        self._btn_autopilot.setStyleSheet(
+            "QPushButton{background:#e67e22;color:white;font-weight:bold;"
+            "border-radius:5px;border:none;}"
+            "QPushButton:hover{background:#d35400;}"
+            "QPushButton:disabled{background:#bdc3c7;color:#888;}"
+        )
+        self._btn_autopilot.clicked.connect(self._on_autopilot_generate)
+        gen_row.addWidget(self._btn_autopilot)
+
         gen_row.addStretch()
         cl.addLayout(gen_row)
 
-        main_splitter.addWidget(control_widget)
-
-        # === 下方结果区 ===
-        result_widget = QWidget()
-        rl_outer = QVBoxLayout(result_widget)
-        rl_outer.setContentsMargins(0, 0, 0, 0)
-
-        # 卡片区 + 详情编辑
-        result_splitter = QSplitter(Qt.Horizontal)
-
+        # === 卡片区 (放在左侧下方) ===
         cards_container = QWidget()
         self._cards_layout = QHBoxLayout(cards_container)
         self._cards_layout.setAlignment(Qt.AlignLeft | Qt.AlignTop)
@@ -187,10 +186,11 @@ class Phase3Flesh(QWidget):
         cards_scroll = QScrollArea()
         cards_scroll.setWidgetResizable(True)
         cards_scroll.setWidget(cards_container)
-        cards_scroll.setMinimumHeight(200)
+        cards_scroll.setMinimumHeight(150)
         cards_scroll.setFrameShape(QFrame.NoFrame)
-        result_splitter.addWidget(cards_scroll)
+        cl.addWidget(cards_scroll, 1)
 
+        # === 右侧 文本与详情区 ===
         right = QWidget()
         rl = QVBoxLayout(right)
         rl.setContentsMargins(0, 0, 0, 0)
@@ -255,14 +255,28 @@ class Phase3Flesh(QWidget):
         self._detail_edit.setVisible(False)
         rl.addWidget(self._detail_edit)
 
-        result_splitter.addWidget(right)
-        result_splitter.setSizes([460, 360])
-        rl_outer.addWidget(result_splitter, 1)
+        left_scroll = QScrollArea()
+        left_scroll.setWidgetResizable(True)
+        left_scroll.setFrameShape(QScrollArea.NoFrame)
+        left_scroll.setWidget(left_widget)
+
+        main_splitter.addWidget(left_scroll)
+        main_splitter.addWidget(right)
+        main_splitter.setStretchFactor(0, 1)
+        main_splitter.setStretchFactor(1, 1)
+        main_splitter.setSizes([500, 500])
+
+        vl.addWidget(main_splitter, 1)
 
         # 当前视图模式
         self._current_view_mode = "readable"
 
         var_btn_row = QHBoxLayout()
+        
+        btn_back_skel_var = QPushButton("<- 返回骨架 (整体重生)")
+        btn_back_skel_var.clicked.connect(self.go_back_to_skeleton.emit)
+        var_btn_row.addWidget(btn_back_skel_var)
+        
         self._btn_regen_node = QPushButton("重新生成本节点")
         self._btn_regen_node.clicked.connect(self._on_generate)
         var_btn_row.addWidget(self._btn_regen_node)
@@ -284,12 +298,8 @@ class Phase3Flesh(QWidget):
         )
         self._btn_confirm.clicked.connect(self._on_confirm_beat)
         var_btn_row.addWidget(self._btn_confirm)
-        rl_outer.addLayout(var_btn_row)
-
-        main_splitter.addWidget(result_widget)
-        main_splitter.setSizes([200, 500])  # 控制区小，结果区大
-
-        vl.addWidget(main_splitter, 1)
+        
+        vl.addLayout(var_btn_row)
 
     def _build_analysis_view(self, parent: QWidget):
         al = QVBoxLayout(parent)
@@ -357,6 +367,11 @@ class Phase3Flesh(QWidget):
         al.addWidget(next_group)
 
         exec_row = QHBoxLayout()
+        
+        btn_back_skel_ana = QPushButton("<- 返回骨架 (整体重生)")
+        btn_back_skel_ana.clicked.connect(self.go_back_to_skeleton.emit)
+        exec_row.addWidget(btn_back_skel_ana)
+        
         self._btn_re_analysis = QPushButton("重新分析当前 Beat")
         self._btn_re_analysis.clicked.connect(self._re_run_analysis)
         exec_row.addWidget(self._btn_re_analysis)
@@ -445,8 +460,26 @@ class Phase3Flesh(QWidget):
         self._update_progress()
         self._clear_cards()
         self._detail_edit.clear()
+        self._readable_view.clear()
         self._selected_persona_key = None
         self._btn_confirm.setEnabled(False)
+        self._variation_results = []
+
+        # 加载已确认的 Beat 数据（如果存在）
+        nid = self._get_current_node_id()
+        if nid and nid in self.project_data.confirmed_beats:
+            beat = self.project_data.confirmed_beats[nid]
+            self._detail_edit.setPlainText(
+                json.dumps(beat, ensure_ascii=False, indent=2)
+            )
+            # 如果有手动保存的可读文本，优先显示；否则格式化显示
+            if isinstance(beat, dict) and beat.get("readable_text"):
+                self._readable_view.setPlainText(beat["readable_text"])
+            else:
+                self._readable_view.setPlainText(
+                    self._format_beat_readable(beat)
+                )
+            self.status_message.emit(f"节点 {nid} 已有确认的 Beat 数据（可重新生成覆盖）")
 
     # ------------------------------------------------------------------ #
     # 折叠面板辅助
@@ -475,46 +508,50 @@ class Phase3Flesh(QWidget):
     # 保存编辑内容
     # ------------------------------------------------------------------ #
     def _on_save_edit(self):
-        """将编辑过的可读视图/JSON视图内容保存回 beat 数据"""
-        if not self._selected_persona_key:
-            QMessageBox.warning(self, "提示", "没有选中的 Beat，无法保存。")
-            return
-
-        # 找到对应的 beat 数据
-        beat_data = None
-        for r in self._variation_results:
-            if r.get("persona_key") == self._selected_persona_key:
-                beat_data = r.get("beat")
-                break
-
-        if not beat_data:
-            QMessageBox.warning(self, "提示", "未找到对应的 Beat 数据。")
+        """将编辑过的可读视图/JSON视图内容保存回当前节点的 confirmed_beats"""
+        nid = self._get_current_node_id()
+        if not nid:
+            QMessageBox.warning(self, "提示", "请先选择一个节点。")
             return
 
         if self._current_view_mode == "json":
             # JSON 模式：解析编辑后的 JSON
             try:
                 new_data = json.loads(self._detail_edit.toPlainText())
-                # 更新 beat 数据
-                for r in self._variation_results:
-                    if r.get("persona_key") == self._selected_persona_key:
-                        r["beat"] = new_data
-                        break
-                self.status_message.emit("Beat JSON 已保存")
+                # 更新 beat 数据到 variation_results（如果有选中卡片）
+                if self._selected_persona_key:
+                    for r in self._variation_results:
+                        if r.get("persona_key") == self._selected_persona_key:
+                            r["beat"] = new_data
+                            break
+                # 同时保存到 confirmed_beats
+                self.project_data.confirmed_beats[nid] = new_data
+                self.status_message.emit(f"✅ 节点 {nid} 的 Beat JSON 已保存")
             except json.JSONDecodeError as e:
                 QMessageBox.warning(self, "JSON 格式错误", f"无法解析 JSON：{e}")
                 return
         else:
-            # 可读视图模式：保存编辑后的纯文本（注意：纯文本修改不回写到 JSON 结构）
-            self.status_message.emit("✅ 可读视图修改已保留（确认 Beat 时将使用此内容）")
+            # 可读视图模式：将文本内容保存为确认数据
+            text = self._readable_view.toPlainText().strip()
+            if not text:
+                QMessageBox.warning(self, "提示", "文本内容为空，无法保存。")
+                return
+            # 如果已有 JSON 结构，尝试保留；否则存储为纯文本格式
+            existing = self.project_data.confirmed_beats.get(nid)
+            if existing and isinstance(existing, dict):
+                existing["readable_text"] = text
+                self.project_data.confirmed_beats[nid] = existing
+            else:
+                self.project_data.confirmed_beats[nid] = {"readable_text": text}
+            self.status_message.emit(f"✅ 节点 {nid} 的可读文本已保存")
 
-        QMessageBox.information(self, "保存成功", "修改已保存。")
+        QMessageBox.information(self, "保存成功", "修改已保存到当前节点。")
 
     # ------------------------------------------------------------------ #
     # 一键批量生成
     # ------------------------------------------------------------------ #
     def _on_batch_generate(self):
-        """按当前人格配置，一键生成后续 N 个章节"""
+        """按当前人格配置，一键生成后续 N 个章节（仍需手动选择确认）"""
         count = self._batch_count_spin.value()
         node = self._get_current_node()
         if not node:
@@ -537,7 +574,7 @@ class Phase3Flesh(QWidget):
         reply = QMessageBox.question(
             self, "确认批量生成",
             f"将从当前节点开始，连续生成 {actual_count} 个章节的 Beat。\n\n"
-            f"每个章节会使用当前选中的人格配置自动生成，\n"
+            f"注意，只能选择一个人格！每个章节会使用当前选中的第一个人格配置自动生成，\n"
             f"生成后需要逐一确认。确定开始吗？",
             QMessageBox.Yes | QMessageBox.No,
         )
@@ -547,6 +584,50 @@ class Phase3Flesh(QWidget):
         # 先生成当前节点
         self._batch_remaining = actual_count - 1  # 当前节点算一个
         self._batch_mode = True
+        self._batch_auto_confirm = False
+        self._on_generate()
+
+    def _on_autopilot_generate(self):
+        """全自动模式：选定一个人格，自动生成 + 自动确认指定集数"""
+        count = self._batch_count_spin.value()
+        node = self._get_current_node()
+        if not node:
+            QMessageBox.warning(self, "提示", "请先选择要处理的节点！")
+            return
+        selected_keys = self._persona_selector.get_selected_keys()
+        if not selected_keys:
+            QMessageBox.warning(self, "提示", "请至少选择一个人格！")
+            return
+
+        # 取第一个选中的人格作为自动确认人格
+        self._batch_persona_key = selected_keys[0]
+
+        current_idx = self._node_combo.currentIndex()
+        remaining = self._node_combo.count() - current_idx
+        actual_count = min(count, remaining)
+
+        if actual_count <= 0:
+            QMessageBox.warning(self, "提示", "没有可生成的后续章节。")
+            return
+
+        from env import PERSONA_DEFINITIONS
+        pname = PERSONA_DEFINITIONS.get(self._batch_persona_key, {}).get("name", self._batch_persona_key)
+
+        reply = QMessageBox.question(
+            self, "确认全自动生成",
+            f"将使用人格「{pname}」自动生成并确认 {actual_count} 个章节。\n\n"
+            f"• 注意：本功能只能选择一个人格！如果多选则默认使用第一个人格\n"
+            f"• 每个章节自动生成 → 自动采用第一个有效结果 → 自动确认\n"
+            f"• 全程无需手动操作，适合演示/快速原型\n\n"
+            f"确定开始吗？",
+            QMessageBox.Yes | QMessageBox.No,
+        )
+        if reply == QMessageBox.No:
+            return
+
+        self._batch_remaining = actual_count - 1
+        self._batch_mode = True
+        self._batch_auto_confirm = True
         self._on_generate()
 
     # ------------------------------------------------------------------ #
@@ -569,8 +650,16 @@ class Phase3Flesh(QWidget):
         self._set_busy_var(True)
 
         from env import DRAMA_STYLE_CONFIG
+        from services.genre_manager import genre_manager
         style_key = self.project_data.drama_style or "short_drama"
         style_cfg = DRAMA_STYLE_CONFIG.get(style_key, {})
+
+        genre_key = getattr(self.project_data, 'story_genre', 'custom')
+        genre_cfg = genre_manager.get(genre_key)
+        combined_var = style_cfg.get("variation_style_block", "")
+        genre_var = genre_cfg.get("variation_block", "")
+        if genre_var:
+            combined_var = (combined_var + "\n\n" + genre_var).strip()
 
         self._worker = VariationWorker(
             sparkle=self.project_data.sparkle,
@@ -582,7 +671,7 @@ class Phase3Flesh(QWidget):
             selected_persona_keys=selected_keys,
             ai_params=self._ai_settings_var.get_all_settings(),
             characters=self.project_data.characters,
-            drama_style_block=style_cfg.get("variation_style_block", ""),
+            drama_style_block=combined_var,
         )
         self._worker.progress.connect(self.status_message)
         self._worker.beat_ready.connect(self._on_beat_ready)
@@ -609,6 +698,35 @@ class Phase3Flesh(QWidget):
 
     def _on_all_done(self, summary: dict):
         self._set_busy_var(False)
+
+        # 全自动模式：自动选择第一个有效结果并确认
+        if self._batch_auto_confirm:
+            # 找第一个成功的 beat
+            auto_beat = None
+            auto_key = None
+            for r in self._variation_results:
+                if r.get("beat"):
+                    auto_beat = r["beat"]
+                    auto_key = r["persona_key"]
+                    break
+            if auto_beat:
+                self._selected_persona_key = auto_key
+                self._detail_edit.setPlainText(
+                    json.dumps(auto_beat, ensure_ascii=False, indent=2)
+                )
+                nid = self._get_current_node_id()
+                self.status_message.emit(
+                    f"✈️ 全自动: {nid} 已自动确认 (剩余 {self._batch_remaining})"
+                )
+                self._on_confirm_beat()  # 自动确认
+                return
+            else:
+                self.status_message.emit("⚠️ 全自动模式: 本节点生成失败，已停止")
+                self._batch_mode = False
+                self._batch_auto_confirm = False
+                self._batch_remaining = 0
+                return
+
         self.status_message.emit(
             f"变体生成完成: {summary.get('success',0)}/{summary.get('total',0)} 成功，请选择方案"
         )
@@ -676,6 +794,17 @@ class Phase3Flesh(QWidget):
             for n in self.project_data.cpg_nodes
         )
         if all_done:
+            if self._batch_auto_confirm:
+                # 全自动模式：直接进入扩写
+                self._batch_mode = False
+                self._batch_auto_confirm = False
+                self._batch_remaining = 0
+                self.status_message.emit("✈️ 全自动模式完成！所有节点已确认，进入扩写阶段")
+                self.project_data.current_phase = "expansion"
+                self.project_data.push_history("enter_expansion")
+                self.phase_completed.emit()
+                return
+
             reply = QMessageBox.question(
                 self, "全部完成",
                 "所有节点已确认！\n"
@@ -722,7 +851,12 @@ class Phase3Flesh(QWidget):
                 from PySide6.QtCore import QTimer
                 QTimer.singleShot(500, self._on_generate)
             else:
+                if self._batch_auto_confirm:
+                    self.status_message.emit(
+                        f"✈️ 全自动模式完成！共处理了 {self._batch_count_spin.value() - self._batch_remaining} 个章节"
+                    )
                 self._batch_mode = False
+                self._batch_auto_confirm = False
                 self._batch_remaining = 0
 
     def _run_ite(self):

@@ -47,7 +47,7 @@ def t_project_state():
     pd.characters = [{"char_id": "char_001", "name": "李明"}]
     pd.character_relations = [{"from_char_id": "char_001", "to_char_id": "char_002",
                                 "relation_type": "父子"}]
-    pd.screenplay_texts = {"N1": "场景1 剧本正文..."}
+    pd.screenplay_texts = {"Ep1": "场景1 剧本正文..."}
     with tempfile.NamedTemporaryFile(suffix=".story.json", delete=False,
                                      mode="w", encoding="utf-8") as f:
         fname = f.name
@@ -56,7 +56,7 @@ def t_project_state():
         pd2 = ProjectData.load_from_file(fname)
         assert pd2.characters[0]["name"] == "李明"
         assert pd2.character_relations[0]["relation_type"] == "父子"
-        assert pd2.screenplay_texts["N1"] == "场景1 剧本正文..."
+        assert pd2.screenplay_texts["Ep1"] == "场景1 剧本正文..."
     finally:
         os.unlink(fname)
 
@@ -100,7 +100,7 @@ def t_workers():
         finale_condition="终局",
         characters_summary="• 李明 [主角]",
         previous_hook="故事开篇",
-        node_id="N1", node_title="开始",
+        node_id="Ep1", node_title="开始",
         hauge_stage_name="机会",
         setting="皇宫", entities="李明、张将军",
         causal_events_text="  事件1...",
@@ -108,7 +108,7 @@ def t_workers():
         target_word_count="600-800",
         ai_params={"temperature": 0.7},
     )
-    assert w_exp.node_id == "N1"
+    assert w_exp.node_id == "Ep1"
     assert w_exp.target_word_count == "600-800"
 
     # CPGSkeletonWorker 支持 characters 参数
@@ -119,7 +119,7 @@ def t_workers():
     # VariationWorker 支持 characters 参数
     w_var = VariationWorker(
         sparkle="梗概", world_variables=[], cpg_nodes=[], cpg_edges=[],
-        target_node={"node_id": "N1", "title": "开始"},
+        target_node={"node_id": "Ep1", "title": "开始"},
         confirmed_beats={}, selected_persona_keys=["historical_researcher"],
         ai_params={"temperature": 1.0},
         characters=[{"char_id": "char_001", "name": "李明"}],
@@ -223,11 +223,11 @@ def t_p5_on_enter():
     from ui.phase5_expansion import Phase5Expansion
     pd = ProjectData()
     pd.cpg_nodes = [
-        {"node_id": "N1", "title": "开始", "hauge_stage_id": 1,
+        {"node_id": "Ep1", "title": "开始", "hauge_stage_id": 1,
          "hauge_stage_name": "机会", "setting": "", "characters": [],
          "event_summaries": [], "emotional_tone": ""},
     ]
-    pd.confirmed_beats = {"N1": {"setting": "皇宫", "entities": ["李明"],
+    pd.confirmed_beats = {"Ep1": {"setting": "皇宫", "entities": ["李明"],
                                    "causal_events": [], "hook": "悬念"}}
     pd.screenplay_texts = {}
     pd.characters = []
@@ -245,23 +245,23 @@ def t_data_flow():
     pd.character_relations = [{"from_char_id": "c1", "to_char_id": "c2",
                                  "relation_type": "父子/敌对"}]
     pd.cpg_nodes = [
-        {"node_id": "N1", "title": "开始", "hauge_stage_id": 1,
+        {"node_id": "Ep1", "title": "开始", "hauge_stage_id": 1,
          "hauge_stage_name": "机会", "event_summaries": ["事件1"],
          "setting": "", "characters": ["李明"]},
-        {"node_id": "N2", "title": "转折", "hauge_stage_id": 2,
+        {"node_id": "Ep2", "title": "转折", "hauge_stage_id": 2,
          "hauge_stage_name": "变点", "event_summaries": ["事件2"],
          "setting": "", "characters": ["李明", "皇帝"]},
     ]
-    pd.confirmed_beats = {"N1": None, "N2": None}
-    pd.confirmed_beats["N1"] = {"causal_events": [], "setting": "皇宫",
+    pd.confirmed_beats = {"Ep1": None, "Ep2": None}
+    pd.confirmed_beats["Ep1"] = {"causal_events": [], "setting": "皇宫",
                                   "entities": ["李明"], "hook": "悬念1"}
     pending = pd.get_pending_nodes()
-    assert len(pending) == 1 and pending[0]["node_id"] == "N2"
+    assert len(pending) == 1 and pending[0]["node_id"] == "Ep2"
     # 全部确认后screenplay_texts可独立填写
-    pd.confirmed_beats["N2"] = {"causal_events": [], "setting": "密室",
+    pd.confirmed_beats["Ep2"] = {"causal_events": [], "setting": "密室",
                                   "entities": ["李明", "皇帝"], "hook": "悬念2"}
-    pd.screenplay_texts["N1"] = "场景1剧本正文"
-    pd.screenplay_texts["N2"] = "场景2剧本正文"
+    pd.screenplay_texts["Ep1"] = "场景1剧本正文"
+    pd.screenplay_texts["Ep2"] = "场景2剧本正文"
     assert len(pd.screenplay_texts) == 2
 
 check("data_flow — Phase2→Phase3→Phase5 完整数据流", t_data_flow)
