@@ -528,7 +528,7 @@ class GraphFullscreenDialog(QDialog):
         self.setWindowFlags(self.windowFlags() | Qt.WindowMaximizeButtonHint | Qt.WindowMinimizeButtonHint)
         self.setMinimumSize(1000, 700)
         self.resize(1200, 800)
-        self._graph = CharacterGraphWidget()
+        self._graph = CharacterGraphWidget(show_fullscreen_btn=False)
         self._graph.relations_changed.connect(self._on_changed)
         layout = QVBoxLayout(self)
         layout.setContentsMargins(4, 4, 4, 4)
@@ -561,7 +561,7 @@ class CharacterGraphWidget(QWidget):
     CENTER_GRAVITY = 0.01
     MIN_ENERGY = 0.5
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, show_fullscreen_btn=True):
         super().__init__(parent)
         self._characters: List[dict] = []
         self._relations: List[dict] = []
@@ -570,6 +570,7 @@ class CharacterGraphWidget(QWidget):
         self._sim_running = False
         self._repulsion = self.DEFAULT_REPULSION
         self._current_layout = "force_directed"
+        self._show_fullscreen_btn = show_fullscreen_btn
         self._setup_ui()
 
     def _setup_ui(self):
@@ -596,21 +597,17 @@ class CharacterGraphWidget(QWidget):
         btn_fit.clicked.connect(self._fit_view)
         toolbar.addWidget(btn_fit)
 
-        btn_expand = QPushButton("全屏查看")
-        btn_expand.setStyleSheet(
-            "QPushButton{background:#2c3e50;color:white;font-weight:bold;"
-            "border-radius:3px;border:none;padding:4px 10px;}"
-            "QPushButton:hover{background:#34495e;}"
-        )
-        btn_expand.clicked.connect(self._on_expand)
-        toolbar.addWidget(btn_expand)
+        if self._show_fullscreen_btn:
+            btn_expand = QPushButton("全屏查看")
+            btn_expand.setStyleSheet(
+                "QPushButton{background:#2c3e50;color:white;font-weight:bold;"
+                "border-radius:3px;border:none;padding:4px 10px;}"
+                "QPushButton:hover{background:#34495e;}"
+            )
+            btn_expand.clicked.connect(self._on_expand)
+            toolbar.addWidget(btn_expand)
 
-        toolbar.addStretch()
-        layout.addLayout(toolbar)
-
-        # ---- 工具条第二行：重力滑块 ----
-        slider_row = QHBoxLayout()
-        slider_row.addWidget(QLabel("间距:"))
+        toolbar.addWidget(QLabel("  间距:"))
         self._gravity_slider = QSlider(Qt.Horizontal)
         self._gravity_slider.setMinimum(2000)
         self._gravity_slider.setMaximum(60000)
@@ -618,13 +615,14 @@ class CharacterGraphWidget(QWidget):
         self._gravity_slider.setTickInterval(2000)
         self._gravity_slider.setFixedWidth(200)
         self._gravity_slider.valueChanged.connect(self._on_gravity_changed)
-        slider_row.addWidget(self._gravity_slider)
+        toolbar.addWidget(self._gravity_slider)
         self._gravity_label = QLabel(f"{self._repulsion:.0f}")
         self._gravity_label.setFixedWidth(45)
         self._gravity_label.setStyleSheet("color: #636e72; font-size: 11px;")
-        slider_row.addWidget(self._gravity_label)
-        slider_row.addStretch()
-        layout.addLayout(slider_row)
+        toolbar.addWidget(self._gravity_label)
+
+        toolbar.addStretch()
+        layout.addLayout(toolbar)
 
         # ---- 图形视图 ----
         self._scene = QGraphicsScene()

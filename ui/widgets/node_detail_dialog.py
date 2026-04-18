@@ -62,7 +62,8 @@ class NodeDetailDialog(QDialog):
         nid   = node.get("node_id", "")
         title = node.get("title", "")
         self.setWindowTitle(f"节点详情 — {nid}  {title}")
-        self.setMinimumSize(1050, 680)
+        self.setMinimumSize(1280, 720)
+        self.setWindowFlags(self.windowFlags() | Qt.WindowMaximizeButtonHint)
         self._setup_ui()
         self._load_node_to_form(get_active_version_snapshot(node))
 
@@ -114,6 +115,7 @@ class NodeDetailDialog(QDialog):
         lv.addWidget(QLabel("📌 事件摘要 (每行一个事件):"))
         self._f_events = QTextEdit()
         self._f_events.setMaximumHeight(160)
+        self._f_events.setStyleSheet("QTextEdit{background:#ffffff;}")
         lv.addWidget(self._f_events)
 
         # 因果边 — tag 样式
@@ -154,6 +156,14 @@ class NodeDetailDialog(QDialog):
         btn_row.addWidget(self._cb_activate)
 
         btn_row.addWidget(QLabel("  "))
+
+        btn_cascade = QPushButton("🔗 自动改写后续章节")
+        btn_cascade.setAutoDefault(False)
+        btn_cascade.setDefault(False)
+        btn_cascade.setToolTip("基于当前章节的修改，自动调整后续章节以保持连贯性")
+        btn_cascade.setStyleSheet("color:#2980b9;")
+        btn_cascade.clicked.connect(self._do_open_cascade)
+        btn_row.addWidget(btn_cascade)
 
         from ui.widgets.split_dialog import SplitDialog
         btn_split = QPushButton("拆分...")
@@ -257,6 +267,24 @@ class NodeDetailDialog(QDialog):
         if hasattr(self, '_chat_browser'):
             self._switch_chat_to_version(idx)
 
+    # ---- 工具: 从事件对象提取纯文本 ----
+    @staticmethod
+    def _extract_event_text(ev) -> str:
+        """从 event_summaries 元素提取可读文本。
+        AI 可能返回 str / {"description": ...} / {"event": ...} 等格式。"""
+        if isinstance(ev, str):
+            return ev
+        if isinstance(ev, dict):
+            # 优先级: description > event > 其他第一个字符串值
+            for key in ("description", "event", "summary", "text"):
+                if key in ev:
+                    return str(ev[key])
+            # fallback: 取第一个字符串类型的 value
+            for v in ev.values():
+                if isinstance(v, str) and len(v) > 10:
+                    return v
+        return str(ev)
+
     # ---- 左侧表单 load / read ----
     def _load_node_to_form(self, snap: dict):
         self._f_title.setText(snap.get("title", ""))
@@ -266,7 +294,12 @@ class NodeDetailDialog(QDialog):
         self._f_tone.setText(snap.get("emotional_tone", ""))
         self._f_hook.setPlainText(snap.get("episode_hook", ""))
         events = snap.get("event_summaries", [])
-        self._f_events.setPlainText("\n".join(events) if isinstance(events, list) else "")
+        if isinstance(events, list):
+            self._f_events.setPlainText("\n".join(
+                self._extract_event_text(e) for e in events
+            ))
+        else:
+            self._f_events.setPlainText("")
 
     def _read_form_to_dict(self) -> dict:
         chars_raw = self._f_chars.text()
@@ -566,17 +599,29 @@ class NodeDetailDialog(QDialog):
         v = QVBoxLayout(inner)
         v.setContentsMargins(4, 4, 4, 4)
 
+        # 读取自定义或默认的选项列表
+        dir_options = self._pd.custom_drama_directions
+        if dir_options is None:
+            dir_options = list(DRAMA_DIRECTION_OPTIONS)
+        self._active_dir_options = dir_options  # [(key, label), ...]
+
+        struct_options = self._pd.custom_structure_options
+        if struct_options is None:
+            struct_options = list(STRUCTURE_OPTIONS)
+        self._active_struct_options = struct_options  # [(key, label), ...]
+
         # 情节方向（每行最多3个，自动折行）
         v.addWidget(QLabel("📌 情节方向:"))
         self._dir_radios = {}
         dir_group = QButtonGroup(inner)
         MAX_DIR_PER_ROW = 3
-        for i in range(0, len(DRAMA_DIRECTION_OPTIONS), MAX_DIR_PER_ROW):
+        for i in range(0, len(dir_options), MAX_DIR_PER_ROW):
             row_w = QWidget()
             row_l = QHBoxLayout(row_w)
             row_l.setContentsMargins(8, 0, 0, 0)
             row_l.setSpacing(8)
-            for key, label in DRAMA_DIRECTION_OPTIONS[i:i + MAX_DIR_PER_ROW]:
+            for item in dir_options[i:i + MAX_DIR_PER_ROW]:
+                key, label = item[0], item[1]
                 rb = QRadioButton(label)
                 dir_group.addButton(rb)
                 self._dir_radios[key] = rb
@@ -588,12 +633,13 @@ class NodeDetailDialog(QDialog):
         v.addWidget(QLabel("📌 结构微调:"))
         self._struct_checks = {}
         MAX_STRUCT_PER_ROW = 3
-        for i in range(0, len(STRUCTURE_OPTIONS), MAX_STRUCT_PER_ROW):
+        for i in range(0, len(struct_options), MAX_STRUCT_PER_ROW):
             row_w = QWidget()
             row_l = QHBoxLayout(row_w)
             row_l.setContentsMargins(8, 0, 0, 0)
             row_l.setSpacing(8)
-            for key, label in STRUCTURE_OPTIONS[i:i + MAX_STRUCT_PER_ROW]:
+            for item in struct_options[i:i + MAX_STRUCT_PER_ROW]:
+                key, label = item[0], item[1]
                 cb = QCheckBox(label)
                 self._struct_checks[key] = cb
                 row_l.addWidget(cb)
@@ -757,6 +803,14 @@ class NodeDetailDialog(QDialog):
     # ------------------------------------------------------------------ #
     # 拆分
     # ------------------------------------------------------------------ #
+    def _do_open_cascade(self):
+        """打开级联改写后续章节对话框"""
+        from ui.widgets.cascade_rewrite_dialog import CascadeRewriteDialog
+        dlg = CascadeRewriteDialog(self._node, self._pd, parent=self)
+        if dlg.exec() == QDialog.Accepted:
+            self.action = "saved"
+            self._refresh_version_combo()
+
     def _do_open_split(self):
         from ui.widgets.split_dialog import SplitDialog
         dlg = SplitDialog(self._node, self._pd, parent=self)
@@ -1047,15 +1101,22 @@ class NodeDetailDialog(QDialog):
     # Quick-Regen
     # ------------------------------------------------------------------ #
     def _build_regen_instruction(self) -> str:
+        """构建调整指令：情节方向 + 结构微调 + 额外指令 三者共存"""
         parts = []
+        # 从 self._active_dir_options 查找匹配 label
+        dir_lookup = {item[0]: item[1] for item in getattr(self, '_active_dir_options', DRAMA_DIRECTION_OPTIONS)}
         for key, rb in self._dir_radios.items():
             if rb.isChecked():
-                label = next(l for k, l in DRAMA_DIRECTION_OPTIONS if k == key)
-                parts.append(f"情节方向: {label}")
+                parts.append(f"情节方向: {dir_lookup.get(key, key)}")
+
+        struct_lookup = {item[0]: item[1] for item in getattr(self, '_active_struct_options', STRUCTURE_OPTIONS)}
+        struct_parts = []
         for key, cb in self._struct_checks.items():
             if cb.isChecked():
-                label = next(l for k, l in STRUCTURE_OPTIONS if k == key)
-                parts.append(label)
+                struct_parts.append(struct_lookup.get(key, key))
+        if struct_parts:
+            parts.append(f"结构微调: {', '.join(struct_parts)}")
+
         extra = self._regen_extra.text().strip()
         if extra:
             parts.append(f"额外要求: {extra}")
@@ -1081,17 +1142,21 @@ class NodeDetailDialog(QDialog):
         node_ctx = self._build_node_context_str()
         instructions = self._build_regen_instruction()
 
-        sys_p = (SYSTEM_PROMPT_NODE_QUICK_REGEN
+        # 使用自定义 prompt（如果有），否则用默认值
+        sys_template = self._pd.custom_quick_regen_sys_prompt or SYSTEM_PROMPT_NODE_QUICK_REGEN
+        usr_template = self._pd.custom_quick_regen_usr_prompt or USER_PROMPT_NODE_QUICK_REGEN
+
+        sys_p = (sys_template
                  .replace("{persona_identity_block}", "")
                  .replace("{drama_style_block}", drama_block)
                  .replace("{node_context}", node_ctx)
                  .replace("{prev_context}", prev_ctx)
                  .replace("{next_context}", next_ctx))
-        usr_p = (USER_PROMPT_NODE_QUICK_REGEN
+        usr_p = (usr_template
                  .replace("{adjustment_instructions}", instructions)
                  .replace("{extra_instructions}", ""))
         self._worker = NodeRefineWorker(
-            "quick_regen", sys_p, usr_p, {"temperature": 0.7, "max_tokens": 2048}
+            "quick_regen", sys_p, usr_p, {"temperature": 0.7, "max_tokens": 4096}
         )
 
         self._regen_status.setText("⏳ 生成中…")
@@ -1117,9 +1182,15 @@ class NodeDetailDialog(QDialog):
             if events:
                 preview_lines.append("事件摘要:")
                 for ev in events:
-                    preview_lines.append(f"  • {ev}")
+                    preview_lines.append(f"  • {self._extract_event_text(ev)}")
             self._regen_preview.setPlainText("\n".join(preview_lines))
-            self._regen_preview_node = node  # 暂存，等确认修改时使用
+            # 归一化 event_summaries 为纯字符串列表后暂存
+            normalized_node = dict(node)
+            if isinstance(events, list):
+                normalized_node["event_summaries"] = [
+                    self._extract_event_text(e) for e in events
+                ]
+            self._regen_preview_node = normalized_node
             self._regen_status.setText("✅ 已生成，请在预览区检查或修改后点击「确认修改」")
         else:
             candidates = result.get("candidates")
@@ -1138,7 +1209,13 @@ class NodeDetailDialog(QDialog):
                     self._regen_preview_node = node
                     self._regen_status.setText("✅ 已生成，请确认修改")
                     return
-            self._regen_status.setText("❌ AI 返回内容无效，请重试")
+            self._regen_status.setText("❌ AI 返回内容无效，原始返回已显示在预览区")
+            # 显示原始返回内容供调试
+            raw_text = result.get("raw_text", "")
+            if raw_text:
+                self._regen_preview.setPlainText(f"❌ AI 原始返回内容 (JSON解析失败):\n\n{raw_text}")
+            else:
+                self._regen_preview.setPlainText("❌ AI 返回了空内容")
 
     def _do_confirm_regen_preview(self):
         """将改写预览区的内容应用到当前版本（覆盖保存，不创建新版本）"""

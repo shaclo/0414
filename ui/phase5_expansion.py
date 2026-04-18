@@ -214,6 +214,18 @@ class Phase5Expansion(QWidget):
         target_max = int(target_center * 1.1)  # +10%
         self._screenplay_editor.set_target_range(target_min, target_max)
 
+        # 检测骨架结构变更：清理已不存在节点的陈旧数据
+        current_nids = {n.get("node_id") for n in self.project_data.cpg_nodes}
+        stale_texts = [k for k in self.project_data.screenplay_texts
+                       if k not in current_nids]
+        stale_beats = [k for k in self.project_data.confirmed_beats
+                       if k not in current_nids]
+        if stale_texts or stale_beats:
+            for k in stale_texts:
+                del self.project_data.screenplay_texts[k]
+            for k in stale_beats:
+                del self.project_data.confirmed_beats[k]
+
         self._refresh_node_combo()
         if self._node_combo.count() > 0:
             self._node_combo.setCurrentIndex(0)
@@ -509,32 +521,49 @@ class Phase5Expansion(QWidget):
     # 批量扩写
     # ------------------------------------------------------------------ #
     def _on_expand_all(self):
-        # 找出所有有 Beat 但还未扩写的节点
+        """批量扩写全部节点 — 重置所有已扩写状态后全部重新扩写"""
         confirmed = self.project_data.confirmed_beats
-        texts = self.project_data.screenplay_texts
-        pending = [
-            n.get("node_id") for n in self.project_data.cpg_nodes
-            if confirmed.get(n.get("node_id")) and not texts.get(n.get("node_id"), "").strip()
-        ]
-        # 加上已扩写的也允许重新跑
-        all_confirmed = [
+        target = [
             n.get("node_id") for n in self.project_data.cpg_nodes
             if confirmed.get(n.get("node_id"))
         ]
-        target = pending if pending else all_confirmed
 
         if not target:
             QMessageBox.information(self, "提示", "没有可扩写的节点（至少需确认一个Beat）。")
             return
 
-        reply = QMessageBox.question(
-            self, "批量扩写",
-            f"将依次扩写 {len(target)} 个节点，预计需要 {len(target) * 20}-{len(target) * 40} 秒。\n"
-            "扩写期间可以继续操作其他内容。是否开始？",
+        # 统计已有扩写文本的节点数
+        texts = self.project_data.screenplay_texts
+        existing_count = sum(1 for nid in target if texts.get(nid, "").strip())
+
+        warn_msg = (
+            f"⚠️ 将对全部 {len(target)} 个已确认节点进行完整重写。\n"
+        )
+        if existing_count > 0:
+            warn_msg += f"其中 {existing_count} 个节点已有扩写文本，将被覆盖！\n"
+        warn_msg += (
+            f"\n预计耗时 {len(target) * 20}-{len(target) * 40} 秒。\n"
+            "扩写期间可以继续操作其他内容。\n\n确认开始全部重写？"
+        )
+
+        reply = QMessageBox.warning(
+            self, "批量全部重写",
+            warn_msg,
             QMessageBox.Yes | QMessageBox.No,
         )
         if reply == QMessageBox.No:
             return
+
+        # 清除所有已扩写文本
+        for nid in target:
+            self.project_data.screenplay_texts[nid] = ""
+
+        self.status_message.emit(
+            f"🔄 已重置 {len(target)} 个节点的扩写状态，开始全部重写..."
+        )
+
+        # 刷新当前面板显示
+        self._refresh_node_combo()
 
         self._batch_queue = list(target[1:])  # 剩余队列
         first_nid = target[0]

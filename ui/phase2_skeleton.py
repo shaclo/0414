@@ -468,6 +468,15 @@ class Phase2Skeleton(QWidget):
             if action in ("saved", "split", "merge"):
                 self._load_to_editor()
                 self.status_message.emit(f"节点 {node_id} 已更新 ({action})")
+                if action in ("split", "merge"):
+                    QMessageBox.warning(
+                        self, "结构已变更",
+                        f"骨架结构已发生变更（{action}）。\n\n"
+                        "⚠️ 请注意：\n"
+                        "• 血肉阶段需要为新节点重新生成 Beat\n"
+                        "• 扩写阶段需要重新扩写受影响的章节\n\n"
+                        "请依次进入血肉、扩写阶段完成更新。"
+                    )
             elif action == "deleted":
                 nid = node.get("node_id", node_id)
                 self.project_data.cpg_nodes = [
@@ -479,6 +488,14 @@ class Phase2Skeleton(QWidget):
                 ]
                 self._load_to_editor()
                 self.status_message.emit(f"节点 {nid} 已删除")
+                QMessageBox.warning(
+                    self, "结构已变更",
+                    f"节点 {nid} 已删除。\n\n"
+                    "⚠️ 请注意：\n"
+                    "• 血肉阶段需要重新进行以同步最新结构\n"
+                    "• 扩写阶段需要重新扩写以反映变更\n\n"
+                    "请依次进入血肉、扩写阶段完成更新。"
+                )
             elif action and action.startswith("id_changed:"):
                 new_id = action.split(":", 1)[1]
                 self._load_to_editor()

@@ -63,6 +63,14 @@ class ProjectData:
     # [{ "timestamp": "...", "action": "confirm_beat|generate_skeleton|...",
     #    "node": "Ep1", "snapshot": {...} }]
 
+    # ----- 骨架 AI 辅助修改 自定义设置 -----
+    custom_drama_directions: Optional[List[list]] = None    # [[key, label], ...] 自定义情节方向
+    custom_structure_options: Optional[List[list]] = None   # [[key, label], ...] 自定义结构微调
+    custom_quick_regen_sys_prompt: Optional[str] = None     # 自定义系统 prompt
+    custom_quick_regen_usr_prompt: Optional[str] = None     # 自定义用户 prompt
+    custom_cascade_head_prompt: Optional[str] = None        # 自定义级联-保留结尾 prompt
+    custom_cascade_full_prompt: Optional[str] = None        # 自定义级联-完整改写 prompt
+
     def save_to_file(self, filepath: str) -> None:
         """保存项目到 .story.json 文件"""
         self.updated_at = datetime.now().isoformat()

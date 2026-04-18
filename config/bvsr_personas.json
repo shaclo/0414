@@ -57,6 +57,16 @@
     }
   },
   "active": [
-    "redemption_narrator"
+    "scifi_futurist",
+    "tragedy_architect",
+    "war_chronicler",
+    "historical_researcher",
+    "mystery_solver",
+    "horror_creator",
+    "redemption_narrator",
+    "dystopian_visionary",
+    "test",
+    "romance_weaver",
+    "political_strategist"
   ]
 }

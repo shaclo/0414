@@ -770,7 +770,7 @@ class NodeRefineWorker(QThread):
 
             else:
                 # 单次调用（quick_regen 无人格 / split_refine / merge）
-                mime = "application/json" if self.mode in ("split_refine", "merge", "quick_regen") else None
+                mime = "application/json" if self.mode in ("split_refine", "merge", "quick_regen", "cascade_rewrite") else None
                 raw = ai_service.generate(
                     user_prompt=self.user_prompt,
                     system_prompt=self.system_prompt,
@@ -781,14 +781,14 @@ class NodeRefineWorker(QThread):
                     response_mime_type=mime,
                 )
 
-                if self.mode == "split_refine":
+                if self.mode in ("split_refine", "cascade_rewrite"):
                     # 期望返回 JSON 数组
                     nodes = self._parse_nodes_array(raw or "")
-                    self.finished.emit({"mode": "split_refine", "nodes": nodes})
+                    self.finished.emit({"mode": self.mode, "nodes": nodes, "raw_text": raw or ""})
                 else:
                     # quick_regen / merge — 期望单个节点 JSON
                     node = self._parse_node_json(raw or "")
-                    self.finished.emit({"mode": self.mode, "node": node})
+                    self.finished.emit({"mode": self.mode, "node": node, "raw_text": raw or ""})
 
         except Exception as e:
             logger.error("NodeRefineWorker[%s] 失败: %s", self.mode, e, exc_info=True)
@@ -800,6 +800,9 @@ class NodeRefineWorker(QThread):
     def _parse_node_json(text: str) -> dict | None:
         """从 AI 返回文本中提取单个节点 JSON"""
         import json, re
+        if not text or not text.strip():
+            logger.warning("_parse_node_json: 输入为空")
+            return None
         # 先尝试代码块
         m = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', text, re.DOTALL)
         if m:
@@ -809,20 +812,27 @@ class NodeRefineWorker(QThread):
             m = re.search(r'\{.*\}', text, re.DOTALL)
             raw = m.group(0) if m else ""
         if not raw:
+            logger.warning("_parse_node_json: 未找到 JSON 块, 原始文本: %s", text[:300])
             return None
         try:
             data = json.loads(raw)
             # 验证必要字段
             if "title" in data or "event_summaries" in data:
                 return data
-        except json.JSONDecodeError:
-            pass
+            else:
+                logger.warning("_parse_node_json: JSON 缺少 title/event_summaries, keys=%s, raw=%s",
+                               list(data.keys()), text[:300])
+        except json.JSONDecodeError as e:
+            logger.warning("_parse_node_json: JSON 解析失败: %s, raw=%s", e, raw[:300])
         return None
 
     @staticmethod
     def _parse_nodes_array(text: str) -> list:
         """从 AI 返回文本中提取节点 JSON 数组"""
         import json, re
+        if not text or not text.strip():
+            logger.warning("_parse_nodes_array: 输入为空")
+            return []
         m = re.search(r'```(?:json)?\s*(\[.*?\])\s*```', text, re.DOTALL)
         if m:
             raw = m.group(1)
@@ -830,13 +840,31 @@ class NodeRefineWorker(QThread):
             m = re.search(r'\[.*\]', text, re.DOTALL)
             raw = m.group(0) if m else ""
         if not raw:
-            return []
+            # 可能整个响应就是一个被截断的数组（以 [ 开头但没有 ]）
+            stripped = text.strip()
+            if stripped.startswith('['):
+                raw = stripped
+                logger.warning("_parse_nodes_array: 未找到完整数组，尝试修复截断的 JSON")
+            else:
+                logger.warning("_parse_nodes_array: 未找到 JSON 数组, 原始文本: %s", text[:300])
+                return []
         try:
             data = json.loads(raw)
             if isinstance(data, list):
+                logger.info("_parse_nodes_array: 成功解析 %d 个节点", len(data))
                 return data
-        except json.JSONDecodeError:
-            pass
+        except json.JSONDecodeError as e:
+            logger.warning("_parse_nodes_array: 解析失败(%s)，尝试修复截断的 JSON", e)
+            # 尝试修复截断的 JSON
+            try:
+                from services.ai_service import AIService
+                repaired = AIService._repair_truncated_json(raw)
+                data = json.loads(repaired)
+                if isinstance(data, list):
+                    logger.info("_parse_nodes_array: 修复后成功解析 %d 个节点", len(data))
+                    return data
+            except Exception as e2:
+                logger.warning("_parse_nodes_array: 修复后仍失败: %s", e2)
         return []
 
     @staticmethod

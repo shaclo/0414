@@ -75,6 +75,12 @@ class MainWindow(QMainWindow):
             act.triggered.connect(slot)
             file_menu.addAction(act)
 
+        file_menu.addSeparator()
+        exit_act = QAction("退出(&Q)", self)
+        exit_act.setShortcut("Ctrl+Q")
+        exit_act.triggered.connect(self.close)
+        file_menu.addAction(exit_act)
+
         # 系统菜单
         sys_menu = mb.addMenu("系统(&S)")
         bvsr_act = QAction("BVSR 人格设置...", self)
@@ -86,6 +92,12 @@ class MainWindow(QMainWindow):
         genre_act.setStatusTip("查看并切换当前项目的写作题材预设（犯罪/爱情/悬疑/复仇等）")
         genre_act.triggered.connect(self._on_genre_settings)
         sys_menu.addAction(genre_act)
+
+        sys_menu.addSeparator()
+        skel_ai_act = QAction("骨架 — AI辅助修改设置...", self)
+        skel_ai_act.setStatusTip("管理骨架节点快速重生成的情节方向、结构微调和 Prompt 模板")
+        skel_ai_act.triggered.connect(self._on_skeleton_ai_settings)
+        sys_menu.addAction(skel_ai_act)
 
     # ------------------------------------------------------------------ #
     # 主 UI
@@ -366,6 +378,11 @@ class MainWindow(QMainWindow):
     def _on_genre_settings(self):
         from ui.widgets.genre_settings_dialog import GenreSettingsDialog
         dlg = GenreSettingsDialog(project_data=self.project_data, parent=self)
+        dlg.exec()
+
+    def _on_skeleton_ai_settings(self):
+        from ui.widgets.skeleton_ai_settings_dialog import SkeletonAISettingsDialog
+        dlg = SkeletonAISettingsDialog(project_data=self.project_data, parent=self)
         dlg.exec()
 
     def _do_save(self, filepath: str):
