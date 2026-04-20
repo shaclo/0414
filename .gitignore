@@ -1,5 +1,4 @@
 key/*
-!key/.gitkeep
 .venv/
 __pycache__/
 vector_db/
