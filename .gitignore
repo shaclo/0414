@@ -1,7 +1,7 @@
 key/*
-!key/.gitkeep
+!key/把json文件放在这里
 .venv/
 __pycache__/
 vector_db/
-projects/
+projects/*
 *.pyc
