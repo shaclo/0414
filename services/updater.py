@@ -29,12 +29,17 @@ class UpdateChecker(QThread):
 
     def run(self):
         try:
-            req = urllib.request.Request(
-                self.api_url,
-                headers={"Accept": "application/vnd.github.v3+json", "User-Agent": "NarrativeLoom-Updater"}
-            )
+            headers = {"Accept": "application/vnd.github.v3+json", "User-Agent": "NarrativeLoom-Updater"}
+            req = urllib.request.Request(self.api_url, headers=headers)
             with urllib.request.urlopen(req, timeout=15) as resp:
-                data = json.loads(resp.read().decode("utf-8"))
+                releases = json.loads(resp.read().decode("utf-8"))
+
+            # /releases 返回数组，按时间倒序排列，第一个就是最新版
+            if not releases or not isinstance(releases, list):
+                self.result.emit({"has_update": False, "latest_version": "", "download_url": "", "release_notes": ""})
+                return
+
+            data = releases[0]  # 最新的 release（含 pre-release）
 
             tag = data.get("tag_name", "").lstrip("vV")
             if not tag:
@@ -43,7 +48,7 @@ class UpdateChecker(QThread):
 
             has_update = Version(tag) > Version(self.current_version)
 
-            # 找 zip 资产（source code zip 或自定义 zip）
+            # 找 zip 资产（自定义 zip 优先，否则用 source code zip）
             download_url = ""
             assets = data.get("assets", [])
             for asset in assets:
@@ -77,10 +82,8 @@ class UpdateDownloader(QThread):
         try:
             self.progress.emit(5, "正在连接下载服务器…")
 
-            req = urllib.request.Request(
-                self.download_url,
-                headers={"User-Agent": "NarrativeLoom-Updater"}
-            )
+            headers = {"User-Agent": "NarrativeLoom-Updater"}
+            req = urllib.request.Request(self.download_url, headers=headers)
             with urllib.request.urlopen(req, timeout=60) as resp:
                 total = int(resp.headers.get("Content-Length", 0))
                 downloaded = 0
