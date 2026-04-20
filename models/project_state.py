@@ -32,10 +32,17 @@ class ProjectData:
 
     # ----- Phase 1.5: 剧本结构配置 -----
     total_episodes: int = 20            # 总集数
-    episode_duration: int = 3           # 每集时长（分钟）
+    episode_duration: int = 3           # 每集时长（分钟）— 旧字段，保留向后兼容
+    episode_duration_min: float = 1.5   # 每集最短时长（分钟）
+    episode_duration_max: float = 5.0   # 每集最长时长（分钟）
     drama_style: str = "short_drama"    # "short_drama" | "traditional"
     story_genre: str = "custom"          # "crime" | "romance" | "suspense" | "revenge" | "fantasy" | "urban" | "comedy" | "custom"
     scenes_per_episode: str = "1-2"     # 默认每集场景数范围，如 "1-2" 或 "2-3"
+    max_scenes_per_episode: int = 3     # 单集最多场景数
+    max_dialogue_chars: int = 60        # 单句台词最大中文字符数
+    sat_small_interval: int = 1         # 每 N 集一个小爽点（默认每集）
+    sat_medium_interval: int = 3        # 每 N 集一个中爽点
+    sat_big_interval: int = 10          # 每 N 集一个大爽点
 
     # ----- Phase 2: 骨架 -----
     cpg_title: str = ""

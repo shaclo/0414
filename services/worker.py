@@ -124,7 +124,7 @@ class CPGSkeletonWorker(BaseWorker):
     """
     def __init__(self, sparkle: str, world_variables: list, finale_condition: str,
                  ai_params: dict, characters: list = None,
-                 total_episodes: int = 20, episode_duration: int = 3,
+                 total_episodes: int = 20, episode_duration: str = "3",
                  drama_style_block: str = ""):
         super().__init__()
         self.sparkle = sparkle
@@ -151,6 +151,16 @@ class CPGSkeletonWorker(BaseWorker):
         self.progress.emit(f"🏗️ 正在生成 {self.total_episodes} 集 CPG 骨架，请稍候…")
         chars_summary = self._build_chars_summary()
         system_prompt = self._build_system_prompt()
+
+        # 注入爽感 & 钩子公式（随机抽样）
+        from config.prompt_templates import prompt_template_manager
+        sat_injection = prompt_template_manager.sample_satisfaction_prompt(3)
+        hook_injection = prompt_template_manager.sample_hook_prompt(2)
+        if sat_injection:
+            system_prompt += "\n\n" + sat_injection
+        if hook_injection:
+            system_prompt += "\n\n" + hook_injection
+
         user_prompt = (
             USER_PROMPT_CPG_SKELETON
             .replace("{sparkle}", self.sparkle)
@@ -610,8 +620,11 @@ class ExpansionWorker(BaseWorker):
         hook: str,
         target_word_count: str,
         ai_params: dict,
-        episode_duration: int = 3,
+        episode_duration: str = "3",
+        scenes_per_episode: str = "1-2",
         drama_style_block: str = "",
+        satisfaction_prompt_injection: str = "",
+        hook_prompt_injection: str = "",
     ):
         super().__init__()
         self.sparkle = sparkle
@@ -630,7 +643,10 @@ class ExpansionWorker(BaseWorker):
         self.target_word_count = target_word_count
         self.ai_params = ai_params
         self.episode_duration = episode_duration
+        self.scenes_per_episode = scenes_per_episode
         self.drama_style_block = drama_style_block
+        self.satisfaction_prompt_injection = satisfaction_prompt_injection
+        self.hook_prompt_injection = hook_prompt_injection
 
     def run(self):
         try:
@@ -641,9 +657,28 @@ class ExpansionWorker(BaseWorker):
                 SYSTEM_PROMPT_EXPANSION
                 .replace("{target_word_count}", self.target_word_count)
                 .replace("{episode_duration}", str(self.episode_duration))
+                .replace("{scenes_per_episode}", self.scenes_per_episode)
             )
             if self.drama_style_block:
                 system_prompt += "\n" + self.drama_style_block
+
+            # 注入爽感公式（UI 选择 或 随机抽样）
+            if self.satisfaction_prompt_injection:
+                system_prompt += "\n\n" + self.satisfaction_prompt_injection
+            else:
+                from config.prompt_templates import prompt_template_manager
+                sat_inj = prompt_template_manager.sample_satisfaction_prompt(3)
+                if sat_inj:
+                    system_prompt += "\n\n" + sat_inj
+
+            # 注入钩子公式（UI 选择 或 随机抽样）
+            if self.hook_prompt_injection:
+                system_prompt += "\n\n" + self.hook_prompt_injection
+            else:
+                from config.prompt_templates import prompt_template_manager
+                hook_inj = prompt_template_manager.sample_hook_prompt(3)
+                if hook_inj:
+                    system_prompt += "\n\n" + hook_inj
             user_prompt = (
                 USER_PROMPT_EXPANSION
                 .replace("{sparkle}", self.sparkle)

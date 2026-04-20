@@ -158,12 +158,12 @@ class Phase3Flesh(QWidget):
         self._btn_batch.clicked.connect(self._on_batch_generate)
         gen_row.addWidget(self._btn_batch)
 
-        self._btn_autopilot = QPushButton("✈️ 全自动生成")
+        self._btn_autopilot = QPushButton("✈️ 全部自动生成（覆盖已有）")
         self._btn_autopilot.setMinimumHeight(38)
         self._btn_autopilot.setToolTip(
-            "本功能只能选择一个人格！如果选择了多个人格，则默认只执行排序靠前的第一个生成\n"
-            "选定一个人格，自动生成指定集数的 Beat 并自动确认，\n"
-            "无需手动选择和确认。适合演示和快速原型。"
+            "清空所有已生成内容后，从第1集开始全部重新生成。\n"
+            "本功能只能选择一个人格！如果选择了多个人格，则默认只执行排序靠前的第一个生成。\n"
+            "全程自动生成+自动确认，无需手动操作。"
         )
         self._btn_autopilot.setStyleSheet(
             "QPushButton{background:#e67e22;color:white;font-weight:bold;"
@@ -588,44 +588,48 @@ class Phase3Flesh(QWidget):
         self._on_generate()
 
     def _on_autopilot_generate(self):
-        """全自动模式：选定一个人格，自动生成 + 自动确认指定集数"""
-        count = self._batch_count_spin.value()
-        node = self._get_current_node()
-        if not node:
-            QMessageBox.warning(self, "提示", "请先选择要处理的节点！")
-            return
+        """全自动模式：清空所有已有内容，从头开始全部重新生成"""
         selected_keys = self._persona_selector.get_selected_keys()
         if not selected_keys:
             QMessageBox.warning(self, "提示", "请至少选择一个人格！")
             return
 
+        total_nodes = len(self.project_data.cpg_nodes)
+        if total_nodes <= 0:
+            QMessageBox.warning(self, "提示", "没有可生成的章节（骨架为空）。")
+            return
+
         # 取第一个选中的人格作为自动确认人格
         self._batch_persona_key = selected_keys[0]
-
-        current_idx = self._node_combo.currentIndex()
-        remaining = self._node_combo.count() - current_idx
-        actual_count = min(count, remaining)
-
-        if actual_count <= 0:
-            QMessageBox.warning(self, "提示", "没有可生成的后续章节。")
-            return
 
         from env import PERSONA_DEFINITIONS
         pname = PERSONA_DEFINITIONS.get(self._batch_persona_key, {}).get("name", self._batch_persona_key)
 
         reply = QMessageBox.question(
-            self, "确认全自动生成",
-            f"将使用人格「{pname}」自动生成并确认 {actual_count} 个章节。\n\n"
-            f"• 注意：本功能只能选择一个人格！如果多选则默认使用第一个人格\n"
-            f"• 每个章节自动生成 → 自动采用第一个有效结果 → 自动确认\n"
-            f"• 全程无需手动操作，适合演示/快速原型\n\n"
-            f"确定开始吗？",
+            self, "确认全部重新生成",
+            f"⚠️ 该功能将清空所有已生成的 Beat 内容，从第 1 集开始全部重新生成！\n\n"
+            f"• 使用人格：「{pname}」\n"
+            f"• 总计 {total_nodes} 个章节将被重新生成\n"
+            f"• 所有已确认的 Beat 数据将被清空\n\n"
+            f"是否继续？",
             QMessageBox.Yes | QMessageBox.No,
         )
         if reply == QMessageBox.No:
             return
 
-        self._batch_remaining = actual_count - 1
+        # 清空所有已生成内容
+        self.project_data.confirmed_beats.clear()
+
+        # 刷新 UI：重置进度 + 跳到第一个节点
+        self._refresh_node_combo()
+        self._node_combo.setCurrentIndex(0)
+        self._update_progress()
+        self._clear_cards()
+        self._detail_edit.clear()
+        self._readable_view.clear()
+
+        # 启动全自动批量生成
+        self._batch_remaining = total_nodes - 1
         self._batch_mode = True
         self._batch_auto_confirm = True
         self._on_generate()
@@ -1092,6 +1096,8 @@ class Phase3Flesh(QWidget):
     @staticmethod
     def _format_beat_readable(beat: dict) -> str:
         """将 Beat JSON 渲染为人类可读的剧本摘要格式"""
+        if not beat or not isinstance(beat, dict):
+            return "（无数据）"
         lines = []
 
         # 基本信息

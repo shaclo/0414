@@ -7,7 +7,7 @@ import json
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QPushButton, QSplitter, QComboBox, QTextEdit,
-    QGroupBox, QMessageBox, QFileDialog,
+    QGroupBox, QMessageBox, QFileDialog, QSlider,
 )
 from PySide6.QtCore import Qt, Signal
 
@@ -80,9 +80,15 @@ class Phase5Expansion(QWidget):
         h_splitter = QSplitter(Qt.Horizontal)
 
         # 左侧：Beat 摘要（只读参考）
-        left = QWidget()
-        ll = QVBoxLayout(left)
-        ll.setContentsMargins(0, 0, 0, 0)
+        from PySide6.QtWidgets import QScrollArea
+        left_scroll = QScrollArea()
+        left_scroll.setWidgetResizable(True)
+        left_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        left_scroll.setMinimumWidth(500)
+        left_scroll.setStyleSheet("QScrollArea{border:none;}")
+        left_inner = QWidget()
+        ll = QVBoxLayout(left_inner)
+        ll.setContentsMargins(0, 0, 4, 0)
         ll.setSpacing(4)
 
         beat_label = QLabel("📋 Beat 摘要（参考）")
@@ -115,22 +121,182 @@ class Phase5Expansion(QWidget):
         )
         ll.addWidget(self._char_summary)
 
+        # --- 扩写参数：叙事风格 + 场景数 + 台词上限 ---
+        style_group = QGroupBox("扩写参数")
+        sg_layout = QVBoxLayout(style_group)
+        sg_layout.setSpacing(6)
+
+        # 每集时长区间
+        from ui.widgets.range_slider import DurationRangeWidget
+        dur_row = QHBoxLayout()
+        self._duration_range = DurationRangeWidget(
+            min_val=0.5, max_val=30.0,
+            low=self.project_data.episode_duration_min,
+            high=self.project_data.episode_duration_max,
+        )
+        self._duration_range.rangeChanged.connect(self._on_duration_changed)
+        dur_row.addWidget(self._duration_range)
+        dur_row.addWidget(QLabel("  ≈ 每集"))
+        self._word_count_label = QLabel("")
+        self._word_count_label.setStyleSheet("color: #2980b9; font-weight: bold;")
+        dur_row.addWidget(self._word_count_label)
+        dur_row.addStretch()
+        sg_layout.addLayout(dur_row)
+        self._update_word_count_hint()
+
+        # 叙事风格 + 场景数
+        style_row = QHBoxLayout()
+        style_row.addWidget(QLabel("叙事风格:"))
+        from env import DRAMA_STYLE_CONFIG
+        self._style_combo = QComboBox()
+        for key, cfg in DRAMA_STYLE_CONFIG.items():
+            self._style_combo.addItem(cfg["label"], key)
+        current_style = self.project_data.drama_style or "short_drama"
+        for i in range(self._style_combo.count()):
+            if self._style_combo.itemData(i) == current_style:
+                self._style_combo.setCurrentIndex(i)
+                break
+        self._style_combo.currentIndexChanged.connect(self._on_style_changed)
+        self._style_combo.setMinimumWidth(180)
+        style_row.addWidget(self._style_combo)
+
+        style_row.addWidget(QLabel("  单集最多场景:"))
+        self._scenes_slider = QSlider(Qt.Horizontal)
+        self._scenes_slider.setRange(1, 8)
+        self._scenes_slider.setValue(self.project_data.max_scenes_per_episode)
+        self._scenes_slider.setTickPosition(QSlider.TicksBelow)
+        self._scenes_slider.setTickInterval(1)
+        self._scenes_slider.setFixedWidth(100)
+        self._scenes_slider.valueChanged.connect(self._on_scenes_slider_changed)
+        style_row.addWidget(self._scenes_slider)
+        self._scenes_label = QLabel(f"\u2264{self.project_data.max_scenes_per_episode} \u4e2a")
+        self._scenes_label.setStyleSheet("color: #e67e22; font-weight: bold; min-width: 40px;")
+        style_row.addWidget(self._scenes_label)
+        style_row.addStretch()
+        sg_layout.addLayout(style_row)
+
+        # 第二行：风格说明
+        self._style_desc = QLabel("")
+        self._style_desc.setStyleSheet("color: #7f8c8d; font-size: 11px;")
+        self._style_desc.setWordWrap(True)
+        self._update_style_desc()
+        sg_layout.addWidget(self._style_desc)
+
+        # 第三行：台词字数上限
+        dialogue_row = QHBoxLayout()
+        dialogue_row.addWidget(QLabel("单句台词上限:"))
+        self._dialogue_slider = QSlider(Qt.Horizontal)
+        self._dialogue_slider.setRange(20, 120)
+        self._dialogue_slider.setValue(self.project_data.max_dialogue_chars)
+        self._dialogue_slider.setTickPosition(QSlider.TicksBelow)
+        self._dialogue_slider.setTickInterval(10)
+        self._dialogue_slider.setFixedWidth(150)
+        self._dialogue_slider.valueChanged.connect(self._on_dialogue_slider_changed)
+        dialogue_row.addWidget(self._dialogue_slider)
+        self._dialogue_label = QLabel(f"\u2264{self.project_data.max_dialogue_chars} \u5b57")
+        self._dialogue_label.setStyleSheet("color: #8e44ad; font-weight: bold; min-width: 50px;")
+        dialogue_row.addWidget(self._dialogue_label)
+        self._dialogue_hint = QLabel("\uff08\u4e2d\u6587\u5b57\u7b26\uff0c\u8d85\u8fc7\u5219\u5efa\u8bae\u62c6\u5206\u53f0\u8bcd\uff09")
+        self._dialogue_hint.setStyleSheet("color: #95a5a6; font-size: 11px;")
+        dialogue_row.addWidget(self._dialogue_hint)
+        dialogue_row.addStretch()
+        sg_layout.addLayout(dialogue_row)
+
+        ll.addWidget(style_group)
+
+        # --- 爽感 & 钩子公式选择 ---
+        from PySide6.QtWidgets import QCheckBox
+        from config.prompt_templates import prompt_template_manager
+
+        formula_group = QGroupBox("爽感 & 钩子公式选择（勾选注入到 Prompt）")
+        fg_layout = QVBoxLayout(formula_group)
+        fg_layout.setSpacing(2)
+
+        fg_layout.addWidget(QLabel("爽感公式:"))
+        self._sat_checkboxes = []
+        for s in prompt_template_manager.get_satisfactions():
+            level_cn = {"small": "小爽", "medium": "中爽", "big": "大爽"}.get(s.level, s.level)
+            cb = QCheckBox(f"{s.name}（{level_cn}）")
+            cb.setProperty("template_id", s.id)
+            cb.setChecked(s.enabled)
+            cb.setStyleSheet("font-size:11px;")
+            fg_layout.addWidget(cb)
+            self._sat_checkboxes.append(cb)
+
+        fg_layout.addWidget(QLabel("钩子公式:"))
+        self._hook_checkboxes = []
+        for h in prompt_template_manager.get_hooks():
+            cb = QCheckBox(h.name)
+            cb.setProperty("template_id", h.id)
+            cb.setChecked(h.enabled)
+            cb.setStyleSheet("font-size:11px;")
+            fg_layout.addWidget(cb)
+            self._hook_checkboxes.append(cb)
+
+        # 爽感节奏参数
+        from PySide6.QtWidgets import QSpinBox
+        interval_row = QHBoxLayout()
+        interval_row.addWidget(QLabel("小爽每"))
+        self._sat_small_spin = QSpinBox()
+        self._sat_small_spin.setRange(1, 5)
+        self._sat_small_spin.setValue(self.project_data.sat_small_interval)
+        self._sat_small_spin.setSuffix("集")
+        self._sat_small_spin.setFixedWidth(90)
+        self._sat_small_spin.valueChanged.connect(self._on_sat_interval_changed)
+        interval_row.addWidget(self._sat_small_spin)
+
+        interval_row.addWidget(QLabel(" 中爽每"))
+        self._sat_medium_spin = QSpinBox()
+        self._sat_medium_spin.setRange(1, 20)
+        self._sat_medium_spin.setValue(self.project_data.sat_medium_interval)
+        self._sat_medium_spin.setSuffix("集")
+        self._sat_medium_spin.setFixedWidth(90)
+        self._sat_medium_spin.valueChanged.connect(self._on_sat_interval_changed)
+        interval_row.addWidget(self._sat_medium_spin)
+
+        interval_row.addWidget(QLabel(" 大爽每"))
+        self._sat_big_spin = QSpinBox()
+        self._sat_big_spin.setRange(1, 50)
+        self._sat_big_spin.setValue(self.project_data.sat_big_interval)
+        self._sat_big_spin.setSuffix("集")
+        self._sat_big_spin.setFixedWidth(90)
+        self._sat_big_spin.valueChanged.connect(self._on_sat_interval_changed)
+        interval_row.addWidget(self._sat_big_spin)
+        interval_row.addStretch()
+        fg_layout.addLayout(interval_row)
+
+        # 当前集爽感等级提示
+        self._sat_level_hint = QLabel("")
+        self._sat_level_hint.setStyleSheet("color:#e67e22;font-size:11px;font-weight:bold;")
+        fg_layout.addWidget(self._sat_level_hint)
+
+        tip = QLabel("ℹ️ 未勾选任何公式时，系统会自动随机抽取对应等级的启用公式")
+        tip.setStyleSheet("color:#95a5a6;font-size:10px;")
+        fg_layout.addWidget(tip)
+
+        ll.addWidget(formula_group)
+
+        # 连接公式勾选信号 -> 动态更新 Prompt 预览
+        for cb in self._sat_checkboxes + self._hook_checkboxes:
+            cb.toggled.connect(self._update_prompt_preview)
+
         # AI参数
         self._ai_settings = AISettingsPanel(suggested_temp=TEMPERATURE_EXPANSION)
         ll.addWidget(self._ai_settings)
 
         self._prompt_viewer = PromptViewer()
-        self._prompt_viewer.set_prompt(SYSTEM_PROMPT_EXPANSION, USER_PROMPT_EXPANSION)
         ll.addWidget(self._prompt_viewer)
+        self._update_prompt_preview()
 
-        h_splitter.addWidget(left)
+        left_scroll.setWidget(left_inner)
+        h_splitter.addWidget(left_scroll)
 
         # 右侧：剧本编辑器
         self._screenplay_editor = ScreenplayEditor(target_min=600, target_max=800)
         self._screenplay_editor.text_changed.connect(self._on_screenplay_text_changed)
         h_splitter.addWidget(self._screenplay_editor)
 
-        h_splitter.setSizes([340, 580])
+        h_splitter.setSizes([500, 460])
         root.addWidget(h_splitter, 1)
 
         # === 按钮行 1 ===
@@ -206,12 +372,34 @@ class Phase5Expansion(QWidget):
     # 生命周期
     # ------------------------------------------------------------------ #
     def on_enter(self):
-        """进入扩写阶段时刷新节点列表，并根据每集时长自动计算目标字数"""
-        # 根据 episode_duration 自动设置目标字数范围
-        duration = self.project_data.episode_duration
-        target_center = duration * 180  # 每分钟约 180 字
-        target_min = int(target_center * 0.9)  # -10%
-        target_max = int(target_center * 1.1)  # +10%
+        """进入扩写阶段时刷新节点列表，同步扩写参数控件"""
+        # 同步扩写参数控件
+        current_style = self.project_data.drama_style or "short_drama"
+        for i in range(self._style_combo.count()):
+            if self._style_combo.itemData(i) == current_style:
+                self._style_combo.setCurrentIndex(i)
+                break
+        self._update_style_desc()
+        self._scenes_slider.setValue(self.project_data.max_scenes_per_episode)
+        self._scenes_label.setText(f"\u2264{self.project_data.max_scenes_per_episode} \u4e2a")
+        self._dialogue_slider.setValue(self.project_data.max_dialogue_chars)
+        self._dialogue_label.setText(f"\u2264{self.project_data.max_dialogue_chars} \u5b57")
+        # 同步爽感节奏参数
+        self._sat_small_spin.setValue(self.project_data.sat_small_interval)
+        self._sat_medium_spin.setValue(self.project_data.sat_medium_interval)
+        self._sat_big_spin.setValue(self.project_data.sat_big_interval)
+        self._update_sat_level_hint()
+
+        # 同步时长区间控件 + 自动计算目标字数
+        self._duration_range.setValues(
+            self.project_data.episode_duration_min,
+            self.project_data.episode_duration_max,
+        )
+        self._update_word_count_hint()
+        dur_min = self.project_data.episode_duration_min
+        dur_max = self.project_data.episode_duration_max
+        target_min = int(dur_min * 180)
+        target_max = int(dur_max * 180)
         self._screenplay_editor.set_target_range(target_min, target_max)
 
         # 检测骨架结构变更：清理已不存在节点的陈旧数据
@@ -230,6 +418,122 @@ class Phase5Expansion(QWidget):
         if self._node_combo.count() > 0:
             self._node_combo.setCurrentIndex(0)
             self._load_node(self._node_combo.currentData())
+
+    # ------------------------------------------------------------------ #
+    # 扩写参数变更
+    # ------------------------------------------------------------------ #
+    def _on_style_changed(self):
+        from env import DRAMA_STYLE_CONFIG
+        style_key = self._style_combo.currentData() or "short_drama"
+        self.project_data.drama_style = style_key
+        cfg = DRAMA_STYLE_CONFIG.get(style_key, {})
+        scenes_str = cfg.get("default_scenes_per_episode", "1-2")
+        try:
+            max_sc = int(scenes_str.split("-")[-1])
+        except (ValueError, IndexError):
+            max_sc = 3
+        self._scenes_slider.setValue(max_sc)
+        self._update_style_desc()
+        self._sync_expansion_params()
+
+    def _update_style_desc(self):
+        from env import DRAMA_STYLE_CONFIG
+        style_key = self._style_combo.currentData() or "short_drama"
+        cfg = DRAMA_STYLE_CONFIG.get(style_key, {})
+        self._style_desc.setText(cfg.get("description", ""))
+
+    def _on_scenes_slider_changed(self, val):
+        self._scenes_label.setText(f"\u2264{val} \u4e2a")
+        self._sync_expansion_params()
+
+    def _on_dialogue_slider_changed(self, val):
+        self._dialogue_label.setText(f"\u2264{val} \u5b57")
+        self._sync_expansion_params()
+
+    def _on_sat_interval_changed(self, *_args):
+        self.project_data.sat_small_interval = self._sat_small_spin.value()
+        self.project_data.sat_medium_interval = self._sat_medium_spin.value()
+        self.project_data.sat_big_interval = self._sat_big_spin.value()
+        self._update_sat_level_hint()
+
+    def _update_sat_level_hint(self):
+        """\u6839\u636e\u5f53\u524d\u8282\u70b9\u96c6\u53f7\u663e\u793a\u723d\u611f\u7b49\u7ea7"""
+        nid = self._node_combo.currentData() or ""
+        ep_num = self._extract_episode_number(nid) if nid else 1
+        from config.prompt_templates import prompt_template_manager
+        level = prompt_template_manager.determine_satisfaction_level(
+            ep_num,
+            self._sat_small_spin.value(),
+            self._sat_medium_spin.value(),
+            self._sat_big_spin.value(),
+        )
+        level_cn = {"small": "\u5c0f\u723d\u70b9", "medium": "\u4e2d\u723d\u70b9", "big": "\u5927\u723d\u70b9"}.get(level, level)
+        level_emoji = {"small": "\u2728", "medium": "\u2b50", "big": "\ud83d\udca5"}.get(level, "")
+        self._sat_level_hint.setText(f"{level_emoji} \u5f53\u524d\u8282\u70b9(Ep{ep_num})\u9700\u8981\uff1a\u300c{level_cn}\u300d")
+
+    def _on_duration_changed(self, *_args):
+        dur_min = self._duration_range.low()
+        dur_max = self._duration_range.high()
+        self.project_data.episode_duration_min = dur_min
+        self.project_data.episode_duration_max = dur_max
+        self.project_data.episode_duration = int((dur_min + dur_max) / 2)
+        self._update_word_count_hint()
+        # 同步目标字数到编辑器
+        target_min = int(dur_min * 180)
+        target_max = int(dur_max * 180)
+        self._screenplay_editor.set_target_range(target_min, target_max)
+
+    def _update_word_count_hint(self):
+        dur_min = self._duration_range.low()
+        dur_max = self._duration_range.high()
+        words_min = int(dur_min * 180)
+        words_max = int(dur_max * 180)
+        self._word_count_label.setText(f"{words_min}-{words_max} 字")
+
+    def _sync_expansion_params(self):
+        """将扩写参数控件值同步到 project_data"""
+        self.project_data.max_scenes_per_episode = self._scenes_slider.value()
+        self.project_data.scenes_per_episode = f"1-{self._scenes_slider.value()}"
+        self.project_data.max_dialogue_chars = self._dialogue_slider.value()
+
+    def _update_prompt_preview(self):
+        """根据当前勾选状态更新 PromptViewer 显示的完整 system prompt"""
+        sat_prompt, hook_prompt = self._get_selected_formula_injections()
+        full_system = SYSTEM_PROMPT_EXPANSION
+        if sat_prompt:
+            full_system += "\n\n" + sat_prompt
+        elif not sat_prompt:
+            full_system += "\n\n[系统将自动随机抽取爽感公式注入]"
+        if hook_prompt:
+            full_system += "\n\n" + hook_prompt
+        elif not hook_prompt:
+            full_system += "\n\n[系统将自动随机抽取钩子公式注入]"
+        self._prompt_viewer.set_prompt(full_system, USER_PROMPT_EXPANSION)
+
+    def _get_selected_formula_injections(self, episode_number: int = 1):
+        """根据用户勾选+集号调度生成注入文本"""
+        from config.prompt_templates import prompt_template_manager
+
+        # 确定本集需要的爽感等级
+        required_level = prompt_template_manager.determine_satisfaction_level(
+            episode_number,
+            self.project_data.sat_small_interval,
+            self.project_data.sat_medium_interval,
+            self.project_data.sat_big_interval,
+        )
+
+        # 爽感公式：按等级和勾选状态生成
+        sat_ids = [cb.property("template_id") for cb in self._sat_checkboxes if cb.isChecked()]
+        sat_prompt = prompt_template_manager.build_satisfaction_prompt_for_episode(
+            episode_number=episode_number,
+            required_level=required_level,
+            selected_ids=sat_ids if sat_ids else None,
+        )
+
+        # 钩子公式：按勾选状态
+        hook_ids = [cb.property("template_id") for cb in self._hook_checkboxes if cb.isChecked()]
+        hook_prompt = prompt_template_manager.build_hook_prompt_by_ids(hook_ids) if hook_ids else ""
+        return sat_prompt, hook_prompt
 
     # ------------------------------------------------------------------ #
     # 节点选择
@@ -412,6 +716,26 @@ class Phase5Expansion(QWidget):
         if genre_exp:
             expansion_block = (expansion_block + "\n\n" + genre_exp).strip()
 
+        # 注入台词字数限制规则
+        max_dc = self.project_data.max_dialogue_chars
+        dialogue_rule = (
+            f"\n## 台词字数限制（严格遵守！）\n"
+            f"- 单句中文台词不得超过 {max_dc} 个字符\n"
+            f"- 如果角色需要表达大量信息，必须拆分台词：插入一个动作描写或镜头切换，"
+            f"或让其他角色插一句话打断，避免长篇独白\n"
+        )
+        expansion_block += dialogue_rule
+
+        # 构建时长字符串
+        dur_min = self.project_data.episode_duration_min
+        dur_max = self.project_data.episode_duration_max
+        dur_min_s = f"{dur_min:.1f}" if dur_min != int(dur_min) else str(int(dur_min))
+        dur_max_s = f"{dur_max:.1f}" if dur_max != int(dur_max) else str(int(dur_max))
+        episode_duration_str = f"{dur_min_s}到{dur_max_s}"
+
+        # 获取用户勾选的公式注入
+        sat_injection, hook_injection = self._get_selected_formula_injections(episode_number)
+
         self._worker = ExpansionWorker(
             sparkle=self.project_data.sparkle,
             finale_condition=self.project_data.finale_condition,
@@ -428,8 +752,11 @@ class Phase5Expansion(QWidget):
             hook=beat.get("hook", ""),
             target_word_count=target_word_count,
             ai_params=self._ai_settings.get_all_settings(),
-            episode_duration=self.project_data.episode_duration,
+            episode_duration=episode_duration_str,
+            scenes_per_episode=self.project_data.scenes_per_episode or "1-2",
             drama_style_block=expansion_block,
+            satisfaction_prompt_injection=sat_injection,
+            hook_prompt_injection=hook_injection,
         )
         self._worker.progress.connect(self.status_message)
         self._worker.finished.connect(self._on_expand_done)

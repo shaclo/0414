@@ -9,9 +9,12 @@ from PySide6.QtWidgets import (
     QPushButton, QSplitter, QTextEdit, QMessageBox,
     QGroupBox, QInputDialog, QSpinBox, QFrame, QComboBox, QLineEdit,
     QListWidget, QListWidgetItem, QDialog, QDialogButtonBox, QFormLayout, QCheckBox,
+    QSlider,
 )
 from PySide6.QtCore import Qt, Signal, QTimer, QSize
 from PySide6.QtGui import QColor
+
+from ui.widgets.range_slider import DurationRangeWidget
 
 from env import SYSTEM_PROMPT_CPG_SKELETON, USER_PROMPT_CPG_SKELETON, SUGGESTED_TEMPERATURES
 from services.worker import CPGSkeletonWorker
@@ -207,15 +210,14 @@ class Phase2Skeleton(QWidget):
         self._episodes_spin.valueChanged.connect(self._on_config_changed)
         config_layout.addWidget(self._episodes_spin)
 
-        config_layout.addWidget(QLabel("  每集时长:"))
-        self._duration_spin = QSpinBox()
-        self._duration_spin.setRange(1, 30)
-        self._duration_spin.setValue(self.project_data.episode_duration)
-        self._duration_spin.setSuffix(" 分钟")
-        self._duration_spin.setToolTip("每集的目标时长（分钟），影响扩写时的字数控制")
-        self._duration_spin.setMinimumWidth(100)
-        self._duration_spin.valueChanged.connect(self._on_config_changed)
-        config_layout.addWidget(self._duration_spin)
+        # 每集时长区间 (Range Slider)
+        self._duration_range = DurationRangeWidget(
+            min_val=0.5, max_val=30.0,
+            low=self.project_data.episode_duration_min,
+            high=self.project_data.episode_duration_max,
+        )
+        self._duration_range.rangeChanged.connect(self._on_config_changed)
+        config_layout.addWidget(self._duration_range)
 
         config_layout.addWidget(QLabel("  ≈ 每集"))
         self._word_count_label = QLabel("")
@@ -225,41 +227,6 @@ class Phase2Skeleton(QWidget):
 
         config_layout.addStretch()
         config_inner.addLayout(config_layout)
-
-        # --- 第二行：风格 + 场景数 ---
-        style_row = QHBoxLayout()
-
-        style_row.addWidget(QLabel("叙事风格:"))
-        from env import DRAMA_STYLE_CONFIG
-        self._style_combo = QComboBox()
-        for key, cfg in DRAMA_STYLE_CONFIG.items():
-            self._style_combo.addItem(cfg["label"], key)
-        # 设置当前值
-        current_style = self.project_data.drama_style or "short_drama"
-        for i in range(self._style_combo.count()):
-            if self._style_combo.itemData(i) == current_style:
-                self._style_combo.setCurrentIndex(i)
-                break
-        self._style_combo.currentIndexChanged.connect(self._on_style_changed)
-        self._style_combo.setMinimumWidth(200)
-        style_row.addWidget(self._style_combo)
-
-        style_row.addWidget(QLabel("  每集场景数:"))
-        self._scenes_input = QLineEdit()
-        self._scenes_input.setText(self.project_data.scenes_per_episode or "1-2")
-        self._scenes_input.setFixedWidth(60)
-        self._scenes_input.setToolTip("每集场景数范围，如 1-2 或 2-3，AI 根据情节自行决定")
-        self._scenes_input.textChanged.connect(self._on_config_changed)
-        style_row.addWidget(self._scenes_input)
-
-        self._style_desc = QLabel("")
-        self._style_desc.setStyleSheet("color: #7f8c8d; font-size: 11px;")
-        self._style_desc.setWordWrap(True)
-        self._update_style_desc()
-        style_row.addWidget(self._style_desc, 1)
-
-        style_row.addStretch()
-        config_inner.addLayout(style_row)
 
         bl.addWidget(config_group)
 
@@ -343,34 +310,23 @@ class Phase2Skeleton(QWidget):
     # ------------------------------------------------------------------ #
     # 配置变更
     # ------------------------------------------------------------------ #
-    def _on_config_changed(self):
+    def _on_config_changed(self, *_args):
         self.project_data.total_episodes = self._episodes_spin.value()
-        self.project_data.episode_duration = self._duration_spin.value()
-        self.project_data.scenes_per_episode = self._scenes_input.text().strip() or "1-2"
+        # 时长区间
+        dur_min = self._duration_range.low()
+        dur_max = self._duration_range.high()
+        self.project_data.episode_duration_min = dur_min
+        self.project_data.episode_duration_max = dur_max
+        self.project_data.episode_duration = int((dur_min + dur_max) / 2)  # 向后兼容
         self._update_word_count_hint()
         self._update_dynamic_max_tokens()
 
-    def _on_style_changed(self):
-        from env import DRAMA_STYLE_CONFIG
-        style_key = self._style_combo.currentData() or "short_drama"
-        self.project_data.drama_style = style_key
-        cfg = DRAMA_STYLE_CONFIG.get(style_key, {})
-        # 自动填充默认值
-        self._duration_spin.setValue(cfg.get("default_episode_duration", 3))
-        self._scenes_input.setText(cfg.get("default_scenes_per_episode", "1-2"))
-        self._update_style_desc()
-        self._on_config_changed()
-
-    def _update_style_desc(self):
-        from env import DRAMA_STYLE_CONFIG
-        style_key = self._style_combo.currentData() or "short_drama"
-        cfg = DRAMA_STYLE_CONFIG.get(style_key, {})
-        self._style_desc.setText(cfg.get("description", ""))
-
     def _update_word_count_hint(self):
-        duration = self._duration_spin.value()
-        words = duration * 180
-        self._word_count_label.setText(f"{words} 字 (≈{duration}分钟×180字/分)")
+        dur_min = self._duration_range.low()
+        dur_max = self._duration_range.high()
+        words_min = int(dur_min * 180)
+        words_max = int(dur_max * 180)
+        self._word_count_label.setText(f"{words_min}-{words_max} 字")
 
     def _update_dynamic_max_tokens(self):
         """根据集数动态调整 max_tokens，确保 AI 有足够空间输出完整 JSON"""
@@ -387,15 +343,10 @@ class Phase2Skeleton(QWidget):
     def on_enter(self):
         # 同步 UI 与 project_data
         self._episodes_spin.setValue(self.project_data.total_episodes)
-        self._duration_spin.setValue(self.project_data.episode_duration)
-        self._scenes_input.setText(self.project_data.scenes_per_episode or "1-2")
-        # 同步风格选择器
-        current_style = self.project_data.drama_style or "short_drama"
-        for i in range(self._style_combo.count()):
-            if self._style_combo.itemData(i) == current_style:
-                self._style_combo.setCurrentIndex(i)
-                break
-        self._update_style_desc()
+        self._duration_range.setValues(
+            self.project_data.episode_duration_min,
+            self.project_data.episode_duration_max,
+        )
         self._update_word_count_hint()
         self._update_dynamic_max_tokens()
 
@@ -550,7 +501,7 @@ class Phase2Skeleton(QWidget):
             ai_params=self._ai_settings.get_all_settings(),
             characters=self.project_data.characters,
             total_episodes=self._episodes_spin.value(),
-            episode_duration=self._duration_spin.value(),
+            episode_duration=self._duration_range.durationString(),
             drama_style_block=combined_block,
         )
         self._worker.progress.connect(self.status_message)
@@ -637,7 +588,7 @@ class Phase2Skeleton(QWidget):
         self._btn_next.setEnabled(not busy)
         self._btn_back.setEnabled(not busy)
         self._episodes_spin.setEnabled(not busy)
-        self._duration_spin.setEnabled(not busy)
+        self._duration_range.setEnabled(not busy)
         self._btn_regen.setText("处理中..." if busy else "重新生成骨架")
 
     def _on_error(self, msg: str):

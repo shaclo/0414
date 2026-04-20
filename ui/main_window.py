@@ -81,8 +81,8 @@ class MainWindow(QMainWindow):
         exit_act.triggered.connect(self.close)
         file_menu.addAction(exit_act)
 
-        # 系统菜单
-        sys_menu = mb.addMenu("系统(&S)")
+        # 工具菜单
+        sys_menu = mb.addMenu("工具(&T)")
         bvsr_act = QAction("BVSR 人格设置...", self)
         bvsr_act.setStatusTip("管理 BVSR 多人格生成系统的人格定义（添加/删除/修改/激活）")
         bvsr_act.triggered.connect(self._on_bvsr_settings)
@@ -98,6 +98,19 @@ class MainWindow(QMainWindow):
         skel_ai_act.setStatusTip("管理骨架节点快速重生成的情节方向、结构微调和 Prompt 模板")
         skel_ai_act.triggered.connect(self._on_skeleton_ai_settings)
         sys_menu.addAction(skel_ai_act)
+
+        sys_menu.addSeparator()
+        expansion_act = QAction("扩写设置 — 爽感 && 钩子公式...", self)
+        expansion_act.setStatusTip("管理爽感节奏公式和结尾钩子公式的 Prompt 模板（随机抽样注入）")
+        expansion_act.triggered.connect(self._on_expansion_template_settings)
+        sys_menu.addAction(expansion_act)
+
+        # 系统菜单
+        system_menu = mb.addMenu("系统(&S)")
+        update_act = QAction("系统更新 / 版本信息...", self)
+        update_act.setStatusTip("查看当前系统版本号和最后更新日期")
+        update_act.triggered.connect(self._on_system_update)
+        system_menu.addAction(update_act)
 
     # ------------------------------------------------------------------ #
     # 主 UI
@@ -383,6 +396,207 @@ class MainWindow(QMainWindow):
     def _on_skeleton_ai_settings(self):
         from ui.widgets.skeleton_ai_settings_dialog import SkeletonAISettingsDialog
         dlg = SkeletonAISettingsDialog(project_data=self.project_data, parent=self)
+        dlg.exec()
+
+    def _on_expansion_template_settings(self):
+        from ui.widgets.prompt_template_dialog import PromptTemplateDialog
+        dlg = PromptTemplateDialog(parent=self)
+        dlg.exec()
+
+    def _on_system_update(self):
+        from PySide6.QtWidgets import (QDialog, QDialogButtonBox, QFormLayout,
+                                       QProgressBar, QTextEdit)
+        from PySide6.QtCore import Qt as _Qt
+        from env import APP_VERSION, APP_BUILD_DATE, GITHUB_RELEASES_API
+
+        dlg = QDialog(self)
+        dlg.setWindowTitle("系统更新")
+        dlg.setMinimumWidth(480)
+        dlg.setMinimumHeight(380)
+
+        layout = QVBoxLayout(dlg)
+        layout.setSpacing(10)
+        layout.setContentsMargins(24, 24, 24, 24)
+
+        # 标题
+        title = QLabel("📽️ 短剧剧本生成器")
+        title.setStyleSheet("font-size:18px; font-weight:bold;")
+        title.setAlignment(_Qt.AlignCenter)
+        layout.addWidget(title)
+
+        subtitle = QLabel("NarrativeLoom BVSR × Causal Distillation")
+        subtitle.setStyleSheet("font-size:11px; color:#7f8c8d;")
+        subtitle.setAlignment(_Qt.AlignCenter)
+        layout.addWidget(subtitle)
+
+        sep = QLabel()
+        sep.setFixedHeight(1)
+        sep.setStyleSheet("background:#dcdde1;")
+        layout.addWidget(sep)
+
+        # 版本信息
+        info_layout = QFormLayout()
+        info_layout.setSpacing(6)
+        ver_label = QLabel(f"v{APP_VERSION}")
+        ver_label.setStyleSheet("font-size:14px; font-weight:bold; color:#2980b9;")
+        info_layout.addRow("当前版本：", ver_label)
+        date_label = QLabel(APP_BUILD_DATE)
+        date_label.setStyleSheet("font-size:13px;")
+        info_layout.addRow("最后更新：", date_label)
+        layout.addLayout(info_layout)
+
+        sep2 = QLabel()
+        sep2.setFixedHeight(1)
+        sep2.setStyleSheet("background:#dcdde1;")
+        layout.addWidget(sep2)
+
+        # 状态区
+        status_label = QLabel("点击「检查更新」查看是否有新版本。")
+        status_label.setWordWrap(True)
+        status_label.setStyleSheet("font-size:12px; margin-top:4px;")
+        layout.addWidget(status_label)
+
+        # 更新日志
+        log_edit = QTextEdit()
+        log_edit.setReadOnly(True)
+        log_edit.setMaximumHeight(120)
+        log_edit.setStyleSheet(
+            "QTextEdit{background:#f8f9fa;border:1px solid #dcdde1;"
+            "border-radius:4px;padding:6px;font-size:11px;}"
+        )
+        log_edit.hide()
+        layout.addWidget(log_edit)
+
+        # 进度条
+        progress_bar = QProgressBar()
+        progress_bar.setRange(0, 100)
+        progress_bar.setValue(0)
+        progress_bar.setTextVisible(True)
+        progress_bar.setStyleSheet(
+            "QProgressBar{border:1px solid #dcdde1;border-radius:4px;text-align:center;height:22px;}"
+            "QProgressBar::chunk{background:#27ae60;border-radius:3px;}"
+        )
+        progress_bar.hide()
+        layout.addWidget(progress_bar)
+
+        # 按钮
+        btn_check = QPushButton("🔍 检查更新")
+        btn_check.setStyleSheet(
+            "QPushButton{background:#3498db;color:white;border:none;"
+            "border-radius:4px;padding:8px 16px;font-weight:bold;}"
+            "QPushButton:hover{background:#2980b9;}"
+            "QPushButton:disabled{background:#bdc3c7;}"
+        )
+        layout.addWidget(btn_check)
+
+        btn_download = QPushButton("⬇️ 下载并更新")
+        btn_download.setStyleSheet(
+            "QPushButton{background:#27ae60;color:white;border:none;"
+            "border-radius:4px;padding:8px 16px;font-weight:bold;}"
+            "QPushButton:hover{background:#229954;}"
+            "QPushButton:disabled{background:#bdc3c7;}"
+        )
+        btn_download.hide()
+        layout.addWidget(btn_download)
+
+        btn_restart = QPushButton("🔄 立即重启应用")
+        btn_restart.setStyleSheet(
+            "QPushButton{background:#e74c3c;color:white;border:none;"
+            "border-radius:4px;padding:8px 16px;font-weight:bold;}"
+            "QPushButton:hover{background:#c0392b;}"
+        )
+        btn_restart.hide()
+        layout.addWidget(btn_restart)
+
+        btn_close = QPushButton("关闭")
+        btn_close.clicked.connect(dlg.accept)
+        layout.addWidget(btn_close)
+
+        # — 逻辑 —
+        _state = {"download_url": "", "checker": None, "downloader": None}
+
+        def on_check():
+            btn_check.setEnabled(False)
+            status_label.setText("🔍 正在检查更新…")
+            status_label.setStyleSheet("font-size:12px; color:#e67e22;")
+
+            from services.updater import UpdateChecker
+            checker = UpdateChecker(GITHUB_RELEASES_API, APP_VERSION)
+            _state["checker"] = checker  # prevent GC
+
+            def on_result(info):
+                if info["has_update"]:
+                    status_label.setText(
+                        f"✅ 发现新版本: v{info['latest_version']}（当前: v{APP_VERSION}）"
+                    )
+                    status_label.setStyleSheet("font-size:12px; color:#27ae60; font-weight:bold;")
+                    log_edit.setPlainText(info["release_notes"])
+                    log_edit.show()
+                    _state["download_url"] = info["download_url"]
+                    btn_download.show()
+                else:
+                    status_label.setText(f"✅ 当前已是最新版本 v{APP_VERSION}")
+                    status_label.setStyleSheet("font-size:12px; color:#27ae60;")
+                btn_check.setEnabled(True)
+
+            def on_error(msg):
+                status_label.setText(f"❌ {msg}")
+                status_label.setStyleSheet("font-size:12px; color:#e74c3c;")
+                btn_check.setEnabled(True)
+
+            checker.result.connect(on_result)
+            checker.error.connect(on_error)
+            checker.start()
+
+        def on_download():
+            if not _state["download_url"]:
+                return
+            btn_download.setEnabled(False)
+            btn_check.setEnabled(False)
+            progress_bar.show()
+            progress_bar.setValue(0)
+
+            import os as _os
+            app_dir = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+
+            from services.updater import UpdateDownloader
+            downloader = UpdateDownloader(_state["download_url"], app_dir)
+            _state["downloader"] = downloader  # prevent GC
+
+            def on_progress(pct, msg):
+                progress_bar.setValue(pct)
+                status_label.setText(msg)
+                status_label.setStyleSheet("font-size:12px; color:#2980b9;")
+
+            def on_finished(success, msg):
+                if success:
+                    status_label.setText(f"✅ {msg}")
+                    status_label.setStyleSheet("font-size:12px; color:#27ae60; font-weight:bold;")
+                    progress_bar.setValue(100)
+                    btn_download.hide()
+                    btn_restart.show()
+                else:
+                    status_label.setText(f"❌ {msg}")
+                    status_label.setStyleSheet("font-size:12px; color:#e74c3c;")
+                    btn_download.setEnabled(True)
+                btn_check.setEnabled(True)
+
+            downloader.progress.connect(on_progress)
+            downloader.finished.connect(on_finished)
+            downloader.start()
+
+        def on_restart():
+            import subprocess
+            python = sys.executable
+            app_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            main_py = os.path.join(app_dir, "main.py")
+            subprocess.Popen([python, main_py], cwd=app_dir)
+            QApplication.quit()
+
+        btn_check.clicked.connect(on_check)
+        btn_download.clicked.connect(on_download)
+        btn_restart.clicked.connect(on_restart)
+
         dlg.exec()
 
     def _do_save(self, filepath: str):

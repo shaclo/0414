@@ -5,3 +5,5 @@ __pycache__/
 vector_db/
 projects/*
 *.pyc
+examplepaper/*
+_update_tmp/
