@@ -11,7 +11,7 @@ APP_VERSION = "1.1.0"
 APP_BUILD_DATE = "2026-04-20"
 GITHUB_REPO_OWNER = "shaclo"
 GITHUB_REPO_NAME = "0414"
-GITHUB_RELEASES_API = f"https://api.github.com/repos/{GITHUB_REPO_OWNER}/{GITHUB_REPO_NAME}/releases"
+GITHUB_RELEASES_API = f"https://api.github.com/repos/{GITHUB_REPO_OWNER}/{GITHUB_REPO_NAME}/releases/latest"
 
 # ====================================================================
 # AI-Call-1: 苏格拉底盘问

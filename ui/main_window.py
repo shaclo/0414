@@ -586,10 +586,12 @@ class MainWindow(QMainWindow):
             downloader.start()
 
         def on_restart():
+            import sys as _sys
+            import os as _os2
             import subprocess
-            python = sys.executable
-            app_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            main_py = os.path.join(app_dir, "main.py")
+            python = _sys.executable
+            app_dir = _os2.path.dirname(_os2.path.dirname(_os2.path.abspath(__file__)))
+            main_py = _os2.path.join(app_dir, "main.py")
             subprocess.Popen([python, main_py], cwd=app_dir)
             QApplication.quit()
 
