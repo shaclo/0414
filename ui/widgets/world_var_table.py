@@ -32,7 +32,7 @@ class WorldVarTable(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
 
         header = QLabel("世界观变量表")
-        header.setStyleSheet("font-weight: bold; font-size: 13px; padding: 4px 0;")
+        header.setStyleSheet("font-weight: bold; padding: 4px 0;")
         layout.addWidget(header)
 
         self._table = QTableWidget()
@@ -57,7 +57,7 @@ class WorldVarTable(QWidget):
 
         self._conflict_label = QLabel("")
         self._conflict_label.setWordWrap(True)
-        self._conflict_label.setStyleSheet("color: #c0392b; font-size: 11px;")
+        self._conflict_label.setStyleSheet("color: #c0392b;")
         layout.addLayout(btn_row)
         layout.addWidget(self._conflict_label)
 

@@ -1,0 +1,21 @@
+{
+  "active_provider": "vertex_default",
+  "providers": {
+    "vertex_default": {
+      "type": "vertex",
+      "name": "Vertex AI (默认)",
+      "model": "gemini-2.5-flash",
+      "models": [
+        "gemini-2.5-flash",
+        "gemini-2.5-pro",
+        "gemini-2.0-flash"
+      ],
+      "embedding_model": "text-embedding-004",
+      "embedding_dim": 768,
+      "proxy": "http://127.0.0.1:7897",
+      "key_path": "E:/project/0414/key/gen-lang-client-0682241933-650260deea82.json",
+      "project_id": "gen-lang-client-0682241933",
+      "location": "us-central1"
+    }
+  }
+}

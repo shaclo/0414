@@ -44,7 +44,7 @@ class GenreSettingsDialog(QDialog):
             "题材专属的节奏规则和创作纪律，与短剧/传统风格配置叠加生效。"
         )
         tip.setWordWrap(True)
-        tip.setStyleSheet("color: #636e72; font-size: 12px; padding: 4px 0;")
+        tip.setStyleSheet("color: #636e72; padding: 4px 0;")
         root.addWidget(tip)
 
         splitter = QSplitter(Qt.Horizontal)
@@ -124,7 +124,7 @@ class GenreSettingsDialog(QDialog):
             text.setMaximumHeight(100)
             text.setStyleSheet(
                 "QTextEdit{background:#f8f9fa;border:1px solid #dee2e6;"
-                "border-radius:4px;font-size:11px;color:#495057;}"
+                "border-radius:4px;color:#495057;}"
             )
             text.setPlaceholderText("在此输入该阶段的注入规则（可为空）")
             setattr(self, attr, text)

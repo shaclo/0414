@@ -10,7 +10,7 @@ from PySide6.QtWidgets import (
     QTextEdit, QGroupBox, QMessageBox, QRadioButton,
     QButtonGroup, QTableWidget, QTableWidgetItem,
     QHeaderView, QAbstractItemView, QFrame, QSpinBox,
-    QSizePolicy,
+    QSizePolicy, QCheckBox,
 )
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QColor
@@ -22,6 +22,7 @@ from env import (
 )
 from services.worker import VariationWorker, ITEWorker, RAGWorker
 from services.rag_controller import rag_controller
+from services.logger_service import app_logger
 from ui.widgets.ai_settings_panel import AISettingsPanel
 from ui.widgets.prompt_viewer import PromptViewer
 from ui.widgets.persona_selector import PersonaSelector
@@ -75,7 +76,7 @@ class Phase3Flesh(QWidget):
         top.addWidget(self._node_combo)
         top.addWidget(QLabel("   进度:"))
         self._progress_label = QLabel("")
-        self._progress_label.setStyleSheet("font-size: 13px; letter-spacing: 3px;")
+        self._progress_label.setStyleSheet(" letter-spacing: 3px;")
         top.addWidget(self._progress_label)
         top.addStretch()
         root.addLayout(top)
@@ -124,6 +125,19 @@ class Phase3Flesh(QWidget):
         self._prompt_viewer_var.set_prompt(SYSTEM_PROMPT_VARIATION_FRAME, USER_PROMPT_VARIATION)
         prompt_inner.addWidget(self._prompt_viewer_var)
         cl.addWidget(prompt_group)
+
+        # 供应商多选（Beat 并行时随机分配）
+        provider_group = QGroupBox("🔀 供应商分配（多选 = Beat 并行时随机分配）")
+        provider_group.setStyleSheet(
+            "QGroupBox{font-weight:bold;border:1px solid #dcdde1;"
+            "border-radius:4px;margin-top:6px;padding-top:16px;}"
+            "QGroupBox::title{subcontrol-origin:margin;left:8px;}"
+        )
+        self._provider_checks_layout = QHBoxLayout(provider_group)
+        self._provider_checks_layout.setSpacing(12)
+        self._provider_checkboxes: list = []
+        self._refresh_provider_checkboxes()
+        cl.addWidget(provider_group)
 
         # 生成按钮行
         gen_row = QHBoxLayout()
@@ -239,7 +253,7 @@ class Phase3Flesh(QWidget):
         self._readable_view.setPlaceholderText("选择左侧卡片后，Beat 将以可读格式显示在此。可直接编辑内容，然后点击保存。")
         self._readable_view.setStyleSheet(
             "QTextEdit{font-family:'Microsoft YaHei','Noto Sans CJK SC',sans-serif;"
-            "font-size:12px;line-height:1.6;"
+            "line-height:1.6;"
             "border:1px solid #dcdde1;border-radius:4px;padding:8px;"
             "background:#fafafa;}"
         )
@@ -249,7 +263,7 @@ class Phase3Flesh(QWidget):
         self._detail_edit = QTextEdit()
         self._detail_edit.setPlaceholderText("选择左侧卡片后，完整 JSON 显示在此，可手动修改。")
         self._detail_edit.setStyleSheet(
-            "QTextEdit{font-family:Consolas,monospace;font-size:11px;"
+            "QTextEdit{font-family:Consolas,monospace;"
             "border:1px solid #dcdde1;border-radius:4px;}"
         )
         self._detail_edit.setVisible(False)
@@ -316,10 +330,10 @@ class Phase3Flesh(QWidget):
         itl.addWidget(self._ite_table)
         self._ite_warn_label = QLabel("")
         self._ite_warn_label.setWordWrap(True)
-        self._ite_warn_label.setStyleSheet("color:#c0392b; font-size:11px;")
+        self._ite_warn_label.setStyleSheet("color:#c0392b;")
         itl.addWidget(self._ite_warn_label)
         self._ite_coherence_label = QLabel("")
-        self._ite_coherence_label.setStyleSheet("font-weight:bold; font-size:12px;")
+        self._ite_coherence_label.setStyleSheet("font-weight:bold;")
         itl.addWidget(self._ite_coherence_label)
         al.addWidget(ite_group)
 
@@ -330,7 +344,7 @@ class Phase3Flesh(QWidget):
         self._rag_text.setReadOnly(True)
         self._rag_text.setMaximumHeight(130)
         self._rag_text.setStyleSheet(
-            "QTextEdit{font-family:Consolas,monospace;font-size:11px;"
+            "QTextEdit{font-family:Consolas,monospace;"
             "border:1px solid #dcdde1;border-radius:4px;}"
         )
         rgl.addWidget(self._rag_text)
@@ -524,9 +538,9 @@ class Phase3Flesh(QWidget):
                         if r.get("persona_key") == self._selected_persona_key:
                             r["beat"] = new_data
                             break
-                # 同时保存到 confirmed_beats
                 self.project_data.confirmed_beats[nid] = new_data
                 self.status_message.emit(f"✅ 节点 {nid} 的 Beat JSON 已保存")
+                app_logger.info("血肉-保存编辑", f"节点 {nid} 保存用户修改的 JSON")
             except json.JSONDecodeError as e:
                 QMessageBox.warning(self, "JSON 格式错误", f"无法解析 JSON：{e}")
                 return
@@ -544,6 +558,7 @@ class Phase3Flesh(QWidget):
             else:
                 self.project_data.confirmed_beats[nid] = {"readable_text": text}
             self.status_message.emit(f"✅ 节点 {nid} 的可读文本已保存")
+            app_logger.info("血肉-保存编辑", f"节点 {nid} 保存用户修改的可读文本")
 
         QMessageBox.information(self, "保存成功", "修改已保存到当前节点。")
 
@@ -585,6 +600,7 @@ class Phase3Flesh(QWidget):
         self._batch_remaining = actual_count - 1  # 当前节点算一个
         self._batch_mode = True
         self._batch_auto_confirm = False
+        app_logger.info("血肉-批量生成", f"启动批量生成流程，目标章节数：{actual_count}，使用人格：{selected_keys}")
         self._on_generate()
 
     def _on_autopilot_generate(self):
@@ -632,7 +648,50 @@ class Phase3Flesh(QWidget):
         self._batch_remaining = total_nodes - 1
         self._batch_mode = True
         self._batch_auto_confirm = True
+        app_logger.info("血肉-自动生成", f"开启全自动生成流程，覆盖所有 {total_nodes} 个节点，使用首选人格：{self._batch_persona_key}")
         self._on_generate()
+
+    # ------------------------------------------------------------------ #
+    # 供应商多选
+    # ------------------------------------------------------------------ #
+    def _refresh_provider_checkboxes(self):
+        """从 ai_service 加载供应商列表，刷新多选框"""
+        from services.ai_service import ai_service
+        ai_service.initialize()
+
+        # 清除旧的 checkbox
+        for cb in self._provider_checkboxes:
+            self._provider_checks_layout.removeWidget(cb)
+            cb.deleteLater()
+        self._provider_checkboxes.clear()
+
+        # 清除旧的 stretch（QSpacerItem）
+        while self._provider_checks_layout.count() > 0:
+            item = self._provider_checks_layout.takeAt(0)
+            # takeAt 返回 QLayoutItem，widget 类已在上面删除
+
+        providers = ai_service.get_all_providers()
+        active_id = ai_service.get_active_provider_id()
+
+        for pid, cfg in providers.items():
+            name = cfg.get("name", pid)
+            cb = QCheckBox(name)
+            cb.setProperty("provider_id", pid)
+            # 默认勾选当前活跃供应商
+            cb.setChecked(pid == active_id)
+            cb.setStyleSheet("")
+            self._provider_checks_layout.addWidget(cb)
+            self._provider_checkboxes.append(cb)
+
+        self._provider_checks_layout.addStretch()
+
+    def _get_selected_provider_pool(self) -> list:
+        """获取用户勾选的供应商 ID 列表。未勾选任何则返回 None（走默认供应商）"""
+        selected = []
+        for cb in self._provider_checkboxes:
+            if cb.isChecked():
+                selected.append(cb.property("provider_id"))
+        return selected if selected else None
 
     # ------------------------------------------------------------------ #
     # AI-Call-4: 盲视变异
@@ -676,6 +735,7 @@ class Phase3Flesh(QWidget):
             ai_params=self._ai_settings_var.get_all_settings(),
             characters=self.project_data.characters,
             drama_style_block=combined_var,
+            provider_pool=self._get_selected_provider_pool(),
         )
         self._worker.progress.connect(self.status_message)
         self._worker.beat_ready.connect(self._on_beat_ready)
@@ -761,6 +821,7 @@ class Phase3Flesh(QWidget):
         nid = self._get_current_node_id()
         if nid:
             self.status_message.emit(f"已跳过节点 {nid}")
+            app_logger.warning("血肉-跳过节点", f"用户跳过节点 {nid} 的血肉生成")
             self._refresh_node_combo()
             self._update_progress()
 
@@ -782,6 +843,14 @@ class Phase3Flesh(QWidget):
         self._confirmed_beat_data = beat_data
         self.project_data.confirmed_beats[nid] = beat_data
         self.project_data.push_history("confirm_beat", nid)
+
+        from env import PERSONA_DEFINITIONS
+        pname = PERSONA_DEFINITIONS.get(self._selected_persona_key, {}).get("name", self._selected_persona_key)
+        app_logger.success(
+            "血肉-确认Beat",
+            f"节点 {nid} 确认采用人格方案：{pname}",
+            f"Beat 内容：\n{json.dumps(beat_data, ensure_ascii=False, indent=2)}"
+        )
 
         try:
             rag_controller.index_beat(nid, beat_data)
@@ -920,7 +989,7 @@ class Phase3Flesh(QWidget):
         coherence = result.get("full_story_coherence", 0.0)
         c = "#27ae60" if coherence >= 0.7 else "#e67e22" if coherence >= 0.5 else "#c0392b"
         self._ite_coherence_label.setText(
-            f"<span style='color:{c};font-size:14px;font-weight:bold;'>"
+            f"<span style='color:{c};font-weight:bold;'>"
             f"整体连贯度: {coherence:.0%}</span>"
         )
         self._ite_coherence_label.setTextFormat(Qt.RichText)

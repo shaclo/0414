@@ -55,7 +55,7 @@ class BVSRSettingsDialog(QDialog):
             "勾选人格 = 激活参与生成；每个人格独立调用 AI，生成不同视角的 Story Beat。"
         )
         tip.setWordWrap(True)
-        tip.setStyleSheet("color: #636e72; font-size: 12px; padding: 4px 0;")
+        tip.setStyleSheet("color: #636e72; padding: 4px 0;")
         root.addWidget(tip)
 
         splitter = QSplitter(Qt.Horizontal)
@@ -125,7 +125,7 @@ class BVSRSettingsDialog(QDialog):
         save_row.addStretch()
 
         self._status_label = QLabel("")
-        self._status_label.setStyleSheet("color: #27ae60; font-size: 12px;")
+        self._status_label.setStyleSheet("color: #27ae60;")
         save_row.addWidget(self._status_label)
         rv.addLayout(save_row)
 

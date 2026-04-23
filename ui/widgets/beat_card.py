@@ -47,7 +47,7 @@ class BeatCard(QWidget):
         # 人格名称
         title = QLabel(self.persona_name)
         title.setStyleSheet(
-            "font-weight: bold; font-size: 12px; color: #2c3e50;"
+            "font-weight: bold; color: #2c3e50;"
         )
         fl.addWidget(title)
 
@@ -57,13 +57,13 @@ class BeatCard(QWidget):
             setting_text = setting_text[:80] + "..."
         setting_label = QLabel(f"场景: {setting_text}")
         setting_label.setWordWrap(True)
-        setting_label.setStyleSheet("color: #555; font-size: 11px;")
+        setting_label.setStyleSheet("color: #555;")
         fl.addWidget(setting_label)
 
         # 事件数量
         events = self.beat_data.get("causal_events", [])
         events_label = QLabel(f"事件: {len(events)} 个")
-        events_label.setStyleSheet("font-size: 11px; color: #555;")
+        events_label.setStyleSheet(" color: #555;")
         fl.addWidget(events_label)
 
         # Hook 摘要
@@ -73,7 +73,7 @@ class BeatCard(QWidget):
         if hook_text:
             hook_label = QLabel(f"钩子: {hook_text}")
             hook_label.setWordWrap(True)
-            hook_label.setStyleSheet("color: #7f8c8d; font-size: 10px;")
+            hook_label.setStyleSheet("color: #7f8c8d;")
             fl.addWidget(hook_label)
 
         # 创作理由
@@ -83,7 +83,7 @@ class BeatCard(QWidget):
                 rationale = rationale[:60] + "..."
             rat_label = QLabel(f"依据: {rationale}")
             rat_label.setWordWrap(True)
-            rat_label.setStyleSheet("color: #95a5a6; font-size: 10px; font-style: italic;")
+            rat_label.setStyleSheet("color: #95a5a6; font-style: italic;")
             fl.addWidget(rat_label)
 
         # 选择按钮

@@ -102,7 +102,7 @@ class _TemplateTab(QWidget):
 
         save_row.addStretch()
         self._status = QLabel("")
-        self._status.setStyleSheet("color:#27ae60;font-size:12px;")
+        self._status.setStyleSheet("color:#27ae60;")
         save_row.addWidget(self._status)
         rv.addLayout(save_row)
 
@@ -264,7 +264,7 @@ class PromptTemplateDialog(QDialog):
             "每次生成时，系统从启用的公式池中随机抽 2-3 个候选，让 AI 选择最有冲击力的来写。"
         )
         tip.setWordWrap(True)
-        tip.setStyleSheet("color:#636e72;font-size:12px;padding:4px 0;")
+        tip.setStyleSheet("color:#636e72;padding:4px 0;")
         root.addWidget(tip)
 
         tabs = QTabWidget()

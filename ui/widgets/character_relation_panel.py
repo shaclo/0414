@@ -73,7 +73,7 @@ class RelationDialog(QDialog):
         layout.addLayout(form)
 
         tip = QLabel("关系默认单向。若需双向（如：互相信任），请添加两条关系。")
-        tip.setStyleSheet("color: #7f8c8d; font-size: 11px;")
+        tip.setStyleSheet("color: #7f8c8d;")
         tip.setWordWrap(True)
         layout.addWidget(tip)
 
@@ -185,7 +185,7 @@ class CharacterRelationPanel(QWidget):
         layout.addWidget(self._table)
 
         tip = QLabel("💡 双击某行可编辑关系 | 拖动列头边缘可调整列宽")
-        tip.setStyleSheet("color: #7f8c8d; font-size: 11px;")
+        tip.setStyleSheet("color: #7f8c8d;")
         layout.addWidget(tip)
 
     # ------------------------------------------------------------------ #

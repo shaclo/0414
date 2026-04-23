@@ -243,7 +243,7 @@ class DurationRangeWidget(QWidget):
 
         # 提示文字
         self._hint_label = QLabel("")
-        self._hint_label.setStyleSheet("color: #2980b9; font-weight: bold; font-size: 12px;")
+        self._hint_label.setStyleSheet("color: #2980b9; font-weight: bold;")
         self._hint_label.setMinimumWidth(110)
         layout.addWidget(self._hint_label)
         self._update_hint()

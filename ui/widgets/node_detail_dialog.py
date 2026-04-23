@@ -343,7 +343,7 @@ class NodeDetailDialog(QDialog):
         btn_add_in.setAutoDefault(False)
         btn_add_in.setDefault(False)
         btn_add_in.setToolTip("添加入口连接")
-        btn_add_in.setStyleSheet("QPushButton{color:#27ae60; background:#eafaf1; font-weight:bold; font-size:16px; border:1px solid #bdc3c7; border-radius:3px; padding:0;}")
+        btn_add_in.setStyleSheet("QPushButton{color:#27ae60; background:#eafaf1; font-weight:bold; border:1px solid #bdc3c7; border-radius:3px; padding:0;}")
         btn_add_in.clicked.connect(lambda: self._add_edge_tag("in"))
         in_row.addWidget(btn_add_in)
         edge_layout.addLayout(in_row)
@@ -361,7 +361,7 @@ class NodeDetailDialog(QDialog):
         btn_add_out.setAutoDefault(False)
         btn_add_out.setDefault(False)
         btn_add_out.setToolTip("添加出口连接")
-        btn_add_out.setStyleSheet("QPushButton{color:#2980b9; background:#ebf5fb; font-weight:bold; font-size:16px; border:1px solid #bdc3c7; border-radius:3px; padding:0;}")
+        btn_add_out.setStyleSheet("QPushButton{color:#2980b9; background:#ebf5fb; font-weight:bold; border:1px solid #bdc3c7; border-radius:3px; padding:0;}")
         btn_add_out.clicked.connect(lambda: self._add_edge_tag("out"))
         out_row.addWidget(btn_add_out)
         edge_layout.addLayout(out_row)
@@ -381,12 +381,12 @@ class NodeDetailDialog(QDialog):
         h.setContentsMargins(6, 0, 2, 0)
         h.setSpacing(2)
         lbl = QLabel(node_id)
-        lbl.setStyleSheet("font-size:12px; color:#2c3e50;")
+        lbl.setStyleSheet(" color:#2c3e50;")
         h.addWidget(lbl)
         btn_x = QPushButton("x")
         btn_x.setFixedSize(16, 16)
         btn_x.setStyleSheet(
-            "QPushButton{border:none;color:#e74c3c;font-size:11px;font-weight:bold;padding:0;}"
+            "QPushButton{border:none;color:#e74c3c;font-weight:bold;padding:0;}"
             "QPushButton:hover{color:#c0392b;background:#fadbd8;border-radius:8px;}"
         )
         btn_x.setCursor(Qt.PointingHandCursor)
@@ -1013,7 +1013,7 @@ class NodeDetailDialog(QDialog):
             btn_confirm.setToolTip("发送确认修改指令，让 AI 执行修改")
             btn_confirm.setStyleSheet(
                 "QPushButton{background:#27ae60;color:white;font-weight:bold;"
-                "padding:4px 16px;border-radius:4px;border:none;font-size:13px;}"
+                "padding:4px 16px;border-radius:4px;border:none;}"
                 "QPushButton:hover{background:#229954;}"
             )
             btn_confirm.setCursor(Qt.PointingHandCursor)
@@ -1021,7 +1021,7 @@ class NodeDetailDialog(QDialog):
             self._options_layout.addWidget(btn_confirm)
 
             hint = QLabel("  或在聊天框输入您的意见")
-            hint.setStyleSheet("color:#7f8c8d; font-size:11px;")
+            hint.setStyleSheet("color:#7f8c8d;")
             self._options_layout.addWidget(hint)
             has_content = True
 
@@ -1041,7 +1041,7 @@ class NodeDetailDialog(QDialog):
                 sep.setStyleSheet("color:#bdc3c7;")
                 self._options_layout.addWidget(sep)
             lbl = QLabel("快捷选择:")
-            lbl.setStyleSheet("font-size:11px;")
+            lbl.setStyleSheet("")
             self._options_layout.addWidget(lbl)
             for num, label in options:
                 btn = QPushButton(f"{num}. {label[:12]}")
@@ -1050,7 +1050,7 @@ class NodeDetailDialog(QDialog):
                 btn.setToolTip(f"选择方案{num}: {label}")
                 btn.setStyleSheet(
                     "QPushButton{background:#ebf5fb;border:1px solid #3498db;"
-                    "border-radius:3px;padding:2px 8px;font-size:12px;}"
+                    "border-radius:3px;padding:2px 8px;}"
                     "QPushButton:hover{background:#d4e6f1;}"
                 )
                 btn.setCursor(Qt.PointingHandCursor)

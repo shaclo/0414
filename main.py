@@ -11,7 +11,6 @@ import logging
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from PySide6.QtWidgets import QApplication
-from PySide6.QtGui import QFont
 
 from ui.main_window import MainWindow
 
@@ -27,7 +26,7 @@ def setup_logging():
 
 def ensure_directories():
     """确保必要的目录存在"""
-    dirs = ["projects", "vector_db", "key"]
+    dirs = ["projects", "vector_db", "key", "config"]
     for d in dirs:
         os.makedirs(d, exist_ok=True)
 
@@ -40,52 +39,10 @@ def main():
     if app is None:
         app = QApplication(sys.argv)
 
-    # 设置默认字体
-    font = QFont("Microsoft YaHei", 10)
-    app.setFont(font)
-
-    # 设置全局样式
-    app.setStyleSheet("""
-        QMainWindow {
-            background-color: #f5f6fa;
-        }
-        QGroupBox {
-            font-weight: bold;
-            border: 1px solid #dcdde1;
-            border-radius: 6px;
-            margin-top: 8px;
-            padding-top: 16px;
-        }
-        QGroupBox::title {
-            subcontrol-origin: margin;
-            left: 12px;
-            padding: 0 4px;
-        }
-        QPushButton {
-            padding: 6px 16px;
-            border-radius: 4px;
-            border: 1px solid #dcdde1;
-            background-color: white;
-        }
-        QPushButton:hover {
-            background-color: #f0f0f0;
-        }
-        QComboBox {
-            padding: 4px 8px;
-            border: 1px solid #dcdde1;
-            border-radius: 4px;
-        }
-        QTextEdit {
-            border: 1px solid #dcdde1;
-            border-radius: 4px;
-            padding: 4px;
-        }
-        QLineEdit {
-            padding: 4px 8px;
-            border: 1px solid #dcdde1;
-            border-radius: 4px;
-        }
-    """)
+    # 加载并应用主题（字体 + 配色），支持持久化恢复上次设置
+    from services.theme_manager import theme_manager
+    theme_manager.load_settings()
+    theme_manager.apply_all()
 
     window = MainWindow()
     window.show()

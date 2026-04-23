@@ -1,6 +1,6 @@
 # AI 短剧剧本生成系统
 
-基于 Gemini 2.5 Flash + PySide6 的多阶段 AI 剧本创作工具。
+基于多模型 AI（Vertex AI / 豆包 / DeepSeek / OpenAI 等）+ PySide6 的多阶段 AI 剧本创作工具。
 
 ---
 
@@ -126,19 +126,30 @@ python main.py
 │   ├── prompt_templates.py          # 爽感/钩子公式管理器（采样、按ID构建、按集号调度）
 │   ├── prompt_templates.json        # 爽感公式 & 钩子公式的数据存储（JSON）
 │   ├── bvsr_personas.json           # BVSR 多人格定义（性格、风格、写作倾向）
-│   └── genre_presets.json           # 题材预设（犯罪/爱情/悬疑/复仇等风格参数）
+│   ├── genre_presets.json           # 题材预设（犯罪/爱情/悬疑/复仇等风格参数）
+│   ├── answer_strategies.json       # 回答风格策略（自动回答的 Prompt 指令持久化）
+│   ├── theme_settings.json          # 主题/字体设置持久化
+│   └── provider_config.json         # AI 供应商配置（鉴权/模型/Embedding/代理，自动生成）
 │
 ├── models/                          # 数据模型层
 │   ├── data_models.py               # 核心数据结构（节点、边、角色、世界观变量等）
 │   └── project_state.py             # 项目全局状态（阶段数据、AI参数、爽感间隔等）
 │
 ├── services/                        # 业务逻辑层
-│   ├── ai_service.py                # Vertex AI / Gemini API 封装（流式生成、重试）
+│   ├── ai_service.py                # AI 调用统一入口（Provider 策略模式，多供应商管理/切换/并行）
+│   ├── ai_providers/                # AI 供应商抽象层
+│   │   ├── __init__.py
+│   │   ├── base_provider.py         # 供应商抽象基类（generate/embedding/test 统一接口）
+│   │   ├── vertex_provider.py       # Vertex AI 实现（google-genai SDK + JSON 密钥鉴权）
+│   │   └── openai_provider.py       # OpenAI 兼容实现（豆包/DeepSeek/OpenAI/Moonshot 等）
 │   ├── worker.py                    # 多线程 Worker（骨架生成、血肉变体、扩写、级联重写）
 │   ├── persona_engine.py            # BVSR 人格引擎（加载/激活/注入人格到 Prompt）
 │   ├── genre_manager.py             # 题材预设管理（加载/切换/注入题材风格）
+│   ├── answer_strategy_manager.py   # 回答风格策略管理器（持久化 + 单例）
+│   ├── theme_manager.py             # 主题/字体管理器（15 套配色方案 + 热切换）
 │   ├── rag_controller.py            # RAG 向量检索控制器（FAISS 本地向量库）
 │   ├── ite_calculator.py            # ITE 因果效应计算器（节点间因果强度评估）
+│   ├── logger_service.py            # 集中式日志服务（AI 调用/结果/操作全链路记录）
 │   └── updater.py                   # GitHub Release 自动更新（检查/下载/解压）
 │
 ├── ui/                              # 界面层
@@ -160,6 +171,7 @@ python main.py
 │       ├── character_relation_panel.py # 人物关系表格面板（添加/编辑/删除关系）
 │       ├── cpg_graph_editor.py      # CPG 因果图编辑器（拖拽节点、连线、编号）
 │       ├── genre_settings_dialog.py # 题材预设对话框（查看/切换写作风格）
+│       ├── model_settings_dialog.py # AI 供应商设置对话框（添加/编辑/删除/测试连接）
 │       ├── node_detail_dialog.py    # 节点详情对话框（编辑标题/Beat/设定/角色）
 │       ├── persona_selector.py      # 人格选择器（多选参与生成的 AI 人格）
 │       ├── prompt_template_dialog.py# 爽感&钩子公式管理对话框（启用/禁用/编辑公式）
@@ -169,6 +181,9 @@ python main.py
 │       ├── screenplay_editor.py     # 剧本编辑器（字数统计、目标提示、实时编辑）
 │       ├── skeleton_ai_settings_dialog.py # 骨架 AI 辅助修改对话框（方向/微调/模板）
 │       ├── split_dialog.py          # 节点拆分对话框（一个 Beat 拆为多集）
+│       ├── theme_settings_dialog.py # 主题设置对话框（字体/字号/配色方案热切换）
+│       ├── answer_strategy_dialog.py# 回答风格策略对话框（Prompt 指令增删改查）
+│       ├── log_viewer_dialog.py     # 日志查看器对话框（按模块/级别筛选日志）
 │       └── world_var_table.py       # 世界观变量表（展示 AI 提炼的世界观键值对）
 │
 ├── projects/                        # 项目存档目录（JSON 格式，自动保存）
@@ -180,7 +195,75 @@ python main.py
 
 ## 更新日志
 
-### v1.1.2（2026-04-20）— 当前版本
+### v1.1.4（2026-04-23）— 当前版本
+
+> 主题系统 + 字体热切换 + 苏格拉底盘问增强 + 回答风格可配置化
+
+#### 🎨 主题与字体系统
+- **15 套配色方案**：明暗各半，涵盖经典暗色、极光、落日、薄荷、海军蓝、莫兰迪、赛博朋克、终端绿（高对比度黑底绿字）等
+- **字体/字号热切换**：下拉菜单读取本地字体库，字号支持 8~24pt，切换即时生效
+- **全局字体覆盖**：为 QLabel/QTextEdit/QLineEdit/QPushButton/QComboBox/QListWidget 等所有主要控件显式设定字体，彻底解决 Qt CSS 优先级问题
+- **font-size 清理**：全量删除 120+ 处 widget 内联 `font-size` 硬编码，确保全局 stylesheet 优先级统一
+- **主题设置持久化**：`config/theme_settings.json` 自动保存/恢复
+
+#### 🤖 苏格拉底盘问增强
+- **答案输入框加高**：`minHeight 48→80`，`maxHeight 72→120`，方便填写长答案
+- **AI 自动回答**：工具栏新增一键 AI 回答按钮，两步流程（生成 + 逻辑校验 → 自动修正）
+- **5 种风格策略**：写实现实 / 戏剧冲突 / 暗黑残酷 / 奇幻浪漫 / 极简主义
+- **一键清空答案**：二次确认后清空所有输入框
+
+#### ⚙️ 回答风格可配置化
+- **新增 `answer_strategy_manager.py`**：策略持久化至 `config/answer_strategies.json`
+- **回答风格策略对话框**：工具菜单新增入口（BVSR 设置同级），左列表 + 右编辑面板，完整 Prompt 指令可视化编辑
+- **热刷新**：对话框关闭后自动刷新 QAPanel 下拉框
+
+#### 🐛 Bug 修复
+- **AutoAnswerWorker 变量引用修复**：`strategy["label"]` → `strategy_label`（重构遗漏）
+
+---
+
+### v1.1.3（2026-04-22）
+
+> 基于第一次编剧测试反馈（3部剧本、22条问题）的全面修复。核心修复：角色/世界观数据传递链路断裂、Beat 阶段角色信息缺失、跨集一致性问题。
+
+#### 🔧 数据链路修复（Bug 级）
+- **角色信息完整注入（扩写+Beat 双阶段）**：`characters_summary` 现包含性别、年龄、身份、性格、动机，同时注入到 `USER_PROMPT_EXPANSION` 和 `USER_PROMPT_VARIATION`，修复之前 Beat 阶段角色信息"构建了但未传入 Prompt"的遗漏
+- **角色关系注入扩写**：`character_relations`（父子/主从/敌对等）拼接为可读摘要注入扩写 Prompt，解决称呼/辈分矛盾（如"小艾叫爷爷但陆渊叫老爹"）
+- **世界观变量注入扩写**：`USER_PROMPT_EXPANSION` 新增 `{world_variables_json}` 占位符，AI 扩写时可获取完整世界观设定（含道具能力约束）
+- **导出去重保护**：剧本导出时按 `node_id` 去重，防止骨架中重复节点导致整集重复输出（修复沙盘皇子 Ep16/Ep19 重复问题）
+
+#### 🤖 程序化动态注入（逐集感知）
+- **集位置感知**：扩写时自动注入"第X集/共Y集，进度N%，Hauge阶段"上下文
+- **金手指首次出现检测**：对比当前 Beat 实体与历史 Beat 的差集，首次出现的道具/能力自动注入"必须展示视觉效果、功能范围、使用限制"指令
+- **反重复描写**：扫描已生成剧本高频动作短语（≥3次），动态生成回避列表注入当前集 Prompt
+- **角色存活状态检测**：扫描前序 Beat 的 `causal_events` 中死亡事件，动态注入已死亡角色列表，防止已死角色出现台词或物品被误称"遗物"
+
+#### 📝 叙事规则增强
+- **主角目标锁定**：Beat 生成阶段自动注入主角核心目标（从角色表动态提取），防止跨集目标漂移
+- **对抗场景行动要求**：对抗/博弈场景必须包含至少1个具体行动事件，禁止纯台词推进
+- **集内场景衔接铁律**：角色位置/状态/持有物在场景切换时必须逻辑自洽
+- **势力成长代价**：主角收服盟友/势力必须付出相应代价，防止无代价开挂式收服
+- **反派后果不可逆**：反派被击败后必须承受具体的不可逆后果（财产/地位/自由的损失），增强打脸爽感
+- **短剧世界观规则修正**：第1集允许通过字幕/空镜/旁白辅助交代时代背景（≤3行），取代原"禁止铺垫世界观"
+- **骨架节奏检查点**：第3集必须出现第一个打脸/爽点，第5-6集完成第一次势力翻盘
+
+#### 🧹 后处理
+- **元创作语言过滤**：扩写结果自动过滤"让观众获知""让观众感受到"等编剧元语言泄露
+
+#### 🔌 多模型/多供应商支持
+- **Provider 策略模式**：新增 `ai_providers/` 抽象层（`BaseProvider` → `VertexProvider` + `OpenAICompatibleProvider`），支持 Vertex AI（JSON 密钥鉴权）和 OpenAI 兼容 API（API Key + Base URL，适用于豆包/DeepSeek/OpenAI/Moonshot 等）
+- **模型设置对话框**：工具菜单新增「模型设置...」，可添加/编辑/删除供应商，配置鉴权/模型/Embedding/代理，支持测试连接
+- **全局模型切换**：一处设置全局生效，所有阶段共用当前活跃供应商和模型
+- **Beat 多供应商并行**：盲视变异阶段支持多选供应商，每次并行调用随机分配到不同供应商
+- **Embedding 可配置**：每个供应商可独立配置 Embedding 模型和向量维度，无 Embedding 的供应商自动跳过 RAG 向量检索
+- **配置持久化**：供应商配置保存在 `config/provider_config.json`，首次启动自动从 `proxyserverconfig.py` 迁移
+- **Embedding 维度警告**：当多个供应商的 Embedding 维度不一致时，保存配置时弹出警告提示
+
+#### 📋 集中式日志系统
+- **全链路日志记录**：新增 `logger_service.py`，所有 AI 调用（System Prompt + User Prompt）、AI 返回结果、用户操作全部记录
+- **日志查看器**：工具菜单内置日志查看器，支持按模块/级别筛选和实时滚动
+
+### v1.1.2（2026-04-20）
 - **系统更新模块**：左右分栏对话框（左侧版本信息+操作，右侧更新日志）
 - **版本号自动写入**：更新成功后自动将新版本号写入 `env.py`
 - **更新提示优化**：更新完成后弹出警告框提示手动重启

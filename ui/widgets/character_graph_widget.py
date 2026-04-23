@@ -92,7 +92,7 @@ class CharRelationDetailDialog(QDialog):
             f"角色: {self._char_name} (ID: {self._char_id})  |  "
             f"展示该角色的所有出入方向关系"
         )
-        info.setStyleSheet("font-size: 13px; color: #2c3e50;")
+        info.setStyleSheet("color: #2c3e50;")
         layout.addWidget(info)
 
         self._table = QTableWidget(0, 4)
@@ -618,7 +618,7 @@ class CharacterGraphWidget(QWidget):
         toolbar.addWidget(self._gravity_slider)
         self._gravity_label = QLabel(f"{self._repulsion:.0f}")
         self._gravity_label.setFixedWidth(45)
-        self._gravity_label.setStyleSheet("color: #636e72; font-size: 11px;")
+        self._gravity_label.setStyleSheet("color: #636e72;")
         toolbar.addWidget(self._gravity_label)
 
         toolbar.addStretch()
@@ -644,7 +644,7 @@ class CharacterGraphWidget(QWidget):
         self._timer.timeout.connect(self._simulation_step)
 
         tip = QLabel("拖拽节点调整位置 | 双击角色查看/编辑关系 | 滚轮缩放")
-        tip.setStyleSheet("color: #7f8c8d; font-size: 11px;")
+        tip.setStyleSheet("color: #7f8c8d;")
         layout.addWidget(tip)
 
         self._view.wheelEvent = self._on_wheel

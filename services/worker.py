@@ -25,6 +25,8 @@ from env import (
 
 logger = logging.getLogger(__name__)
 
+from services.logger_service import app_logger
+
 
 class BaseWorker(QThread):
     """所有 Worker 的基类，提供标准完成/错误信号"""
@@ -171,6 +173,20 @@ class CPGSkeletonWorker(BaseWorker):
             .replace("{total_episodes}", str(self.total_episodes))
             .replace("{episode_duration}", str(self.episode_duration))
         )
+
+        app_logger.log_ai_call(
+            module="骨架生成-Worker（单次）",
+            action=f"AI 调用：生成 {self.total_episodes} 集 CPG 骨架（单次模式）",
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            extra_params={
+                "总集数": self.total_episodes,
+                "每集时长": self.episode_duration,
+                "温度": self.ai_params.get("temperature"),
+                "max_tokens": self.ai_params.get("max_tokens"),
+            },
+        )
+
         result = ai_service.generate_json(
             user_prompt=user_prompt,
             system_prompt=system_prompt,
@@ -178,6 +194,15 @@ class CPGSkeletonWorker(BaseWorker):
             top_p=self.ai_params.get("top_p", 0.9),
             top_k=self.ai_params.get("top_k", 40),
             max_tokens=self.ai_params.get("max_tokens", 65536),
+        )
+
+        stages = result.get("hauge_stages", [])
+        node_count = sum(len(s.get("nodes", [])) for s in stages)
+        app_logger.log_ai_result(
+            module="骨架生成-Worker（单次）",
+            action="CPG 骨架生成完成",
+            result_summary=f"生成 {node_count} 个节点，{len(result.get('causal_edges', []))} 条因果边",
+            result_detail=json.dumps(result, ensure_ascii=False, indent=2),
         )
         self.finished.emit(result)
 
@@ -355,6 +380,7 @@ class VariationWorker(BaseWorker):
         ai_params: dict,
         characters: list = None,
         drama_style_block: str = "",
+        provider_pool: list = None,
     ):
         super().__init__()
         self.sparkle = sparkle
@@ -367,6 +393,7 @@ class VariationWorker(BaseWorker):
         self.ai_params = ai_params
         self.characters = characters or []
         self.drama_style_block = drama_style_block
+        self.provider_pool = provider_pool
 
     def run(self):
         try:
@@ -414,12 +441,21 @@ class VariationWorker(BaseWorker):
                     edge_lines.append(line)
             edge_relations_context = "\n".join(edge_lines) if edge_lines else "（本节点无连线）"
 
-            # 角色概要注入
+            # 角色概要注入（含完整信息：重要性、角色类型、性别、年龄、身份、性格、动机）
             characters_summary = "\n".join(
-                f"- [{c.get('importance_level','C')}/{c.get('role_type','配角')}] {c.get('name','')}: "
+                f"- [{c.get('importance_level','C')}/{c.get('role_type','配角')}] {c.get('name','')}（{c.get('gender', '未知')}，{c.get('age', '未知')}岁，{c.get('position', '')}）: "
                 f"{c.get('personality','')} / 动机: {c.get('motivation','')}"
                 for c in self.characters
             ) or "（未设定角色）"
+
+            # 提取主角核心目标（从角色表中找 importance_level=A 的主角）
+            protagonist_goal = ""
+            for c in self.characters:
+                if c.get("importance_level") == "A" or c.get("role_type") == "主角":
+                    name = c.get("name", "")
+                    motivation = c.get("motivation", "")
+                    protagonist_goal = f"{name}：{motivation}" if motivation else ""
+                    break
 
             # 设置激活的人格
             persona_engine.set_active_personas(self.selected_persona_keys)
@@ -444,6 +480,9 @@ class VariationWorker(BaseWorker):
                         top_k=self.ai_params.get("top_k", 40),
                         max_tokens=self.ai_params.get("max_tokens", 8192),
                         drama_style_block=self.drama_style_block,
+                        protagonist_goal=protagonist_goal,
+                        characters_summary=characters_summary,
+                        provider_pool=self.provider_pool,
                     )
                 )
             finally:
@@ -457,6 +496,7 @@ class VariationWorker(BaseWorker):
 
         except Exception as e:
             logger.error("VariationWorker 失败: %s", e, exc_info=True)
+            app_logger.error("血肉-变异Worker", f"盲视变异失败: {str(e)}")
             self.error.emit(f"盲视变异失败：{str(e)}")
 
 
@@ -625,6 +665,7 @@ class ExpansionWorker(BaseWorker):
         drama_style_block: str = "",
         satisfaction_prompt_injection: str = "",
         hook_prompt_injection: str = "",
+        world_variables_json: str = "",
     ):
         super().__init__()
         self.sparkle = sparkle
@@ -647,6 +688,7 @@ class ExpansionWorker(BaseWorker):
         self.drama_style_block = drama_style_block
         self.satisfaction_prompt_injection = satisfaction_prompt_injection
         self.hook_prompt_injection = hook_prompt_injection
+        self.world_variables_json = world_variables_json
 
     def run(self):
         try:
@@ -679,10 +721,12 @@ class ExpansionWorker(BaseWorker):
                 hook_inj = prompt_template_manager.sample_hook_prompt(3)
                 if hook_inj:
                     system_prompt += "\n\n" + hook_inj
+
             user_prompt = (
                 USER_PROMPT_EXPANSION
                 .replace("{sparkle}", self.sparkle)
                 .replace("{finale_condition}", self.finale_condition)
+                .replace("{world_variables_json}", self.world_variables_json)
                 .replace("{characters_summary}", self.characters_summary)
                 .replace("{episode_number}", str(self.episode_number))
                 .replace("{incoming_edges_context}", self.incoming_edges_context)
@@ -697,6 +741,20 @@ class ExpansionWorker(BaseWorker):
                 .replace("{target_word_count}", self.target_word_count)
             )
 
+            app_logger.log_ai_call(
+                module=f"扩写-Worker（{self.node_id}）",
+                action=f"AI 调用：扩写 {self.node_id}《{self.node_title}》",
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+                extra_params={
+                    "节点": self.node_id,
+                    "标题": self.node_title,
+                    "目标字数": self.target_word_count,
+                    "温度": self.ai_params.get("temperature"),
+                    "max_tokens": self.ai_params.get("max_tokens"),
+                },
+            )
+
             # 扩写用纯文本模式（不用 generate_json）
             raw_text = ai_service.generate(
                 user_prompt=user_prompt,
@@ -706,9 +764,18 @@ class ExpansionWorker(BaseWorker):
                 top_k=self.ai_params.get("top_k", 40),
                 max_tokens=self.ai_params.get("max_tokens", 8192),
             )
+
+            char_count = len(raw_text) if raw_text else 0
+            app_logger.log_ai_result(
+                module=f"扩写-Worker（{self.node_id}）",
+                action=f"扩写完成：{self.node_id}《{self.node_title}》",
+                result_summary=f"返回剧本文本 {char_count} 字",
+                result_detail=raw_text or "（空）",
+            )
             self.finished.emit({"text": raw_text or ""})
         except Exception as e:
             logger.error("ExpansionWorker 失败: %s", e, exc_info=True)
+            app_logger.error(f"扩写-Worker（{self.node_id}）", f"剧本扩写失败: {str(e)}")
             self.error.emit(f"剧本扩写失败：{str(e)}")
 
 
@@ -827,6 +894,7 @@ class NodeRefineWorker(QThread):
 
         except Exception as e:
             logger.error("NodeRefineWorker[%s] 失败: %s", self.mode, e, exc_info=True)
+            app_logger.error(f"骨架节点精炼-Worker（{self.mode}）", f"AI 调用失败: {str(e)}")
             self.error.emit(f"AI 调用失败: {str(e)}")
 
     # ---- 解析工具 ----
@@ -926,3 +994,115 @@ class NodeRefineWorker(QThread):
             pass
         return None
 
+
+# ============================================================
+# AI-Call-1b/1c: 苏格拉底问答自动回答 + 逻辑校验
+# ============================================================
+class AutoAnswerWorker(BaseWorker):
+    """
+    后台执行自动回答流程（两步）：
+      Step 1 — 按选定风格策略生成所有问题的答案
+      Step 2 — AI 逻辑校验，不合理的答案自动修正
+
+    输入:
+        sparkle      — 故事种子
+        questions    — [{id, dimension, question, rationale}, ...]
+        strategy_key — 风格策略键
+        ai_params    — AI 参数
+    """
+
+    def __init__(self, sparkle: str, questions: list, strategy_key: str, ai_params: dict):
+        super().__init__()
+        self.sparkle = sparkle
+        self.questions = questions
+        self.strategy_key = strategy_key
+        self.ai_params = ai_params
+
+    def run(self):
+        try:
+            from services.answer_strategy_manager import answer_strategy_manager
+            from env import (
+                SYSTEM_PROMPT_AUTO_ANSWER, USER_PROMPT_AUTO_ANSWER,
+                SYSTEM_PROMPT_ANSWER_VERIFY, USER_PROMPT_ANSWER_VERIFY,
+                SUGGESTED_TEMPERATURES,
+            )
+
+            strategy_info = answer_strategy_manager.get(self.strategy_key)
+            strategy_instruction = strategy_info.get("instruction", "")
+            strategy_label = strategy_info.get("label", self.strategy_key)
+
+            # ── Step 1: 生成答案 ──
+            self.progress.emit(f"✍️ 正在以「{strategy_label}」风格生成答案…")
+
+            questions_json = json.dumps(
+                [{"id": q.get("id"), "question": q.get("question"),
+                  "dimension": q.get("dimension", "")}
+                 for q in self.questions],
+                ensure_ascii=False, indent=2,
+            )
+
+            system_gen = SYSTEM_PROMPT_AUTO_ANSWER.replace(
+                "{strategy_instruction}", strategy_instruction
+            )
+            user_gen = (
+                USER_PROMPT_AUTO_ANSWER
+                .replace("{sparkle}", self.sparkle)
+                .replace("{questions_json}", questions_json)
+            )
+
+            gen_result = ai_service.generate_json(
+                user_prompt=user_gen,
+                system_prompt=system_gen,
+                temperature=self.ai_params.get("temperature",
+                                                SUGGESTED_TEMPERATURES["auto_answer"]),
+                top_p=self.ai_params.get("top_p", 0.9),
+                top_k=self.ai_params.get("top_k", 40),
+                max_tokens=self.ai_params.get("max_tokens", 4096),
+            )
+            raw_answers = gen_result.get("answers", [])
+            answer_map = {a["id"]: a["answer"] for a in raw_answers if "id" in a}
+
+            # ── Step 2: 逻辑校验 ──
+            self.progress.emit("🔍 正在校验答案逻辑一致性…")
+
+            qa_for_verify = [
+                {"id": q.get("id"), "question": q.get("question"),
+                 "dimension": q.get("dimension", ""),
+                 "answer": answer_map.get(q.get("id"), "")}
+                for q in self.questions
+            ]
+            qa_pairs_json = json.dumps(qa_for_verify, ensure_ascii=False, indent=2)
+
+            user_verify = (
+                USER_PROMPT_ANSWER_VERIFY
+                .replace("{sparkle}", self.sparkle)
+                .replace("{qa_pairs_json}", qa_pairs_json)
+            )
+
+            verify_result = ai_service.generate_json(
+                user_prompt=user_verify,
+                system_prompt=SYSTEM_PROMPT_ANSWER_VERIFY,
+                temperature=self.ai_params.get("temperature",
+                                                SUGGESTED_TEMPERATURES["answer_verify"]),
+                top_p=self.ai_params.get("top_p", 0.9),
+                top_k=self.ai_params.get("top_k", 40),
+                max_tokens=self.ai_params.get("max_tokens", 4096),
+            )
+
+            verified = verify_result.get("verified_answers", [])
+            revised_count = sum(1 for v in verified if v.get("revised"))
+
+            final_answers = [
+                {"id": v["id"], "answer": v["answer"], "revised": v.get("revised", False)}
+                for v in verified
+            ]
+
+            self.finished.emit({
+                "answers": final_answers,
+                "revised_count": revised_count,
+                "strategy_label": strategy_label,
+            })
+
+        except Exception as e:
+            logger.error("AutoAnswerWorker 失败: %s", e, exc_info=True)
+            self.error.emit(f"自动回答失败：{str(e)}")

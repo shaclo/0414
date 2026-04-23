@@ -16,6 +16,7 @@ from env import (
     TEMPERATURE_EXPANSION,
 )
 from services.worker import ExpansionWorker
+from services.logger_service import app_logger
 from ui.widgets.screenplay_editor import ScreenplayEditor
 from ui.widgets.ai_settings_panel import AISettingsPanel
 from ui.widgets.prompt_viewer import PromptViewer
@@ -59,7 +60,7 @@ class Phase5Expansion(QWidget):
         # 标题 + 进度行
         top_row = QHBoxLayout()
         self._title_label = QLabel("📽️ 剧本扩写")
-        self._title_label.setStyleSheet("font-size: 16px; font-weight: bold;")
+        self._title_label.setStyleSheet(" font-weight: bold;")
         top_row.addWidget(self._title_label)
         top_row.addStretch()
 
@@ -73,7 +74,7 @@ class Phase5Expansion(QWidget):
 
         # 进度指示
         self._progress_label = QLabel("进度: ...")
-        self._progress_label.setStyleSheet("font-size: 12px; color: #555;")
+        self._progress_label.setStyleSheet(" color: #555;")
         root.addWidget(self._progress_label)
 
         # 主内容：左右分割
@@ -92,7 +93,7 @@ class Phase5Expansion(QWidget):
         ll.setSpacing(4)
 
         beat_label = QLabel("📋 Beat 摘要（参考）")
-        beat_label.setStyleSheet("font-weight: bold; font-size: 13px;")
+        beat_label.setStyleSheet("font-weight: bold;")
         ll.addWidget(beat_label)
 
         self._beat_summary = QTextEdit()
@@ -100,14 +101,14 @@ class Phase5Expansion(QWidget):
         self._beat_summary.setStyleSheet(
             "QTextEdit {"
             "  background:#f8f9fa; border:1px solid #dcdde1;"
-            "  border-radius:6px; padding:8px; font-size:12px;"
+            "  border-radius:6px; padding:8px;"
             "}"
         )
         ll.addWidget(self._beat_summary, 1)
 
         # 角色摘要
         char_label = QLabel("👤 角色性格参考")
-        char_label.setStyleSheet("font-weight: bold; font-size: 12px; margin-top:6px;")
+        char_label.setStyleSheet("font-weight: bold; margin-top:6px;")
         ll.addWidget(char_label)
 
         self._char_summary = QTextEdit()
@@ -116,7 +117,7 @@ class Phase5Expansion(QWidget):
         self._char_summary.setStyleSheet(
             "QTextEdit {"
             "  background:#fdf6e3; border:1px solid #f0d9a0;"
-            "  border-radius:6px; padding:8px; font-size:11px;"
+            "  border-radius:6px; padding:8px;"
             "}"
         )
         ll.addWidget(self._char_summary)
@@ -177,7 +178,7 @@ class Phase5Expansion(QWidget):
 
         # 第二行：风格说明
         self._style_desc = QLabel("")
-        self._style_desc.setStyleSheet("color: #7f8c8d; font-size: 11px;")
+        self._style_desc.setStyleSheet("color: #7f8c8d;")
         self._style_desc.setWordWrap(True)
         self._update_style_desc()
         sg_layout.addWidget(self._style_desc)
@@ -197,7 +198,7 @@ class Phase5Expansion(QWidget):
         self._dialogue_label.setStyleSheet("color: #8e44ad; font-weight: bold; min-width: 50px;")
         dialogue_row.addWidget(self._dialogue_label)
         self._dialogue_hint = QLabel("\uff08\u4e2d\u6587\u5b57\u7b26\uff0c\u8d85\u8fc7\u5219\u5efa\u8bae\u62c6\u5206\u53f0\u8bcd\uff09")
-        self._dialogue_hint.setStyleSheet("color: #95a5a6; font-size: 11px;")
+        self._dialogue_hint.setStyleSheet("color: #95a5a6;")
         dialogue_row.addWidget(self._dialogue_hint)
         dialogue_row.addStretch()
         sg_layout.addLayout(dialogue_row)
@@ -219,7 +220,7 @@ class Phase5Expansion(QWidget):
             cb = QCheckBox(f"{s.name}（{level_cn}）")
             cb.setProperty("template_id", s.id)
             cb.setChecked(s.enabled)
-            cb.setStyleSheet("font-size:11px;")
+            cb.setStyleSheet("")
             fg_layout.addWidget(cb)
             self._sat_checkboxes.append(cb)
 
@@ -229,7 +230,7 @@ class Phase5Expansion(QWidget):
             cb = QCheckBox(h.name)
             cb.setProperty("template_id", h.id)
             cb.setChecked(h.enabled)
-            cb.setStyleSheet("font-size:11px;")
+            cb.setStyleSheet("")
             fg_layout.addWidget(cb)
             self._hook_checkboxes.append(cb)
 
@@ -267,11 +268,11 @@ class Phase5Expansion(QWidget):
 
         # 当前集爽感等级提示
         self._sat_level_hint = QLabel("")
-        self._sat_level_hint.setStyleSheet("color:#e67e22;font-size:11px;font-weight:bold;")
+        self._sat_level_hint.setStyleSheet("color:#e67e22;font-weight:bold;")
         fg_layout.addWidget(self._sat_level_hint)
 
         tip = QLabel("ℹ️ 未勾选任何公式时，系统会自动随机抽取对应等级的启用公式")
-        tip.setStyleSheet("color:#95a5a6;font-size:10px;")
+        tip.setStyleSheet("color:#95a5a6;")
         fg_layout.addWidget(tip)
 
         ll.addWidget(formula_group)
@@ -631,6 +632,7 @@ class Phase5Expansion(QWidget):
             self.project_data.screenplay_texts[self._current_node_id] = text
             self._refresh_node_combo()
             self.status_message.emit(f"💾 已保存 {self._current_node_id} 的编辑内容")
+            app_logger.info("扩写-保存", f"节点 {self._current_node_id} 保存用户编辑的内容")
 
     def _on_regen_subsequent(self):
         """从当前节点起重新生成 N 章"""
@@ -659,6 +661,7 @@ class Phase5Expansion(QWidget):
             return
         self._batch_queue = list(target_nids[1:])
         first_nid = target_nids[0]
+        app_logger.info("扩写-重新生成", f"从节点 {first_nid} 起重新生成 {count} 个节点的扩写内容")
         for i in range(self._node_combo.count()):
             if self._node_combo.itemData(i) == first_nid:
                 self._node_combo.setCurrentIndex(i)
@@ -674,11 +677,26 @@ class Phase5Expansion(QWidget):
             QMessageBox.warning(self, "提示", f"节点 {node_id} 尚未确认 Beat，无法扩写。")
             return
 
-        # 组装角色摘要（含重要性等级）
+        # 组装角色摘要（含完整信息：重要性、性别、年龄、身份、性格、动机）
         chars_summary = "\n".join(
-            f"[{c.get('importance_level','C')}] {c.get('name', '')}：{c.get('personality', '')}；动机：{c.get('motivation', '')}"
+            f"[{c.get('importance_level','C')}] {c.get('name', '')}（{c.get('gender', '未知')}，{c.get('age', '未知')}岁，{c.get('position', '')}）：{c.get('personality', '')}；动机：{c.get('motivation', '')}"
             for c in self.project_data.characters
         ) or "（未设定角色）"
+
+        # 拼接角色关系（确保 AI 知道角色间的具体关系，避免称呼/辈分矛盾）
+        if self.project_data.character_relations:
+            char_name_map = {c.get("char_id", ""): c.get("name", "") for c in self.project_data.characters}
+            rel_lines = []
+            for rel in self.project_data.character_relations:
+                from_name = char_name_map.get(rel.get("from_char_id", ""), rel.get("from_char_id", ""))
+                to_name = char_name_map.get(rel.get("to_char_id", ""), rel.get("to_char_id", ""))
+                rel_type = rel.get("relation_type", "")
+                rel_desc = rel.get("description", "")
+                line = f"  {from_name} → {to_name}：{rel_type}"
+                if rel_desc:
+                    line += f"（{rel_desc}）"
+                rel_lines.append(line)
+            chars_summary += "\n\n【角色关系（对白中的称呼必须与此一致）】\n" + "\n".join(rel_lines)
 
         # 集编号（从节点 ID 提取数字）
         episode_number = self._extract_episode_number(node_id)
@@ -726,6 +744,13 @@ class Phase5Expansion(QWidget):
         )
         expansion_block += dialogue_rule
 
+        # 动态上下文指令：基于当前集号和已生成内容，程序化注入逐集指令
+        dynamic_instructions = self._build_dynamic_context_instructions(
+            node_id, episode_number, beat, node
+        )
+        if dynamic_instructions:
+            expansion_block += "\n" + dynamic_instructions
+
         # 构建时长字符串
         dur_min = self.project_data.episode_duration_min
         dur_max = self.project_data.episode_duration_max
@@ -735,6 +760,11 @@ class Phase5Expansion(QWidget):
 
         # 获取用户勾选的公式注入
         sat_injection, hook_injection = self._get_selected_formula_injections(episode_number)
+
+        # 世界观变量 JSON（注入扩写 Prompt，确保 AI 不违反设定）
+        world_vars_json = json.dumps(
+            self.project_data.world_variables, ensure_ascii=False, indent=2
+        ) if self.project_data.world_variables else "（未设定世界观变量）"
 
         self._worker = ExpansionWorker(
             sparkle=self.project_data.sparkle,
@@ -757,6 +787,7 @@ class Phase5Expansion(QWidget):
             drama_style_block=expansion_block,
             satisfaction_prompt_injection=sat_injection,
             hook_prompt_injection=hook_injection,
+            world_variables_json=world_vars_json,
         )
         self._worker.progress.connect(self.status_message)
         self._worker.finished.connect(self._on_expand_done)
@@ -821,6 +852,9 @@ class Phase5Expansion(QWidget):
         if not text:
             self.status_message.emit("扩写结果为空，请重试")
             return
+
+        # 后处理：过滤元创作语言泄露
+        text = self._postprocess_screenplay(text)
 
         # 保存到 project_data
         self.project_data.screenplay_texts[self._current_node_id] = text
@@ -888,6 +922,7 @@ class Phase5Expansion(QWidget):
         self.status_message.emit(
             f"🔄 已重置 {len(target)} 个节点的扩写状态，开始全部重写..."
         )
+        app_logger.info("扩写-批量重写", f"重置并开始全部重写 {len(target)} 个节点的剧本扩写")
 
         # 刷新当前面板显示
         self._refresh_node_combo()
@@ -951,27 +986,33 @@ class Phase5Expansion(QWidget):
             key=lambda n: tuple(int(x) for x in re.findall(r'\d+', n.get('node_id', 'Ep0')))
                           if re.search(r'\d+', n.get('node_id', '')) else (9999,)
         )
-        for node in all_sorted:
-            nid = node.get("node_id", "")
-            text = self.project_data.screenplay_texts.get(nid, "")
-            if text and text.strip():
-                lines.append(text.strip())
-                lines.append("")
-            else:
-                ep_num = self._extract_episode_number(nid)
-                lines.append(f"--- Ep_{ep_num} ---")
-                lines.append(f"（{nid}: {node.get('title', '')} — 尚未扩写）")
-                lines.append("")
-                lines.append("==========================================")
-                lines.append("")
-
         try:
+            # 去重：防止骨架中出现重复 node_id 导致重复导出
+            exported_nids = set()
+            for node in all_sorted:
+                nid = node.get("node_id", "")
+                if nid in exported_nids:
+                    continue  # 跳过重复 node_id
+                exported_nids.add(nid)
+                text = self.project_data.screenplay_texts.get(nid, "")
+                if text and text.strip():
+                    lines.append(text.strip())
+                    lines.append("")
+                else:
+                    ep_num = self._extract_episode_number(nid)
+                    lines.append(f"--- Ep_{ep_num} ---")
+                    lines.append(f"（{nid}: {node.get('title', '')} — 尚未扩写）")
+                    lines.append("")
+                    lines.append("==========================================")
+                    lines.append("")
             with open(filepath, "w", encoding="utf-8") as f:
                 f.write("\n".join(lines))
             QMessageBox.information(self, "导出成功", f"剧本已保存到：\n{filepath}")
             self.status_message.emit(f"✅ 剧本已导出: {filepath}")
+            app_logger.success("扩写-导出", f"导出全部剧本至：{filepath}")
         except Exception as e:
             QMessageBox.critical(self, "导出失败", str(e))
+            app_logger.error("扩写-导出", f"导出失败: {str(e)}")
 
     # ------------------------------------------------------------------ #
     # 进入 Phase 6: 锁定
@@ -993,7 +1034,160 @@ class Phase5Expansion(QWidget):
 
         self.project_data.current_phase = "locked"
         self.project_data.push_history("enter_lock")
+        app_logger.success("扩写-确认", "扩写阶段完成，进入锁定阶段", f"已完成 {written}/{total} 个节点的扩写")
         self.phase_completed.emit()
+
+    # ------------------------------------------------------------------ #
+    # 动态上下文指令生成（逐集感知）
+    # ------------------------------------------------------------------ #
+    def _build_dynamic_context_instructions(self, node_id: str, episode_number: int,
+                                             beat: dict, node: dict) -> str:
+        """
+        根据当前集的位置、Beat 内容、已生成剧本，
+        动态生成只对本集有效的扩写指令。
+        """
+        import re
+        from collections import Counter
+        instructions = []
+        total_eps = self.project_data.total_episodes or 20
+
+        # --- 1. 集位置感知 ---
+        progress_pct = round(episode_number / total_eps * 100)
+        stage_name = node.get("hauge_stage_name", "")
+        instructions.append(
+            f"## 当前进度\n"
+            f"- 你正在写第 {episode_number} 集（共 {total_eps} 集，进度 {progress_pct}%）\n"
+            f"- 当前 Hauge 阶段：{stage_name}"
+        )
+
+        # --- 2. 金手指/关键能力首次出现检测 ---
+        # 从世界观变量中提取"道具能力"类的变量名
+        ability_vars = [
+            v for v in self.project_data.world_variables
+            if v.get("category") in ("道具能力", "关键道具/能力")
+        ]
+        if ability_vars:
+            current_entities = set(beat.get("entities", []))
+            # 扫描之前所有已确认 Beat 的 entities
+            previous_entities = set()
+            for prev_nid, prev_beat in self.project_data.confirmed_beats.items():
+                if prev_nid == node_id or not prev_beat:
+                    continue
+                prev_ep = self._extract_episode_number(prev_nid)
+                if prev_ep < episode_number:
+                    previous_entities.update(prev_beat.get("entities", []))
+            # 本集新出现的实体
+            new_entities = current_entities - previous_entities
+            # 检查新实体是否匹配任何道具能力变量
+            for var in ability_vars:
+                var_name = var.get("name", "")
+                var_def = var.get("definition", "")
+                var_constraints = var.get("constraints", "")
+                for entity in new_entities:
+                    if var_name and (var_name in entity or entity in var_name):
+                        instructions.append(
+                            f"## ⚠️ 本集重要：{entity} 首次登场\n"
+                            f"「{var_name}」在本集首次出现，你必须通过具体场景展示：\n"
+                            f"1. 视觉效果（观众能看到什么画面）\n"
+                            f"2. 功能范围：{var_def}\n"
+                            f"3. 使用限制/代价：{var_constraints or '需要在场景中自然交代'}\n"
+                            f"不能只用一句台词或旁白一笔带过。"
+                        )
+                        break
+
+        # --- 3. 反重复描写：扫描已生成剧本中的高频动作短语 ---
+        existing_texts = []
+        for prev_nid, prev_text in self.project_data.screenplay_texts.items():
+            if prev_nid == node_id or not prev_text:
+                continue
+            existing_texts.append(prev_text)
+
+        if existing_texts:
+            # 提取常见动作描写短语（4-8字的重复模式）
+            all_text = "\n".join(existing_texts)
+            # 匹配中文动作短语模式
+            phrases = re.findall(r'[\u4e00-\u9fff]{4,8}', all_text)
+            phrase_counts = Counter(phrases)
+            # 找出出现3次以上的短语
+            overused = [p for p, c in phrase_counts.most_common(20) if c >= 3]
+            if overused:
+                overused_list = "、".join(f"「{p}」" for p in overused[:10])
+                instructions.append(
+                    f"## 描写去重（已使用过的高频表达，本集请回避）\n"
+                    f"以下动作/表情描写在之前的集数中已大量使用，请换用不同的表达方式：\n"
+                    f"{overused_list}\n"
+                    f"如果需要表达类似情绪，请创造新的具体动作描写。"
+                )
+
+        # --- 4. 角色存活状态检测 ---
+        # 扫描前序 Beat 的 causal_events，检测死亡/退场事件
+        death_keywords = ["死亡", "牺牲", "被杀", "去世", "身亡", "丧命", "殒命", "阵亡", "遇害", "毒杀", "处死"]
+        char_names = [c.get("name", "") for c in self.project_data.characters if c.get("name")]
+        deceased_chars = []
+
+        for prev_nid, prev_beat in self.project_data.confirmed_beats.items():
+            if not prev_beat or prev_nid == node_id:
+                continue
+            prev_ep = self._extract_episode_number(prev_nid)
+            if prev_ep >= episode_number:
+                continue
+            for event in prev_beat.get("causal_events", []):
+                action = event.get("action", "") + event.get("causal_impact", "")
+                # 检查是否包含死亡关键词
+                has_death = any(kw in action for kw in death_keywords)
+                if has_death:
+                    # 检查是哪个角色
+                    for name in char_names:
+                        if name in action and name not in [d["name"] for d in deceased_chars]:
+                            deceased_chars.append({
+                                "name": name,
+                                "episode": prev_nid,
+                                "event": action[:50],
+                            })
+
+        if deceased_chars:
+            status_lines = [f"  - {d['name']}：已在 {d['episode']} 中死亡/退场（{d['event']}）" for d in deceased_chars]
+            instructions.append(
+                f"## 角色状态（截至本集）\n"
+                f"以下角色在之前的剧情中已死亡或退场，请勿给他们分配台词或行动，也不要称呼他们的物品为\"遗物\"（除非他们确实已死亡）：\n"
+                + "\n".join(status_lines)
+            )
+
+        return "\n\n".join(instructions) if instructions else ""
+
+    # ------------------------------------------------------------------ #
+    # 后处理
+    # ------------------------------------------------------------------ #
+    @staticmethod
+    def _postprocess_screenplay(text: str) -> str:
+        """过滤扩写结果中的元创作语言泄露"""
+        import re
+        # 移除整行包含编剧元语言的行（如独立一行的创作指导）
+        meta_patterns = [
+            r'^.*让观众[获知感受理解看到].*$',
+            r'^.*观众会[觉得感到产生].*$',
+            r'^.*此处[需要应该可以].*$',
+            r'^.*编剧[意图注意备注].*$',
+            r'^.*创作[意图目的说明].*$',
+            r'^.*\（注[：:].*\）.*$',
+        ]
+        lines = text.split('\n')
+        cleaned_lines = []
+        for line in lines:
+            stripped = line.strip()
+            # 跳过完全匹配元语言的独立行（不影响台词/动作描写中的自然用法）
+            is_meta_line = False
+            for pat in meta_patterns:
+                if re.match(pat, stripped) and not any(
+                    k in stripped for k in ['（', '：', '角色名']
+                ):
+                    # 确保不是台词行（台词行含有角色名+冒号格式）
+                    if not re.match(r'^.{1,8}（.*?）[：:]', stripped):
+                        is_meta_line = True
+                        break
+            if not is_meta_line:
+                cleaned_lines.append(line)
+        return '\n'.join(cleaned_lines)
 
     # ------------------------------------------------------------------ #
     # 工具

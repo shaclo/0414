@@ -44,7 +44,7 @@ class SkeletonAISettingsDialog(QDialog):
             "修改后点击底部「保存设置」存储到当前项目。"
         )
         tip.setWordWrap(True)
-        tip.setStyleSheet("color: #636e72; font-size: 12px; padding: 4px 0;")
+        tip.setStyleSheet("color: #636e72; padding: 4px 0;")
         root.addWidget(tip)
 
         tabs = QTabWidget()
@@ -136,7 +136,7 @@ class SkeletonAISettingsDialog(QDialog):
         save_detail_row.addWidget(btn_save_detail)
         save_detail_row.addStretch()
         status_lbl = QLabel("")
-        status_lbl.setStyleSheet("color: #27ae60; font-size: 12px;")
+        status_lbl.setStyleSheet("color: #27ae60;")
         save_detail_row.addWidget(status_lbl)
         rv.addLayout(save_detail_row)
 
@@ -184,13 +184,13 @@ class SkeletonAISettingsDialog(QDialog):
         # ---- 保留结尾 Prompt ----
         v.addWidget(QLabel("<b>📝 保留结尾改写 Prompt</b> (仅调整开头衔接，结尾不变):"))
         self._cascade_head_edit = QTextEdit()
-        self._cascade_head_edit.setStyleSheet("font-size:11px;")
+        self._cascade_head_edit.setStyleSheet("")
         v.addWidget(self._cascade_head_edit, 1)
 
         # ---- 完整改写 Prompt ----
         v.addWidget(QLabel("<b>📝 完整级联改写 Prompt</b> (后续章节全面调整):"))
         self._cascade_full_edit = QTextEdit()
-        self._cascade_full_edit.setStyleSheet("font-size:11px;")
+        self._cascade_full_edit.setStyleSheet("")
         v.addWidget(self._cascade_full_edit, 1)
 
         btn_row = QHBoxLayout()

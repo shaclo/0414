@@ -146,6 +146,8 @@ class PersonaEngine:
         top_k: int = 40,
         max_tokens: int = 8192,
         drama_style_block: str = "",
+        protagonist_goal: str = "",
+        characters_summary: str = "",
     ) -> list:
         """
         为每个激活的人格构建 AI 调用参数。
@@ -168,6 +170,8 @@ class PersonaEngine:
             .replace("{node_event_summaries}", node_event_summaries)
             .replace("{edge_relations_context}", edge_relations_context or "（本节点无连线）")
             .replace("{previous_confirmed_beats_json}", previous_confirmed_beats_json)
+            .replace("{protagonist_goal}", protagonist_goal or "（未设定主角目标）")
+            .replace("{characters_summary}", characters_summary or "（未设定角色）")
         )
 
         calls = []
@@ -208,6 +212,9 @@ class PersonaEngine:
         top_k: int = 40,
         max_tokens: int = 8192,
         drama_style_block: str = "",
+        protagonist_goal: str = "",
+        characters_summary: str = "",
+        provider_pool: list = None,
     ) -> List[dict]:
         """
         执行盲视变异：并行调用所有激活人格。
@@ -230,9 +237,11 @@ class PersonaEngine:
             top_k=top_k,
             max_tokens=max_tokens,
             drama_style_block=drama_style_block,
+            protagonist_goal=protagonist_goal,
+            characters_summary=characters_summary,
         )
 
-        raw_results = await ai_service.parallel_generate(calls)
+        raw_results = await ai_service.parallel_generate(calls, provider_pool=provider_pool)
 
         # 解析每个结果的 JSON
         parsed_results = []

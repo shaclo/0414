@@ -14,6 +14,7 @@ from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QColor
 
 from ui.widgets.cpg_graph_editor import CPGGraphEditor
+from services.logger_service import app_logger
 
 
 class Phase4Lock(QWidget):
@@ -44,7 +45,7 @@ class Phase4Lock(QWidget):
         layout.setContentsMargins(16, 16, 16, 16)
 
         title = QLabel(f"🔒 CPG 已完成 — 因果概率图总览")
-        title.setStyleSheet("font-size: 16px; font-weight: bold; margin-bottom: 4px;")
+        title.setStyleSheet(" font-weight: bold; margin-bottom: 4px;")
         layout.addWidget(title)
 
         splitter = QSplitter(Qt.Vertical)
@@ -62,7 +63,7 @@ class Phase4Lock(QWidget):
         # 摘要标签行
         self._summary_label = QLabel("")
         self._summary_label.setStyleSheet(
-            "font-size: 13px; padding: 8px; background: #ecf0f1; "
+            " padding: 8px; background: #ecf0f1; "
             "border-radius: 4px; border: 1px solid #bdc3c7;"
         )
         self._summary_label.setWordWrap(True)
@@ -227,8 +228,10 @@ class Phase4Lock(QWidget):
                 self.project_data.save_to_file(filepath)
                 QMessageBox.information(self, "导出成功", f"项目已保存到:\n{filepath}")
                 self.status_message.emit(f"✅ 已导出: {filepath}")
+                app_logger.success("锁定-导出JSON", f"导出工程文件至：{filepath}")
             except Exception as e:
                 QMessageBox.critical(self, "导出失败", str(e))
+                app_logger.error("锁定-导出JSON", f"导出失败: {str(e)}")
 
     def _on_export_txt(self):
         """导出人类可读的 CPG 摘要文本"""
@@ -287,5 +290,7 @@ class Phase4Lock(QWidget):
                 f.write("\n".join(lines))
             QMessageBox.information(self, "导出成功", f"摘要已保存到:\n{filepath}")
             self.status_message.emit(f"✅ 摘要已导出: {filepath}")
+            app_logger.success("锁定-导出文本", f"导出CPG摘要文本至：{filepath}")
         except Exception as e:
             QMessageBox.critical(self, "导出失败", str(e))
+            app_logger.error("锁定-导出文本", f"导出失败: {str(e)}")

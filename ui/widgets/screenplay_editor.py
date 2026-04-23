@@ -83,7 +83,7 @@ class ScreenplayEditor(QWidget):
         self._editor.setStyleSheet(
             "QTextEdit {"
             "  font-family: 'Microsoft YaHei', 'Noto Sans CJK SC', monospace;"
-            "  font-size: 13px;"
+            ""
             "  line-height: 1.6;"
             "  background: #fafafa;"
             "  border: 1px solid #dcdde1;"
@@ -98,7 +98,7 @@ class ScreenplayEditor(QWidget):
         self._status_bar = QLabel("字数: 0  |  目标: 600-800 字")
         self._status_bar.setStyleSheet(
             "QLabel {"
-            "  font-size: 12px;"
+            ""
             "  padding: 4px 8px;"
             "  border-top: 1px solid #ecf0f1;"
             "  color: #555;"
@@ -167,7 +167,7 @@ class ScreenplayEditor(QWidget):
         )
         self._status_bar.setStyleSheet(
             f"QLabel {{"
-            f"  font-size: 12px; padding: 4px 8px;"
+            f" padding: 4px 8px;"
             f"  border-top: 1px solid #ecf0f1;"
             f"  color: {color}; font-weight: bold;"
             f"}}"

@@ -17,6 +17,7 @@ from env import (
     TEMPERATURE_CHARACTER_GEN,
 )
 from services.worker import CharacterGenWorker
+from services.logger_service import app_logger
 from ui.widgets.character_editor import CharacterEditor
 from ui.widgets.character_relation_panel import CharacterRelationPanel
 from ui.widgets.character_graph_widget import CharacterGraphWidget
@@ -68,7 +69,7 @@ class Phase2Characters(QWidget):
 
         # 标题
         title = QLabel("👥 人物设定")
-        title.setStyleSheet("font-size: 16px; font-weight: bold;")
+        title.setStyleSheet(" font-weight: bold;")
         root.addWidget(title)
 
         # === 主内容区（左右分割） ===
@@ -80,7 +81,7 @@ class Phase2Characters(QWidget):
         ll.setContentsMargins(0, 0, 0, 0)
 
         list_label = QLabel("角色列表")
-        list_label.setStyleSheet("font-weight: bold; font-size: 13px;")
+        list_label.setStyleSheet("font-weight: bold;")
         ll.addWidget(list_label)
 
         # 列表操作按钮行
@@ -307,12 +308,51 @@ class Phase2Characters(QWidget):
         self._btn_ai.setEnabled(False)
         self._btn_ai.setText("生成中...")
 
+        ai_params = self._ai_settings.get_all_settings()
+        char_count = self._char_count_spin.value()
+
+        # 构建实际 User Prompt（替换占位符）
+        import json
+        existing_block = ""
+        if self.project_data.characters:
+            lines = []
+            for c in self.project_data.characters:
+                lines.append(
+                    f"- {c.get('name','?')} [{c.get('role_type','?')}/{c.get('importance_level','C')}]: "
+                    f"{c.get('personality','')} / 动机: {c.get('motivation','')}"
+                )
+            existing_block = "## ⚠️ 已有角色（严禁重复）\n" + "\n".join(lines)
+
+        actual_user_prompt = (
+            USER_PROMPT_CHARACTER_GEN
+            .replace("{sparkle}", self.project_data.sparkle)
+            .replace("{world_variables_json}",
+                     json.dumps(self.project_data.world_variables, ensure_ascii=False, indent=2))
+            .replace("{finale_condition}", self.project_data.finale_condition)
+            .replace("{char_count}", str(char_count))
+            .replace("{existing_characters_block}", existing_block)
+        )
+        actual_system_prompt = SYSTEM_PROMPT_CHARACTER_GEN.replace("{char_count}", str(char_count))
+
+        app_logger.log_ai_call(
+            module="人物-AI建议角色",
+            action=f"开始 AI 建议角色（目标数量: {char_count}）",
+            system_prompt=actual_system_prompt,
+            user_prompt=actual_user_prompt,
+            extra_params={
+                "目标角色数": char_count,
+                "已有角色数": len(self.project_data.characters),
+                "温度": ai_params.get("temperature"),
+                "max_tokens": ai_params.get("max_tokens"),
+            },
+        )
+
         self._worker = CharacterGenWorker(
             sparkle=self.project_data.sparkle,
             world_variables=self.project_data.world_variables,
             finale_condition=self.project_data.finale_condition,
-            ai_params=self._ai_settings.get_all_settings(),
-            char_count=self._char_count_spin.value(),
+            ai_params=ai_params,
+            char_count=char_count,
             existing_characters=self.project_data.characters,
         )
         self._worker.progress.connect(self.status_message)
@@ -357,6 +397,16 @@ class Phase2Characters(QWidget):
         self.status_message.emit(msg)
         QMessageBox.information(self, "AI 建议完成", msg)
 
+        import json
+        chars_detail = json.dumps(new_chars, ensure_ascii=False, indent=2)
+        relations_detail = json.dumps(new_relations, ensure_ascii=False, indent=2)
+        app_logger.log_ai_result(
+            module="人物-AI建议角色",
+            action="AI 角色建议完成",
+            result_summary=f"生成 {len(new_chars)} 个角色，{len(new_relations)} 条关系" + (f"\n设计说明：{notes}" if notes else ""),
+            result_detail=f"【角色列表】\n{chars_detail}\n\n【人物关系】\n{relations_detail}",
+        )
+
     # ------------------------------------------------------------------ #
     # 关系变化
     # ------------------------------------------------------------------ #
@@ -381,6 +431,7 @@ class Phase2Characters(QWidget):
         )
         if reply == QMessageBox.Yes:
             self.project_data.current_phase = "skeleton"
+            app_logger.warning("人物-跳过", "用户跳过人物设定阶段，直接进入骨架")
             self.phase_completed.emit()
 
     def _on_proceed(self):
@@ -400,6 +451,21 @@ class Phase2Characters(QWidget):
             f"人物设定完成：{len(chars)} 个角色，"
             f"{len(self.project_data.character_relations)} 条关系"
         )
+
+        import json
+        chars_summary = json.dumps(
+            [{"name": c.get("name"), "role_type": c.get("role_type"),
+              "importance_level": c.get("importance_level"),
+              "personality": c.get("personality"), "motivation": c.get("motivation")}
+             for c in chars],
+            ensure_ascii=False, indent=2
+        )
+        relations_summary = json.dumps(self.project_data.character_relations, ensure_ascii=False, indent=2)
+        app_logger.success(
+            "人物-确认",
+            f"人物设定已确认：{len(chars)} 个角色，{len(self.project_data.character_relations)} 条关系",
+            f"【角色列表】\n{chars_summary}\n\n【人物关系】\n{relations_summary}",
+        )
         self.phase_completed.emit()
 
     # ------------------------------------------------------------------ #
@@ -410,3 +476,4 @@ class Phase2Characters(QWidget):
         self._btn_ai.setText("🤖 AI 建议角色")
         QMessageBox.critical(self, "AI 调用失败", msg)
         self.status_message.emit("错误: " + msg)
+        app_logger.error("人物", f"AI 建议角色失败: {msg}")

@@ -154,7 +154,7 @@ class CharacterEditor(QWidget):
         tip = QLabel(
             "💡 提示：角色信息将自动注入到骨架生成和剧本扩写的 AI 提示词中"
         )
-        tip.setStyleSheet("color: #7f8c8d; font-size: 11px; margin-top: 4px;")
+        tip.setStyleSheet("color: #7f8c8d; margin-top: 4px;")
         tip.setWordWrap(True)
         gl.addWidget(tip)
 

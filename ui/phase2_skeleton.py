@@ -18,6 +18,7 @@ from ui.widgets.range_slider import DurationRangeWidget
 
 from env import SYSTEM_PROMPT_CPG_SKELETON, USER_PROMPT_CPG_SKELETON, SUGGESTED_TEMPERATURES
 from services.worker import CPGSkeletonWorker
+from services.logger_service import app_logger
 from ui.widgets.ai_settings_panel import AISettingsPanel
 from ui.widgets.prompt_viewer import PromptViewer
 
@@ -72,14 +73,14 @@ class LoadingOverlay(QWidget):
         self._anim_label = QLabel("⏳ 正在生成骨架...")
         self._anim_label.setAlignment(Qt.AlignCenter)
         self._anim_label.setStyleSheet(
-            "font-size: 18px; font-weight: bold; color: #2c3e50; background: transparent;"
+            " font-weight: bold; color: #2c3e50; background: transparent;"
         )
         cl.addWidget(self._anim_label)
 
         # 提示
         hint = QLabel("AI 正在规划剧本结构\n大规模生成可能需要 30-120 秒")
         hint.setAlignment(Qt.AlignCenter)
-        hint.setStyleSheet("font-size: 12px; color: #7f8c8d; background: transparent;")
+        hint.setStyleSheet(" color: #7f8c8d; background: transparent;")
         hint.setWordWrap(True)
         cl.addWidget(hint)
 
@@ -87,7 +88,7 @@ class LoadingOverlay(QWidget):
         self._time_label = QLabel("已等待: 0 秒")
         self._time_label.setAlignment(Qt.AlignCenter)
         self._time_label.setStyleSheet(
-            "font-size: 14px; color: #2980b9; font-weight: bold; background: transparent;"
+            " color: #2980b9; font-weight: bold; background: transparent;"
         )
         cl.addWidget(self._time_label)
 
@@ -451,6 +452,10 @@ class Phase2Skeleton(QWidget):
                 new_id = action.split(":", 1)[1]
                 self._load_to_editor()
                 self.status_message.emit(f"节点编号已更改为 {new_id}")
+                app_logger.info("骨架-节点编辑", f"节点编号从 {node_id} 变更为 {new_id}")
+
+            if action:
+                app_logger.info("骨架-节点编辑", f"完成对节点 {node_id} 的操作：{action}")
 
 
     # ------------------------------------------------------------------ #
@@ -578,6 +583,11 @@ class Phase2Skeleton(QWidget):
         self.project_data.current_phase       = "flesh"
         self.project_data.current_node_index  = 0
         self.project_data.push_history("enter_flesh")
+        app_logger.success(
+            "骨架-确认",
+            f"骨架已确认，进入血肉阶段",
+            f"共包含 {len(self.project_data.cpg_nodes)} 个节点，{len(self.project_data.cpg_edges)} 条关系边",
+        )
         self.phase_completed.emit()
 
     # ------------------------------------------------------------------ #

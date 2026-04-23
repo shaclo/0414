@@ -15,7 +15,8 @@ from env import (
     SUGGESTED_TEMPERATURES,
 )
 from services.genre_manager import genre_manager
-from services.worker import SocraticWorker, WorldExtractWorker
+from services.worker import SocraticWorker, WorldExtractWorker, AutoAnswerWorker
+from services.logger_service import app_logger
 from services.rag_controller import rag_controller
 from ui.widgets.ai_settings_panel import AISettingsPanel
 from ui.widgets.prompt_viewer import PromptViewer
@@ -59,7 +60,7 @@ class Phase1Genesis(QWidget):
         il.setSpacing(8)
 
         lbl = QLabel("请输入你的一句话小说:")
-        lbl.setStyleSheet("font-size: 14px; font-weight: bold;")
+        lbl.setStyleSheet(" font-weight: bold;")
         il.addWidget(lbl)
 
         self._sparkle_input = QTextEdit()
@@ -83,7 +84,7 @@ class Phase1Genesis(QWidget):
         genre_row.addWidget(self._genre_combo)
         default_desc = genre_manager.get("custom").get("description", "") if genre_manager.get("custom") else ""
         self._genre_desc = QLabel(default_desc)
-        self._genre_desc.setStyleSheet("color: #7f8c8d; font-size: 11px;")
+        self._genre_desc.setStyleSheet("color: #7f8c8d;")
         genre_row.addWidget(self._genre_desc, 1)
         il.addLayout(genre_row)
 
@@ -100,7 +101,7 @@ class Phase1Genesis(QWidget):
         self._btn_start.setMinimumHeight(44)
         self._btn_start.setStyleSheet(
             "QPushButton{background:#2980b9;color:white;font-weight:bold;"
-            "font-size:14px;border-radius:5px;border:none;}"
+            "border-radius:5px;border:none;}"
             "QPushButton:hover{background:#1f6da8;}"
             "QPushButton:disabled{background:#bdc3c7;color:#888;}"
         )
@@ -120,6 +121,9 @@ class Phase1Genesis(QWidget):
         splitter.addWidget(self._var_table)
         splitter.setSizes([600, 400])
         ql.addWidget(splitter, 1)
+
+        # 连接自动回答信号
+        self._qa_panel.auto_answer_requested.connect(self._on_auto_answer)
 
         self._ai_settings_2 = AISettingsPanel(
             suggested_temp=SUGGESTED_TEMPERATURES["world_extract"]
@@ -199,7 +203,26 @@ class Phase1Genesis(QWidget):
         self.project_data.sparkle = sparkle
         self._set_busy(self._btn_start, True, "处理中...")
 
-        self._worker = SocraticWorker(sparkle, self._ai_settings_1.get_all_settings())
+        ai_params = self._ai_settings_1.get_all_settings()
+        genre_key = self._genre_combo.currentData() or "custom"
+
+        # 构建实际发送的 User Prompt（替换占位符后）
+        actual_user_prompt = USER_PROMPT_SOCRATIC.replace("{sparkle}", sparkle)
+
+        app_logger.log_ai_call(
+            module="创世-苏格拉底盘问",
+            action="开始苏格拉底盘问 AI 调用",
+            system_prompt=SYSTEM_PROMPT_SOCRATIC,
+            user_prompt=actual_user_prompt,
+            extra_params={
+                "用户输入": sparkle,
+                "题材": genre_key,
+                "温度": ai_params.get("temperature"),
+                "max_tokens": ai_params.get("max_tokens"),
+            },
+        )
+
+        self._worker = SocraticWorker(sparkle, ai_params)
         self._worker.progress.connect(self.status_message)
         self._worker.finished.connect(self._on_socratic_done)
         self._worker.error.connect(self._on_error)
@@ -210,14 +233,62 @@ class Phase1Genesis(QWidget):
         questions = result.get("questions", [])
         if not questions:
             QMessageBox.warning(self, "错误", "AI 返回的问题列表为空，请重试。")
+            app_logger.warning("创世-苏格拉底盘问", "AI 返回问题列表为空")
             return
         self._qa_panel.set_questions(questions)
         self._switch_to_qa()
         self.status_message.emit(f"盘问完成，共 {len(questions)} 个问题")
 
+        import json
+        questions_detail = json.dumps(questions, ensure_ascii=False, indent=2)
+        app_logger.log_ai_result(
+            module="创世-苏格拉底盘问",
+            action="苏格拉底盘问完成",
+            result_summary=f"AI 生成了 {len(questions)} 个追问问题",
+            result_detail=questions_detail,
+        )
+
     # ------------------------------------------------------------------ #
-    # AI-Call-2: 世界观变量提炼
+    # AI-Call-1b/1c: 自动回答
     # ------------------------------------------------------------------ #
+    def _on_auto_answer(self, strategy_key: str):
+        """触发 AI 自动回答（按选定策略）"""
+        sparkle = self.project_data.sparkle
+        if not sparkle:
+            sparkle = self._sparkle_input.toPlainText().strip()
+        if not sparkle:
+            QMessageBox.warning(self, "提示", "请先输入故事梗概并完成苏格拉底盘问！")
+            return
+
+        questions = self._qa_panel.get_questions()
+        if not questions:
+            QMessageBox.warning(self, "提示", "还没有问题，请先完成苏格拉底盘问！")
+            return
+
+        self._qa_panel.set_auto_answer_busy(True)
+        ai_params = self._ai_settings_1.get_all_settings()
+
+        self._worker = AutoAnswerWorker(sparkle, questions, strategy_key, ai_params)
+        self._worker.progress.connect(self.status_message)
+        self._worker.finished.connect(self._on_auto_answer_done)
+        self._worker.error.connect(self._on_error)
+        self._worker.start()
+
+    def _on_auto_answer_done(self, result: dict):
+        """自动回答完成 — 填入答案"""
+        self._qa_panel.set_auto_answer_busy(False)
+        answers = result.get("answers", [])
+        revised_count = result.get("revised_count", 0)
+        strategy_label = result.get("strategy_label", "")
+
+        for item in answers:
+            self._qa_panel.set_answer(item["id"], item["answer"])
+
+        msg = f"自动回答完成（{strategy_label}）：{len(answers)} 个问题"
+        if revised_count:
+            msg += f"，其中 {revised_count} 个答案经 AI 校验后修正"
+        self.status_message.emit(msg)
+
     def _on_extract_variables(self):
         qa_pairs = self._qa_panel.get_qa_pairs()
         if not any(p.get("answer") for p in qa_pairs):
@@ -225,9 +296,39 @@ class Phase1Genesis(QWidget):
             return
         self._set_busy(self._btn_extract, True, "提炼中...")
 
+        ai_params = self._ai_settings_2.get_all_settings()
+
+        # 构建 Q&A 格式化文本
+        qa_formatted_lines = []
+        for p in qa_pairs:
+            qa_formatted_lines.append(
+                f"Q{p['question_id']} [{p.get('dimension', '')}]: {p['question']}\n"
+                f"A: {p.get('answer', '（未回答）')}"
+            )
+        qa_pairs_formatted = "\n\n".join(qa_formatted_lines)
+
+        actual_user_prompt = (
+            USER_PROMPT_WORLD_EXTRACT
+            .replace("{sparkle}", self.project_data.sparkle)
+            .replace("{qa_pairs_formatted}", qa_pairs_formatted)
+        )
+
+        app_logger.log_ai_call(
+            module="创世-世界观提炼",
+            action="开始 AI 提炼世界观变量",
+            system_prompt=SYSTEM_PROMPT_WORLD_EXTRACT,
+            user_prompt=actual_user_prompt,
+            extra_params={
+                "种子": self.project_data.sparkle,
+                "已回答问题数": sum(1 for p in qa_pairs if p.get("answer")),
+                "温度": ai_params.get("temperature"),
+                "max_tokens": ai_params.get("max_tokens"),
+            },
+        )
+
         self._worker = WorldExtractWorker(
             self.project_data.sparkle, qa_pairs,
-            self._ai_settings_2.get_all_settings(),
+            ai_params,
         )
         self._worker.progress.connect(self.status_message)
         self._worker.finished.connect(self._on_extract_done)
@@ -245,6 +346,23 @@ class Phase1Genesis(QWidget):
             f"变量提炼完成: {len(variables)} 个变量"
             + (f", {len(conflicts)} 处冲突" if conflicts else "")
         )
+
+        import json
+        result_detail = (
+            f"故事标题建议: {result.get('story_title_suggestion', '')}"
+            f"\n终局条件: {result.get('finale_condition', '')}"
+            f"\n\n世界观变量:\n{json.dumps(variables, ensure_ascii=False, indent=2)}"
+        )
+        if conflicts:
+            result_detail += f"\n\n冲突列表:\n{json.dumps(conflicts, ensure_ascii=False, indent=2)}"
+
+        app_logger.log_ai_result(
+            module="创世-世界观提炼",
+            action="世界观变量提炼完成",
+            result_summary=f"提炼出 {len(variables)} 个变量" + (f"，发现 {len(conflicts)} 处冲突" if conflicts else ""),
+            result_detail=result_detail,
+        )
+
         if conflicts:
             QMessageBox.warning(
                 self, "发现设定冲突",
@@ -302,6 +420,23 @@ class Phase1Genesis(QWidget):
         except Exception:
             pass
 
+        import json
+        qa_summary = "\n".join(
+            f"  Q{p.get('question_id','?')} [{p.get('dimension','')}]: {p.get('question','')}\n"
+            f"  A: {p.get('answer','（未回答）')}"
+            for p in qa_pairs
+        )
+        var_summary = json.dumps(variables, ensure_ascii=False, indent=2)
+        app_logger.success(
+            "创世-锁定世界观",
+            f"世界观已锁定：{len(variables)} 个变量，故事标题：{self.project_data.story_title or '未命名'}",
+            f"种子：{self.project_data.sparkle}"
+            f"\n终局条件：{self.project_data.finale_condition}"
+            f"\n题材：{self.project_data.story_genre}"
+            f"\n\nQ&A 完整记录：\n{qa_summary}"
+            f"\n\n世界观变量：\n{var_summary}",
+        )
+
         self.phase_completed.emit({
             "sparkle":   self.project_data.sparkle,
             "variables": variables,
@@ -318,8 +453,10 @@ class Phase1Genesis(QWidget):
     def _on_error(self, msg: str):
         self._set_busy(self._btn_start,   False, "开始苏格拉底盘问 ->")
         self._set_busy(self._btn_extract, False, "AI 提炼变量")
+        self._qa_panel.set_auto_answer_busy(False)
         QMessageBox.critical(self, "AI 调用失败", msg)
         self.status_message.emit("错误: " + msg)
+        app_logger.error("创世", f"AI 调用失败: {msg}")
 
     def _on_genre_changed(self, index: int):
         key = self._genre_combo.itemData(index)

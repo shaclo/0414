@@ -40,7 +40,7 @@ class PromptViewer(QWidget):
         self._text_edit.setVisible(False)
         self._text_edit.setStyleSheet(
             "QTextEdit { background-color: #1e1e2e; color: #cdd6f4; "
-            "font-family: 'Consolas', 'Microsoft YaHei'; font-size: 12px; "
+            "font-family: 'Consolas', 'Microsoft YaHei'; "
             "border: 1px solid #45475a; border-radius: 4px; padding: 8px; }"
         )
         layout.addWidget(self._text_edit)

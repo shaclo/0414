@@ -20,12 +20,17 @@ from env import (
     USER_PROMPT_RAG_CHECK,
     SUGGESTED_TEMPERATURES,
 )
-from services.ai_service import ai_service, AIService
+from services.ai_service import ai_service
 
 logger = logging.getLogger(__name__)
 
-# FAISS 索引维度（与 Gemini text-embedding-004 一致）
-EMBEDDING_DIM = AIService.EMBEDDING_DIM    # 768
+
+def _get_embedding_dim() -> int:
+    """从当前活跃供应商动态获取 Embedding 维度"""
+    try:
+        return ai_service.get_embedding_dim()
+    except Exception:
+        return 768  # 回退默认值
 
 
 class RAGController:
@@ -64,11 +69,12 @@ class RAGController:
         """懒初始化 FAISS 索引"""
         if self._initialized:
             return
+        dim = _get_embedding_dim()
         # IndexFlatIP = 内积（配合归一化向量 = 余弦相似度）
-        self._index = faiss.IndexFlatIP(EMBEDDING_DIM)
+        self._index = faiss.IndexFlatIP(dim)
         self._doc_store = []
         self._initialized = True
-        logger.info("FAISS 索引初始化完成: dim=%d, metric=余弦相似度(内积)", EMBEDDING_DIM)
+        logger.info("FAISS 索引初始化完成: dim=%d, metric=余弦相似度(内积)", dim)
 
     # ================================================================== #
     # 索引 — 写入向量数据库
@@ -80,7 +86,9 @@ class RAGController:
         每个变量 → 一个文本文档 → 一个 embedding → FAISS 索引。
         """
         self._ensure_initialized()
-        if not variables:
+        if not variables or not ai_service.supports_embedding():
+            if not ai_service.supports_embedding():
+                logger.warning("当前供应商不支持 Embedding，跳过世界观索引")
             return
 
         documents = []
@@ -108,6 +116,9 @@ class RAGController:
         """
         self._ensure_initialized()
         if not beat:
+            return
+        if not ai_service.supports_embedding():
+            logger.warning("当前供应商不支持 Embedding，跳过 Beat 索引")
             return
 
         events_text = " → ".join(
@@ -316,7 +327,8 @@ class RAGController:
 
     def clear_database(self):
         """清空向量索引（项目重置时调用）"""
-        self._index = faiss.IndexFlatIP(EMBEDDING_DIM)
+        dim = _get_embedding_dim()
+        self._index = faiss.IndexFlatIP(dim)
         self._doc_store = []
         logger.info("FAISS 向量索引已清空")
 
@@ -334,7 +346,7 @@ class RAGController:
             "active_documents": active,
             "world_variables": wv_count,
             "confirmed_beats": beat_count,
-            "embedding_dim": EMBEDDING_DIM,
+            "embedding_dim": _get_embedding_dim(),
             "metric": "cosine_similarity (via IndexFlatIP)",
         }
 

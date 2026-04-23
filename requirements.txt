@@ -13,6 +13,7 @@ httpcore
 httpx
 idna
 numpy
+openai
 packaging
 pyasn1
 pyasn1_modules

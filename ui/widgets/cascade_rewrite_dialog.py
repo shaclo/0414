@@ -58,7 +58,7 @@ class CascadeRewriteDialog(QDialog):
         nid = self._source.get("node_id", "")
         title = get_active_version_snapshot(self._source).get("title", "")
         src_lbl = QLabel(f"<b>修改来源:</b> {nid} — {title}")
-        src_lbl.setStyleSheet("font-size:14px; padding:4px 0;")
+        src_lbl.setStyleSheet(" padding:4px 0;")
         root.addWidget(src_lbl)
 
         # ---- 水平 Splitter: 左(配置) | 右(结果) ----
@@ -105,14 +105,14 @@ class CascadeRewriteDialog(QDialog):
         self._prompt_edit = QTextEdit()
         self._prompt_edit.setReadOnly(True)
         self._prompt_edit.setMaximumHeight(180)
-        self._prompt_edit.setStyleSheet("font-size:11px; background:#f8f9fa;")
+        self._prompt_edit.setStyleSheet(" background:#f8f9fa;")
         pg_layout.addWidget(self._prompt_edit)
         self._prompt_group.toggled.connect(self._on_prompt_toggle)
         left_v.addWidget(self._prompt_group)
         self._prompt_edit.setVisible(False)
 
         # -- 后续章节卡片列表（与主骨架视图一致的样式）--
-        left_v.addWidget(QLabel("<b>── 后续章节预览 ──</b>  <span style='color:#7f8c8d;font-size:11px;'>(双击打开详情编辑)</span>"))
+        left_v.addWidget(QLabel("<b>── 后续章节预览 ──</b>  <span style='color:#7f8c8d;'>(双击打开详情编辑)</span>"))
         self._card_list = QListWidget()
         self._card_list.setViewMode(QListWidget.IconMode)
         self._card_list.setResizeMode(QListWidget.Adjust)
@@ -144,7 +144,7 @@ class CascadeRewriteDialog(QDialog):
         self._btn_start.setFixedWidth(180)
         self._btn_start.setStyleSheet(
             "QPushButton{background:#2980b9;color:white;font-weight:bold;"
-            "padding:8px 16px;border-radius:4px;border:none;font-size:13px;}"
+            "padding:8px 16px;border-radius:4px;border:none;}"
             "QPushButton:hover{background:#2471a3;}"
         )
         self._btn_start.clicked.connect(self._do_cascade_rewrite)
@@ -158,7 +158,7 @@ class CascadeRewriteDialog(QDialog):
 
         # -- 状态 --
         self._status = QLabel("")
-        self._status.setStyleSheet("color:#27ae60; font-size:12px;")
+        self._status.setStyleSheet("color:#27ae60;")
         left_v.addWidget(self._status)
 
         splitter.addWidget(left)
@@ -175,7 +175,7 @@ class CascadeRewriteDialog(QDialog):
         self._btn_save = QPushButton("✅ 确认保存所有改写")
         self._btn_save.setStyleSheet(
             "QPushButton{background:#27ae60;color:white;font-weight:bold;"
-            "padding:8px 16px;border-radius:4px;border:none;font-size:13px;}"
+            "padding:8px 16px;border-radius:4px;border:none;}"
             "QPushButton:hover{background:#229954;}"
         )
         self._btn_save.clicked.connect(self._do_save_all)
@@ -356,7 +356,7 @@ class CascadeRewriteDialog(QDialog):
         )
 
         self._status.setText(f"⏳ 正在改写 {len(subsequent)} 个后续章节…")
-        self._status.setStyleSheet("color:#2980b9; font-size:12px;")
+        self._status.setStyleSheet("color:#2980b9;")
         self._btn_start.setEnabled(False)
         self._btn_save.setEnabled(False)
         self._rewrite_results = []
@@ -368,7 +368,7 @@ class CascadeRewriteDialog(QDialog):
         self._worker = None
         self._btn_start.setEnabled(True)
         self._status.setText(f"❌ {msg}")
-        self._status.setStyleSheet("color:#e74c3c; font-size:12px;")
+        self._status.setStyleSheet("color:#e74c3c;")
 
     def _on_cascade_done(self, result: dict):
         self._worker = None
@@ -378,7 +378,7 @@ class CascadeRewriteDialog(QDialog):
 
         if not nodes:
             self._status.setText("❌ AI 返回内容无效")
-            self._status.setStyleSheet("color:#e74c3c; font-size:12px;")
+            self._status.setStyleSheet("color:#e74c3c;")
             self._clear_results()
             lbl = QLabel(f"AI 原始返回:\n{raw_text[:1000]}")
             lbl.setWordWrap(True)
@@ -413,7 +413,7 @@ class CascadeRewriteDialog(QDialog):
         self._show_results()
         count = len(self._rewrite_results)
         self._status.setText(f"✅ 已生成 {count} 个章节的改写方案，请检查后点击右侧「确认保存」")
-        self._status.setStyleSheet("color:#27ae60; font-size:12px;")
+        self._status.setStyleSheet("color:#27ae60;")
         self._btn_save.setEnabled(True)
 
     # ================================================================== #
@@ -449,35 +449,35 @@ class CascadeRewriteDialog(QDialog):
         new_title = new_data.get("title", "")
 
         header = QLabel(f"<b>{nid}</b> ✅ 已改写")
-        header.setStyleSheet("font-size:13px; color:#27ae60;")
+        header.setStyleSheet(" color:#27ae60;")
         v.addWidget(header)
 
         if old_title != new_title:
-            v.addWidget(QLabel(f"<span style='color:#95a5a6;font-size:11px;'>旧标题:</span> <s>{old_title}</s>"))
-            v.addWidget(QLabel(f"<span style='color:#27ae60;font-size:11px;'>新标题:</span> <b>{new_title}</b>"))
+            v.addWidget(QLabel(f"<span style='color:#95a5a6;'>旧标题:</span> <s>{old_title}</s>"))
+            v.addWidget(QLabel(f"<span style='color:#27ae60;'>新标题:</span> <b>{new_title}</b>"))
         else:
-            v.addWidget(QLabel(f"<span style='font-size:11px;'>标题: {new_title} (未变)</span>"))
+            v.addWidget(QLabel(f"<span style=''>标题: {new_title} (未变)</span>"))
 
         # 环境
         new_setting = new_data.get("setting", "")
         if new_setting:
-            s_lbl = QLabel(f"<span style='color:#7f8c8d;font-size:10px;'>环境:</span> {new_setting[:60]}")
+            s_lbl = QLabel(f"<span style='color:#7f8c8d;'>环境:</span> {new_setting[:60]}")
             s_lbl.setWordWrap(True)
             v.addWidget(s_lbl)
 
         # 新事件
         new_events = new_data.get("event_summaries", [])
         if new_events:
-            v.addWidget(QLabel("<span style='color:#2c3e50;font-size:11px;'>事件摘要:</span>"))
+            v.addWidget(QLabel("<span style='color:#2c3e50;'>事件摘要:</span>"))
             for ev in new_events[:5]:
                 ev_text = self._extract_event_text(ev)
                 display = ev_text[:80] + ("…" if len(str(ev_text)) > 80 else "")
                 lbl = QLabel(f"  • {display}")
                 lbl.setWordWrap(True)
-                lbl.setStyleSheet("font-size:10px; color:#34495e; border:none;")
+                lbl.setStyleSheet(" color:#34495e; border:none;")
                 v.addWidget(lbl)
             if len(new_events) > 5:
-                more = QLabel(f"<span style='color:#95a5a6;font-size:10px;'>… 共 {len(new_events)} 个事件</span>")
+                more = QLabel(f"<span style='color:#95a5a6;'>… 共 {len(new_events)} 个事件</span>")
                 more.setStyleSheet("border:none;")
                 v.addWidget(more)
 
@@ -486,7 +486,7 @@ class CascadeRewriteDialog(QDialog):
         if new_hook:
             hook_lbl = QLabel(f"🎣 {new_hook[:100]}{'…' if len(new_hook)>100 else ''}")
             hook_lbl.setWordWrap(True)
-            hook_lbl.setStyleSheet("font-size:10px; color:#e67e22; border:none;")
+            hook_lbl.setStyleSheet(" color:#e67e22; border:none;")
             v.addWidget(hook_lbl)
 
         return card
@@ -531,7 +531,7 @@ class CascadeRewriteDialog(QDialog):
             saved_ids.append(node.get("node_id", ""))
 
         self._status.setText(f"✅ 已保存: {', '.join(saved_ids)}")
-        self._status.setStyleSheet("color:#27ae60; font-size:12px;")
+        self._status.setStyleSheet("color:#27ae60;")
         self._btn_save.setEnabled(False)
 
         QMessageBox.information(
