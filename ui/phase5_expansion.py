@@ -205,34 +205,55 @@ class Phase5Expansion(QWidget):
 
         ll.addWidget(style_group)
 
-        # --- 爽感 & 钩子公式选择 ---
-        from PySide6.QtWidgets import QCheckBox
+        # --- 爽感 & 钩子公式选择 (tag 样式) ---
         from config.prompt_templates import prompt_template_manager
-
-        formula_group = QGroupBox("爽感 & 钩子公式选择（勾选注入到 Prompt）")
+        formula_group = QGroupBox("爽感 & 钩子公式选择（点击 + 添加，注入到 Prompt）")
         fg_layout = QVBoxLayout(formula_group)
-        fg_layout.setSpacing(2)
+        fg_layout.setSpacing(4)
 
-        fg_layout.addWidget(QLabel("爽感公式:"))
-        self._sat_checkboxes = []
-        for s in prompt_template_manager.get_satisfactions():
-            level_cn = {"small": "小爽", "medium": "中爽", "big": "大爽"}.get(s.level, s.level)
-            cb = QCheckBox(f"{s.name}（{level_cn}）")
-            cb.setProperty("template_id", s.id)
-            cb.setChecked(s.enabled)
-            cb.setStyleSheet("")
-            fg_layout.addWidget(cb)
-            self._sat_checkboxes.append(cb)
+        # 爽感行
+        sat_row = QHBoxLayout()
+        sat_row.addWidget(QLabel("<b>⚡ 爽感:</b>"))
+        self._exp_sat_tag_container = QWidget()
+        self._exp_sat_tag_flow = QHBoxLayout(self._exp_sat_tag_container)
+        self._exp_sat_tag_flow.setContentsMargins(0, 0, 0, 0)
+        self._exp_sat_tag_flow.setSpacing(4)
+        sat_row.addWidget(self._exp_sat_tag_container, 1)
+        btn_add_sat = QPushButton("+")
+        btn_add_sat.setFixedSize(28, 24)
+        btn_add_sat.setToolTip("添加爽感公式")
+        btn_add_sat.setStyleSheet(
+            "QPushButton{color:#e67e22;background:#fef5e7;font-weight:bold;"
+            "border:1px solid #bdc3c7;border-radius:3px;padding:0;}"
+            "QPushButton:hover{background:#fdebd0;}"
+        )
+        btn_add_sat.clicked.connect(self._add_exp_sat_tag)
+        sat_row.addWidget(btn_add_sat)
+        fg_layout.addLayout(sat_row)
 
-        fg_layout.addWidget(QLabel("钩子公式:"))
-        self._hook_checkboxes = []
-        for h in prompt_template_manager.get_hooks():
-            cb = QCheckBox(h.name)
-            cb.setProperty("template_id", h.id)
-            cb.setChecked(h.enabled)
-            cb.setStyleSheet("")
-            fg_layout.addWidget(cb)
-            self._hook_checkboxes.append(cb)
+        # 钩子行
+        hook_row = QHBoxLayout()
+        hook_row.addWidget(QLabel("<b>🪝 钩子:</b>"))
+        self._exp_hook_tag_container = QWidget()
+        self._exp_hook_tag_flow = QHBoxLayout(self._exp_hook_tag_container)
+        self._exp_hook_tag_flow.setContentsMargins(0, 0, 0, 0)
+        self._exp_hook_tag_flow.setSpacing(4)
+        hook_row.addWidget(self._exp_hook_tag_container, 1)
+        btn_add_hook = QPushButton("+")
+        btn_add_hook.setFixedSize(28, 24)
+        btn_add_hook.setToolTip("添加钩子公式")
+        btn_add_hook.setStyleSheet(
+            "QPushButton{color:#8e44ad;background:#f5eef8;font-weight:bold;"
+            "border:1px solid #bdc3c7;border-radius:3px;padding:0;}"
+            "QPushButton:hover{background:#ebdef0;}"
+        )
+        btn_add_hook.clicked.connect(self._add_exp_hook_tag)
+        fg_layout.addLayout(hook_row)
+
+        # 已选公式 ID 集合（用 enabled 状态初始化）
+        self._exp_sat_selected_ids = {s.id for s in prompt_template_manager.get_satisfactions() if s.enabled}
+        self._exp_hook_selected_ids = {h.id for h in prompt_template_manager.get_hooks() if h.enabled}
+        self._refresh_exp_formula_tags()
 
         # 爽感节奏参数
         from PySide6.QtWidgets import QSpinBox
@@ -277,9 +298,7 @@ class Phase5Expansion(QWidget):
 
         ll.addWidget(formula_group)
 
-        # 连接公式勾选信号 -> 动态更新 Prompt 预览
-        for cb in self._sat_checkboxes + self._hook_checkboxes:
-            cb.toggled.connect(self._update_prompt_preview)
+        # prompt预览将在 tag 操作时自动触发
 
         # AI参数
         self._ai_settings = AISettingsPanel(suggested_temp=TEMPERATURE_EXPANSION)
@@ -496,6 +515,116 @@ class Phase5Expansion(QWidget):
         self.project_data.max_scenes_per_episode = self._scenes_slider.value()
         self.project_data.scenes_per_episode = f"1-{self._scenes_slider.value()}"
         self.project_data.max_dialogue_chars = self._dialogue_slider.value()
+    # ------------------------------------------------------------------ #
+    # 爽感 & 钩子公式 tag 管理 (扩写阶段)
+    # ------------------------------------------------------------------ #
+    def _refresh_exp_formula_tags(self):
+        """刷新爽感/钩子 tag 显示"""
+        from config.prompt_templates import prompt_template_manager
+        # 清空爽感行
+        while self._exp_sat_tag_flow.count():
+            item = self._exp_sat_tag_flow.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+        # 清空钩子行
+        while self._exp_hook_tag_flow.count():
+            item = self._exp_hook_tag_flow.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+
+        # 重建爽感 tags
+        sat_map = {s.id: s for s in prompt_template_manager.get_satisfactions()}
+        for sid in sorted(self._exp_sat_selected_ids):
+            s = sat_map.get(sid)
+            if s:
+                level_cn = {"small": "小爽", "medium": "中爽", "big": "大爽"}.get(s.level, s.level)
+                self._exp_sat_tag_flow.addWidget(
+                    self._make_exp_formula_tag(f"{s.name}（{level_cn}）", sid, "sat")
+                )
+        self._exp_sat_tag_flow.addStretch()
+
+        # 重建钩子 tags
+        hook_map = {h.id: h for h in prompt_template_manager.get_hooks()}
+        for hid in sorted(self._exp_hook_selected_ids):
+            h = hook_map.get(hid)
+            if h:
+                self._exp_hook_tag_flow.addWidget(
+                    self._make_exp_formula_tag(h.name, hid, "hook")
+                )
+        self._exp_hook_tag_flow.addStretch()
+
+        # 刷新 prompt 预览
+        if hasattr(self, '_prompt_viewer'):
+            self._update_prompt_preview()
+
+    def _make_exp_formula_tag(self, label: str, template_id: str, category: str):
+        """创建一个公式 tag 控件"""
+        tag = QWidget()
+        tag.setFixedHeight(24)
+        h = QHBoxLayout(tag)
+        h.setContentsMargins(6, 0, 2, 0)
+        h.setSpacing(2)
+        lbl = QLabel(label)
+        lbl.setStyleSheet("color:#2c3e50;")
+        h.addWidget(lbl)
+        btn_x = QPushButton("x")
+        btn_x.setFixedSize(16, 16)
+        btn_x.setStyleSheet(
+            "QPushButton{border:none;color:#e74c3c;font-weight:bold;padding:0;}"
+            "QPushButton:hover{color:#c0392b;background:#fadbd8;border-radius:8px;}"
+        )
+        btn_x.setCursor(Qt.PointingHandCursor)
+        if category == "sat":
+            btn_x.clicked.connect(lambda _, tid=template_id: self._remove_exp_sat_tag(tid))
+        else:
+            btn_x.clicked.connect(lambda _, tid=template_id: self._remove_exp_hook_tag(tid))
+        h.addWidget(btn_x)
+        color = "#fef5e7" if category == "sat" else "#f5eef8"
+        border_color = "#e67e22" if category == "sat" else "#8e44ad"
+        tag.setObjectName("formulaTag")
+        tag.setStyleSheet(
+            f"#formulaTag{{background:{color};border:1px solid {border_color};"
+            f"border-radius:10px;}}"
+        )
+        return tag
+
+    def _remove_exp_sat_tag(self, template_id: str):
+        self._exp_sat_selected_ids.discard(template_id)
+        self._refresh_exp_formula_tags()
+
+    def _remove_exp_hook_tag(self, template_id: str):
+        self._exp_hook_selected_ids.discard(template_id)
+        self._refresh_exp_formula_tags()
+
+    def _add_exp_sat_tag(self):
+        from config.prompt_templates import prompt_template_manager
+        from ui.widgets.formula_picker_dialog import FormulaPickerDialog
+        dlg = FormulaPickerDialog(
+            title="选择爽感公式",
+            templates=prompt_template_manager.get_satisfactions(),
+            already_selected_ids=self._exp_sat_selected_ids,
+            parent=self,
+        )
+        if dlg.exec() == FormulaPickerDialog.Accepted:
+            chosen = dlg.get_chosen_id()
+            if chosen:
+                self._exp_sat_selected_ids.add(chosen)
+                self._refresh_exp_formula_tags()
+
+    def _add_exp_hook_tag(self):
+        from config.prompt_templates import prompt_template_manager
+        from ui.widgets.formula_picker_dialog import FormulaPickerDialog
+        dlg = FormulaPickerDialog(
+            title="选择钩子公式",
+            templates=prompt_template_manager.get_hooks(),
+            already_selected_ids=self._exp_hook_selected_ids,
+            parent=self,
+        )
+        if dlg.exec() == FormulaPickerDialog.Accepted:
+            chosen = dlg.get_chosen_id()
+            if chosen:
+                self._exp_hook_selected_ids.add(chosen)
+                self._refresh_exp_formula_tags()
 
     def _update_prompt_preview(self):
         """根据当前勾选状态更新 PromptViewer 显示的完整 system prompt"""
@@ -523,16 +652,16 @@ class Phase5Expansion(QWidget):
             self.project_data.sat_big_interval,
         )
 
-        # 爽感公式：按等级和勾选状态生成
-        sat_ids = [cb.property("template_id") for cb in self._sat_checkboxes if cb.isChecked()]
+        # 爽感公式：按等级和选中状态生成
+        sat_ids = list(self._exp_sat_selected_ids)
         sat_prompt = prompt_template_manager.build_satisfaction_prompt_for_episode(
             episode_number=episode_number,
             required_level=required_level,
             selected_ids=sat_ids if sat_ids else None,
         )
 
-        # 钩子公式：按勾选状态
-        hook_ids = [cb.property("template_id") for cb in self._hook_checkboxes if cb.isChecked()]
+        # 钩子公式：按选中状态
+        hook_ids = list(self._exp_hook_selected_ids)
         hook_prompt = prompt_template_manager.build_hook_prompt_by_ids(hook_ids) if hook_ids else ""
         return sat_prompt, hook_prompt
 
@@ -788,6 +917,7 @@ class Phase5Expansion(QWidget):
             satisfaction_prompt_injection=sat_injection,
             hook_prompt_injection=hook_injection,
             world_variables_json=world_vars_json,
+            opening_hook=node.get("opening_hook", ""),
         )
         self._worker.progress.connect(self.status_message)
         self._worker.finished.connect(self._on_expand_done)

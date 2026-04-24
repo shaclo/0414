@@ -135,7 +135,9 @@ class Phase2Characters(QWidget):
         self._char_editor.character_changed.connect(self._on_character_changed)
         h_splitter.addWidget(self._char_editor)
 
-        h_splitter.setSizes([380, 540])
+        h_splitter.setSizes([400, 600])
+        h_splitter.setStretchFactor(0, 4)
+        h_splitter.setStretchFactor(1, 6)
         root.addWidget(h_splitter, 1)
 
         # === 关系图 + 列表双视图 ===

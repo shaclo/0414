@@ -42,6 +42,202 @@ STRUCTURE_OPTIONS = [
 ]
 
 
+# ============================================================
+# 钩子重写对话框
+# ============================================================
+class HookRewriteDialog(QDialog):
+    """
+    钩子重写子对话框：选择钩子类型 → AI 生成预览 → 采用或重新生成。
+    """
+    def __init__(self, node, project_data, parent=None):
+        super().__init__(parent)
+        self._node = node
+        self._pd = project_data
+        self._worker = None
+        self._new_hook = ""    # 最终采用的钩子文本
+        self._next_node = self._find_next_node()
+
+        nid = node.get("node_id", "")
+        self.setWindowTitle(f"🎣 重写结尾钩子 — {nid}")
+        self.setMinimumSize(680, 520)
+        self.resize(720, 560)
+        self.setWindowFlags(self.windowFlags() | Qt.WindowMaximizeButtonHint)
+        self._setup_ui()
+
+    def _find_next_node(self):
+        """查找下一集节点"""
+        import re
+        nid = self._node.get("node_id", "")
+        nums = re.findall(r'\d+', nid)
+        if not nums:
+            return None
+        next_id = f"Ep{int(nums[0]) + 1}"
+        for n in self._pd.cpg_nodes:
+            if n.get("node_id") == next_id:
+                return n
+        return None
+
+    def _setup_ui(self):
+        layout = QVBoxLayout(self)
+        layout.setSpacing(10)
+
+        # 顶部：当前钩子展示
+        nid = self._node.get("node_id", "")
+        cur_hook = self._node.get("episode_hook", "")
+        if cur_hook:
+            cur_group = QGroupBox(f"当前钩子（{nid}）")
+            cur_lay = QVBoxLayout(cur_group)
+            cur_text = QTextBrowser()
+            cur_text.setPlainText(cur_hook)
+            cur_text.setMaximumHeight(80)
+            cur_lay.addWidget(cur_text)
+            layout.addWidget(cur_group)
+
+        # 钩子类型选择（复用 HookSelectorWidget）
+        from ui.widgets.hook_selector_widget import HookSelectorWidget
+        hook_row = QHBoxLayout()
+        hook_row.addWidget(QLabel("🎯 钩子类型选择:"))
+        self._hook_selector = HookSelectorWidget()
+        hook_row.addWidget(self._hook_selector, 1)
+        layout.addLayout(hook_row)
+
+        # 参考后续章节
+        self._cb_ref_next = QCheckBox("参考后续章节（保持上下文连贯）")
+        self._cb_ref_next.setChecked(True)
+        if not self._next_node:
+            self._cb_ref_next.setChecked(False)
+            self._cb_ref_next.setEnabled(False)
+            self._cb_ref_next.setToolTip("当前是最后一集，无后续章节可参考")
+        else:
+            next_id = self._next_node.get("node_id", "")
+            self._cb_ref_next.setToolTip(
+                f"勾选后，AI 会参考 {next_id} 的开头内容，确保新钩子能自然衔接"
+            )
+        layout.addWidget(self._cb_ref_next)
+
+        # 生成按钮
+        btn_gen = QPushButton("🎲 生成新钩子")
+        btn_gen.setMinimumHeight(36)
+        btn_gen.setStyleSheet(
+            "QPushButton{background:#e17055;color:white;border-radius:6px;font-weight:bold;font-size:14px;}"
+            "QPushButton:hover{background:#d63031;}"
+        )
+        btn_gen.clicked.connect(self._on_generate)
+        self._btn_gen = btn_gen
+        layout.addWidget(btn_gen)
+
+        # 预览区
+        preview_group = QGroupBox("✨ 新钩子预览")
+        preview_lay = QVBoxLayout(preview_group)
+        self._preview_text = QTextBrowser()
+        self._preview_text.setMinimumHeight(120)
+        self._preview_text.setPlaceholderText("点击「生成新钩子」后，新钩子将显示在这里...")
+        from services.theme_manager import theme_manager as _tm
+        _, _fs = _tm.get_current_font()
+        self._preview_text.setStyleSheet(
+            f"QTextBrowser{{ background:#fffde7; border:1px solid #f0e68c;"
+            f" border-radius:6px; padding:10px; font-size:{_fs}pt; }}"
+        )
+        preview_lay.addWidget(self._preview_text)
+        layout.addWidget(preview_group, 1)
+
+        # 底部按钮
+        btn_row = QHBoxLayout()
+        self._btn_adopt = QPushButton("✅ 采用此钩子")
+        self._btn_adopt.setEnabled(False)
+        self._btn_adopt.setMinimumHeight(34)
+        self._btn_adopt.setStyleSheet(
+            "QPushButton{background:#00b894;color:white;border-radius:6px;font-weight:bold;}"
+            "QPushButton:hover{background:#00a381;}"
+            "QPushButton:disabled{background:#b2bec3;}"
+        )
+        self._btn_adopt.clicked.connect(self._on_adopt)
+        btn_row.addWidget(self._btn_adopt)
+
+        btn_regen = QPushButton("🔄 重新生成")
+        btn_regen.setMinimumHeight(34)
+        btn_regen.clicked.connect(self._on_generate)
+        btn_row.addWidget(btn_regen)
+
+        btn_cancel = QPushButton("取消")
+        btn_cancel.setMinimumHeight(34)
+        btn_cancel.clicked.connect(self.reject)
+        btn_row.addWidget(btn_cancel)
+
+        layout.addLayout(btn_row)
+
+    def _on_generate(self):
+        """启动 AI 生成"""
+        hook_ids = self._hook_selector.selected_ids()
+        if not hook_ids:
+            QMessageBox.warning(self, "提示", "请至少选择一个钩子类型！")
+            return
+
+        self._btn_gen.setEnabled(False)
+        self._btn_gen.setText("生成中...")
+        self._btn_adopt.setEnabled(False)
+        self._preview_text.setPlainText("正在生成，请稍候...")
+
+        # 读取当前节点信息
+        from models.project_state import get_active_version_snapshot
+        snap = get_active_version_snapshot(self._node)
+        events = snap.get("event_summaries", [])
+        setting = snap.get("setting", "")
+        chars = snap.get("characters", [])
+        tone = snap.get("emotional_tone", "")
+
+        # 下一集信息
+        next_id = ""
+        next_opening = ""
+        next_events = []
+        if self._cb_ref_next.isChecked() and self._next_node:
+            next_snap = get_active_version_snapshot(self._next_node)
+            next_id = self._next_node.get("node_id", "")
+            next_opening = next_snap.get("opening_hook", "")
+            next_events = next_snap.get("event_summaries", [])
+
+        from services.worker import HookRewriteWorker
+        self._worker = HookRewriteWorker(
+            node_id=self._node.get("node_id", ""),
+            event_summaries=events,
+            setting=setting,
+            characters=chars,
+            emotional_tone=tone,
+            hook_ids=hook_ids,
+            ai_params={"temperature": 0.7, "max_tokens": 2048},
+            next_node_id=next_id,
+            next_opening_hook=next_opening,
+            next_events=next_events,
+        )
+        self._worker.finished.connect(self._on_done)
+        self._worker.error.connect(self._on_error)
+        self._worker.start()
+
+    def _on_done(self, result):
+        self._btn_gen.setEnabled(True)
+        self._btn_gen.setText("🎲 生成新钩子")
+        hook_text = result.get("episode_hook", "")
+        if hook_text:
+            self._new_hook = hook_text
+            self._preview_text.setPlainText(hook_text)
+            self._btn_adopt.setEnabled(True)
+        else:
+            self._preview_text.setPlainText("⚠️ AI 未返回有效钩子，请重新生成。")
+
+    def _on_error(self, msg):
+        self._btn_gen.setEnabled(True)
+        self._btn_gen.setText("🎲 生成新钩子")
+        self._preview_text.setPlainText(f"❌ 生成失败: {msg}")
+
+    def _on_adopt(self):
+        """采用当前钩子并关闭"""
+        self.accept()
+
+    def adopted_hook(self) -> str:
+        """返回被采用的钩子文本"""
+        return self._new_hook
+
+
 class NodeDetailDialog(QDialog):
     """
     骨架节点详情 + AI 交互编辑对话框。
@@ -62,7 +258,8 @@ class NodeDetailDialog(QDialog):
         nid   = node.get("node_id", "")
         title = node.get("title", "")
         self.setWindowTitle(f"节点详情 — {nid}  {title}")
-        self.setMinimumSize(1280, 720)
+        self.setMinimumSize(1280, 800)
+        self.resize(1300, 840)
         self.setWindowFlags(self.windowFlags() | Qt.WindowMaximizeButtonHint)
         self._setup_ui()
         self._load_node_to_form(get_active_version_snapshot(node))
@@ -99,11 +296,13 @@ class NodeDetailDialog(QDialog):
         form = QFormLayout()
         form.setLabelAlignment(Qt.AlignRight)
         self._f_title   = QLineEdit()
-        self._f_setting = QLineEdit()
-        self._f_chars   = QLineEdit()
+        self._f_setting = QTextEdit()
+        self._f_setting.setFixedHeight(65)
+        self._f_chars   = QTextEdit()
+        self._f_chars.setFixedHeight(65)
         self._f_tone    = QLineEdit()
         self._f_hook    = QTextEdit()
-        self._f_hook.setMaximumHeight(60)
+        self._f_hook.setFixedHeight(115)
         self._f_hook.setPlaceholderText("本集结尾悬念钩子…")
         form.addRow("标题:",     self._f_title)
         form.addRow("环境:",     self._f_setting)
@@ -112,9 +311,25 @@ class NodeDetailDialog(QDialog):
         form.addRow("结尾钩子:", self._f_hook)
         lv.addLayout(form)
 
+        # 钩子重写按钮
+        hook_btn_row = QHBoxLayout()
+        hook_btn_row.addStretch()
+        btn_hook_rw = QPushButton("🎣 重写钩子")
+        btn_hook_rw.setAutoDefault(False)
+        btn_hook_rw.setDefault(False)
+        btn_hook_rw.setMinimumHeight(28)
+        btn_hook_rw.setToolTip("AI 重新生成本集的结尾悬念钩子")
+        btn_hook_rw.setStyleSheet(
+            "QPushButton{color:#e17055;border:1px solid #e17055;border-radius:4px;padding:2px 12px;}"
+            "QPushButton:hover{background:#ffeaa7;}"
+        )
+        btn_hook_rw.clicked.connect(self._do_hook_rewrite)
+        hook_btn_row.addWidget(btn_hook_rw)
+        lv.addLayout(hook_btn_row)
+
         lv.addWidget(QLabel("📌 事件摘要 (每行一个事件):"))
         self._f_events = QTextEdit()
-        self._f_events.setMaximumHeight(160)
+        self._f_events.setMinimumHeight(200)
         self._f_events.setStyleSheet("QTextEdit{background:#ffffff;}")
         lv.addWidget(self._f_events)
 
@@ -122,7 +337,6 @@ class NodeDetailDialog(QDialog):
         edge_group = self._build_edge_section()
         lv.addWidget(edge_group)
 
-        lv.addStretch()
         splitter.addWidget(left)
 
         # ---- 右侧: AI 辅助 ----
@@ -288,9 +502,9 @@ class NodeDetailDialog(QDialog):
     # ---- 左侧表单 load / read ----
     def _load_node_to_form(self, snap: dict):
         self._f_title.setText(snap.get("title", ""))
-        self._f_setting.setText(snap.get("setting", ""))
+        self._f_setting.setPlainText(snap.get("setting", ""))
         chars = snap.get("characters", [])
-        self._f_chars.setText(", ".join(chars) if isinstance(chars, list) else str(chars))
+        self._f_chars.setPlainText(", ".join(chars) if isinstance(chars, list) else str(chars))
         self._f_tone.setText(snap.get("emotional_tone", ""))
         self._f_hook.setPlainText(snap.get("episode_hook", ""))
         events = snap.get("event_summaries", [])
@@ -302,13 +516,13 @@ class NodeDetailDialog(QDialog):
             self._f_events.setPlainText("")
 
     def _read_form_to_dict(self) -> dict:
-        chars_raw = self._f_chars.text()
+        chars_raw = self._f_chars.toPlainText()
         chars = [c.strip() for c in chars_raw.split(",") if c.strip()]
         events_raw = self._f_events.toPlainText()
         events = [e.strip() for e in events_raw.split("\n") if e.strip()]
         return {
             "title":          self._f_title.text().strip(),
-            "setting":        self._f_setting.text().strip(),
+            "setting":        self._f_setting.toPlainText().strip(),
             "characters":     chars,
             "event_summaries": events,
             "emotional_tone": self._f_tone.text().strip(),
@@ -714,6 +928,88 @@ class NodeDetailDialog(QDialog):
             cid = f"Ep{i}"
             if cid != nid:
                 self._id_combo.addItem(cid, cid)
+
+    # ------------------------------------------------------------------ #
+    # 钩子重写
+    # ------------------------------------------------------------------ #
+    def _do_hook_rewrite(self):
+        """打开钩子重写对话框"""
+        dlg = HookRewriteDialog(self._node, self._pd, parent=self)
+        if dlg.exec() == QDialog.Accepted:
+            new_hook = dlg.adopted_hook()
+            if new_hook:
+                self._f_hook.setPlainText(new_hook)
+                QMessageBox.information(
+                    self, "钩子已更新",
+                    "新钩子已写入表单。请点击「保存修改」或「另存新版本」来保存。"
+                )
+                # 检查是否有后续章节
+                import re
+                nid = self._node.get("node_id", "")
+                nums = re.findall(r'\d+', nid)
+                if nums:
+                    next_id = f"Ep{int(nums[0]) + 1}"
+                    next_node = next(
+                        (n for n in self._pd.cpg_nodes if n.get("node_id") == next_id),
+                        None
+                    )
+                    if next_node:
+                        reply = QMessageBox.question(
+                            self, "后续章节同步",
+                            f"钩子已更改，{next_id} 的开头衔接（opening_hook）可能需要同步调整。\n\n"
+                            f"是否需要 AI 为 {next_id} 重新生成开头衔接？\n"
+                            f"（仅调整 opening_hook，不影响整集剧情）",
+                            QMessageBox.Yes | QMessageBox.No,
+                        )
+                        if reply == QMessageBox.Yes:
+                            self._regen_next_opening_hook(next_node, new_hook)
+
+    def _regen_next_opening_hook(self, next_node, new_hook):
+        """用新钩子为下一集重新生成 opening_hook"""
+        from services.worker import HookRewriteWorker
+        from models.project_state import get_active_version_snapshot
+
+        next_snap = get_active_version_snapshot(next_node)
+        next_id = next_node.get("node_id", "")
+        cur_id = self._node.get("node_id", "")
+
+        # 构建一个特殊的 Worker 来重写 opening_hook
+        # 复用 AI service 直接调用
+        from services.ai_service import ai_service
+        from services.logger_service import app_logger
+
+        system_prompt = (
+            f"你是一位专业的短剧编剧。\n"
+            f"上一集（{cur_id}）的结尾悬念钩子刚被修改为：\n"
+            f"「{new_hook}」\n\n"
+            f"请为 {next_id} 重新生成一个 opening_hook（开篇衔接），\n"
+            f"要求：紧接上一集的悬念，同一场景、同一时间线、无缝延续。\n\n"
+            f"{next_id} 的事件摘要：\n"
+            + "\n".join(f"  - {e}" for e in next_snap.get("event_summaries", [])[:3])
+            + f"\n\n严格输出 JSON：{{\"opening_hook\": \"你的开篇衔接文本\"}}"
+        )
+
+        try:
+            result = ai_service.generate_json(
+                user_prompt=f"请为 {next_id} 生成新的 opening_hook。",
+                system_prompt=system_prompt,
+                temperature=0.7,
+                max_tokens=1024,
+            )
+            new_opening = result.get("opening_hook", "")
+            if new_opening:
+                from models.project_state import apply_snapshot, make_node_snapshot, add_version
+                next_node["opening_hook"] = new_opening
+                add_version(next_node, "ai_generate", "钩子同步-开头重写")
+                app_logger.info("钩子同步", f"{next_id} 的 opening_hook 已更新")
+                QMessageBox.information(
+                    self, "同步完成",
+                    f"{next_id} 的开篇衔接已更新为：\n\n{new_opening[:100]}..."
+                )
+            else:
+                QMessageBox.warning(self, "同步失败", "AI 未返回有效的开篇衔接。")
+        except Exception as e:
+            QMessageBox.warning(self, "同步失败", f"重新生成 opening_hook 失败：{e}")
 
     # ------------------------------------------------------------------ #
     # 保存逻辑

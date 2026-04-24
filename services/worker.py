@@ -154,14 +154,7 @@ class CPGSkeletonWorker(BaseWorker):
         chars_summary = self._build_chars_summary()
         system_prompt = self._build_system_prompt()
 
-        # 注入爽感 & 钩子公式（随机抽样）
-        from config.prompt_templates import prompt_template_manager
-        sat_injection = prompt_template_manager.sample_satisfaction_prompt(3)
-        hook_injection = prompt_template_manager.sample_hook_prompt(2)
-        if sat_injection:
-            system_prompt += "\n\n" + sat_injection
-        if hook_injection:
-            system_prompt += "\n\n" + hook_injection
+
 
         user_prompt = (
             USER_PROMPT_CPG_SKELETON
@@ -338,7 +331,8 @@ class CPGSkeletonWorker(BaseWorker):
 
     def _build_chars_summary(self) -> str:
         return "\n".join(
-            f"- [{c.get('importance_level','C')}/{c.get('role_type','配角')}] {c.get('name','')}: "
+            f"- [{c.get('importance_level','C')}/{c.get('role_type','配角')}] "
+            f"{c.get('name','')}（{c.get('gender','未知')}，{c.get('age','未知')}岁，{c.get('position','')}）: "
             f"{c.get('personality','')} / 动机: {c.get('motivation','')}"
             for c in self.characters
         ) or "（未设定角色）"
@@ -352,6 +346,195 @@ class CPGSkeletonWorker(BaseWorker):
         if self.drama_style_block:
             system_prompt += "\n" + self.drama_style_block
         return system_prompt
+
+
+# ============================================================
+# AI-Call-3b: 分段骨架生成（逐段确认模式）
+# ============================================================
+class SegmentSkeletonWorker(BaseWorker):
+    """
+    分段骨架生成 Worker。
+    根据 start_ep ~ end_ep 范围生成骨架节点，
+    支持钩子链（传入前一章 episode_hook）和章节特殊指令。
+    """
+    def __init__(self, sparkle, world_variables, finale_condition,
+                 characters, ai_params, start_ep, end_ep,
+                 total_episodes, episode_duration,
+                 confirmed_nodes=None, drama_style_block="",
+                 hook_ids=None):
+        super().__init__()
+        self.sparkle = sparkle
+        self.world_variables = world_variables
+        self.finale_condition = finale_condition
+        self.characters = characters or []
+        self.ai_params = ai_params
+        self.start_ep = start_ep
+        self.end_ep = end_ep
+        self.total_episodes = total_episodes
+        self.episode_duration = episode_duration
+        self.confirmed_nodes = confirmed_nodes or []
+        self.drama_style_block = drama_style_block
+        self.hook_ids = hook_ids or []
+
+    def run(self):
+        try:
+            from env import (
+                SYSTEM_PROMPT_SKELETON_SEGMENT, USER_PROMPT_SKELETON_SEGMENT,
+                CHAPTER1_INSTRUCTION, CHAPTER_EARLY_INSTRUCTION,
+            )
+
+            segment_count = self.end_ep - self.start_ep + 1
+            position_percent = int(self.start_ep / self.total_episodes * 100)
+            self.progress.emit(
+                f"正在生成第 {self.start_ep}~{self.end_ep} 集骨架（共{segment_count}集）..."
+            )
+
+            # 构建章节特殊指令
+            chapter_instruction = ""
+            if self.start_ep == 1:
+                chapter_instruction = CHAPTER1_INSTRUCTION
+            elif self.start_ep <= 3:
+                chapter_instruction = CHAPTER_EARLY_INSTRUCTION.replace(
+                    "{current_ep}", str(self.start_ep)
+                )
+
+            # 构建已确认上下文
+            confirmed_context = self._build_confirmed_context()
+
+            # 构建前一章钩子（程序化传入，非AI自行查找）
+            previous_hook_block = ""
+            if self.confirmed_nodes:
+                last_node = self.confirmed_nodes[-1]
+                last_hook = last_node.get("episode_hook", "")
+                last_id = last_node.get("node_id", "")
+                last_title = last_node.get("title", "")
+                if last_hook:
+                    previous_hook_block = (
+                        f"## ⚠️ 上一集的结尾悬念钩子（必须紧密承接！）\n"
+                        f"上一集 {last_id}「{last_title}」的结尾悬念：\n"
+                        f"「{last_hook}」\n\n"
+                        f"### 强制衔接要求：\n"
+                        f"1. 第 {self.start_ep} 集的 opening_hook 必须是对上述悬念的**直接续写**，"
+                        f"同一场景、同一时间线、同一紧张状态\n"
+                        f"2. 第 {self.start_ep} 集的第一个 event_summary 必须**立即回应**这个悬念——"
+                        f"不允许跳过、不允许时间跳跃、不允许换场景开始\n"
+                        f"3. 观众看到第 {self.start_ep} 集开头时，必须感觉是上一集最后一秒的**无缝延续**"
+                    )
+
+            # 构建角色摘要（含完整信息）
+            chars_summary = "\n".join(
+                f"- [{c.get('importance_level','C')}/{c.get('role_type','配角')}] "
+                f"{c.get('name','')}（{c.get('gender','未知')}，{c.get('age','未知')}岁，{c.get('position','')}）: "
+                f"{c.get('personality','')} / 动机: {c.get('motivation','')}"
+                for c in self.characters
+            ) or "（未设定角色）"
+
+            system_prompt = (
+                SYSTEM_PROMPT_SKELETON_SEGMENT
+                .replace("{total_episodes}", str(self.total_episodes))
+                .replace("{episode_duration}", str(self.episode_duration))
+                .replace("{start_ep}", str(self.start_ep))
+                .replace("{end_ep}", str(self.end_ep))
+                .replace("{segment_count}", str(segment_count))
+                .replace("{position_percent}", str(position_percent))
+                .replace("{chapter_specific_instruction}", chapter_instruction)
+            )
+            if self.drama_style_block:
+                system_prompt += "\n" + self.drama_style_block
+
+            # 注入用户选择的钩子公式（随机抽 1 个）
+            if self.hook_ids:
+                import random as _rnd
+                from config.prompt_templates import prompt_template_manager
+                pick = _rnd.sample(self.hook_ids, 1)
+                hook_inj = prompt_template_manager.build_hook_prompt_by_ids(pick)
+                if hook_inj:
+                    system_prompt += "\n\n" + hook_inj
+
+            world_vars_json = json.dumps(
+                self.world_variables, ensure_ascii=False, indent=2
+            ) if self.world_variables else "{}"
+
+            user_prompt = (
+                USER_PROMPT_SKELETON_SEGMENT
+                .replace("{sparkle}", self.sparkle)
+                .replace("{world_variables_json}", world_vars_json)
+                .replace("{finale_condition}", self.finale_condition)
+                .replace("{characters_summary}", chars_summary)
+                .replace("{total_episodes}", str(self.total_episodes))
+                .replace("{episode_duration}", str(self.episode_duration))
+                .replace("{start_ep}", str(self.start_ep))
+                .replace("{end_ep}", str(self.end_ep))
+                .replace("{confirmed_context}", confirmed_context)
+                .replace("{previous_hook_block}", previous_hook_block)
+            )
+
+            app_logger.log_ai_call(
+                module="骨架-分段生成",
+                action=f"AI 调用：生成第 {self.start_ep}~{self.end_ep} 集骨架",
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+                extra_params={
+                    "起始集": self.start_ep, "结束集": self.end_ep,
+                    "总集数": self.total_episodes,
+                    "已确认节点数": len(self.confirmed_nodes),
+                    "温度": self.ai_params.get("temperature"),
+                },
+            )
+
+            result = ai_service.generate_json(
+                user_prompt=user_prompt,
+                system_prompt=system_prompt,
+                temperature=self.ai_params.get("temperature", 0.5),
+                top_p=self.ai_params.get("top_p", 0.9),
+                top_k=self.ai_params.get("top_k", 40),
+                max_tokens=self.ai_params.get("max_tokens", 16384),
+            )
+
+            nodes = result.get("nodes", [])
+            app_logger.log_ai_result(
+                module="骨架-分段生成",
+                action=f"分段骨架完成：第 {self.start_ep}~{self.end_ep} 集",
+                result_summary=f"生成 {len(nodes)} 个节点",
+                result_detail=json.dumps(result, ensure_ascii=False, indent=2),
+            )
+            self.finished.emit(result)
+        except Exception as e:
+            logger.error("SegmentSkeletonWorker 失败: %s", e, exc_info=True)
+            app_logger.error("骨架-分段生成", f"分段骨架生成失败: {str(e)}")
+            self.error.emit(f"分段骨架生成失败：{str(e)}")
+
+    def _build_confirmed_context(self):
+        """将已确认节点构建为结构化上下文（完整内容，不截断）"""
+        if not self.confirmed_nodes:
+            return ""
+        lines = ["## 已确认章节（前文上下文 — 请严格保持剧情一致性）"]
+        for n in self.confirmed_nodes:
+            nid = n.get("node_id", "")
+            title = n.get("title", "")
+            stage = n.get("hauge_stage_name", "")
+            setting = n.get("setting", "")
+            chars = ", ".join(n.get("characters", []))
+            events = n.get("event_summaries", [])
+            events_text = "\n".join(f"  {i+1}. {e}" for i, e in enumerate(events))
+            tone = n.get("emotional_tone", "")
+            hook = n.get("episode_hook", "")
+            opening = n.get("opening_hook", "")
+
+            lines.append(f"\n### {nid}: {title} [{stage}]")
+            if setting:
+                lines.append(f"环境: {setting}")
+            if chars:
+                lines.append(f"角色: {chars}")
+            if tone:
+                lines.append(f"情感基调: {tone}")
+            if opening:
+                lines.append(f"开篇衔接: {opening}")
+            if events_text:
+                lines.append(f"事件:\n{events_text}")
+            if hook:
+                lines.append(f"🎣 结尾悬念钩子: {hook}")
+        return "\n".join(lines)
 
 
 # ============================================================
@@ -381,6 +564,9 @@ class VariationWorker(BaseWorker):
         characters: list = None,
         drama_style_block: str = "",
         provider_pool: list = None,
+        satisfaction_prompt_injection: str = "",
+        hook_prompt_injection: str = "",
+        previous_episode_hook: str = "",
     ):
         super().__init__()
         self.sparkle = sparkle
@@ -394,6 +580,9 @@ class VariationWorker(BaseWorker):
         self.characters = characters or []
         self.drama_style_block = drama_style_block
         self.provider_pool = provider_pool
+        self.satisfaction_prompt_injection = satisfaction_prompt_injection
+        self.hook_prompt_injection = hook_prompt_injection
+        self.previous_episode_hook = previous_episode_hook
 
     def run(self):
         try:
@@ -483,6 +672,9 @@ class VariationWorker(BaseWorker):
                         protagonist_goal=protagonist_goal,
                         characters_summary=characters_summary,
                         provider_pool=self.provider_pool,
+                        satisfaction_prompt_injection=self.satisfaction_prompt_injection,
+                        hook_prompt_injection=self.hook_prompt_injection,
+                        previous_episode_hook=self.previous_episode_hook,
                     )
                 )
             finally:
@@ -666,6 +858,7 @@ class ExpansionWorker(BaseWorker):
         satisfaction_prompt_injection: str = "",
         hook_prompt_injection: str = "",
         world_variables_json: str = "",
+        opening_hook: str = "",
     ):
         super().__init__()
         self.sparkle = sparkle
@@ -689,6 +882,7 @@ class ExpansionWorker(BaseWorker):
         self.satisfaction_prompt_injection = satisfaction_prompt_injection
         self.hook_prompt_injection = hook_prompt_injection
         self.world_variables_json = world_variables_json
+        self.opening_hook = opening_hook
 
     def run(self):
         try:
@@ -737,6 +931,7 @@ class ExpansionWorker(BaseWorker):
                 .replace("{setting}", self.setting)
                 .replace("{entities}", self.entities)
                 .replace("{causal_events_text}", self.causal_events_text)
+                .replace("{opening_hook}", self.opening_hook)
                 .replace("{hook}", self.hook)
                 .replace("{target_word_count}", self.target_word_count)
             )
@@ -777,6 +972,123 @@ class ExpansionWorker(BaseWorker):
             logger.error("ExpansionWorker 失败: %s", e, exc_info=True)
             app_logger.error(f"扩写-Worker（{self.node_id}）", f"剧本扩写失败: {str(e)}")
             self.error.emit(f"剧本扩写失败：{str(e)}")
+
+
+# ====================================================================
+# HookRewriteWorker — 单集钩子重写
+# ====================================================================
+
+class HookRewriteWorker(BaseWorker):
+    """
+    为指定集重新生成结尾钩子（episode_hook）。
+    可选地参考下一集的 opening_hook 和事件摘要以保持连贯。
+    """
+    def __init__(self, node_id, event_summaries, setting, characters,
+                 emotional_tone, hook_ids, ai_params,
+                 next_node_id="", next_opening_hook="", next_events=None):
+        super().__init__()
+        self.node_id = node_id
+        self.event_summaries = event_summaries or []
+        self.setting = setting
+        self.characters = characters or []
+        self.emotional_tone = emotional_tone
+        self.hook_ids = hook_ids or []
+        self.ai_params = ai_params
+        self.next_node_id = next_node_id
+        self.next_opening_hook = next_opening_hook
+        self.next_events = next_events or []
+
+    def run(self):
+        try:
+            from config.prompt_templates import prompt_template_manager
+
+            events_text = "\n".join(
+                f"  {i+1}. {e}" for i, e in enumerate(self.event_summaries)
+            )
+            chars_text = ", ".join(self.characters) if self.characters else "（未设定）"
+
+            # 钩子公式注入
+            hook_prompt = ""
+            if self.hook_ids:
+                hook_prompt = prompt_template_manager.build_hook_prompt_by_ids(self.hook_ids)
+
+            # 后续章节参考
+            next_context = ""
+            if self.next_node_id and self.next_opening_hook:
+                next_events_text = "\n".join(
+                    f"  {i+1}. {e}" for i, e in enumerate(self.next_events[:3])
+                )
+                next_context = (
+                    f"\n## 后续章节参考（必须保持连贯！）\n"
+                    f"下一集 {self.next_node_id} 的开头衔接：\n"
+                    f"「{self.next_opening_hook}」\n"
+                )
+                if next_events_text:
+                    next_context += f"\n下一集的前几个事件：\n{next_events_text}\n"
+                next_context += (
+                    f"\n→ 新钩子必须能**自然引向**上述下一集的开头，"
+                    f"观众看完钩子后对下一集开头的内容不会感到意外。"
+                )
+
+            system_prompt = (
+                f"你是一位专业的短剧编剧，精通各种悬念钩子写作技巧。\n"
+                f"请为第 {self.node_id} 集重新生成一个结尾悬念钩子（episode_hook）。\n\n"
+                f"## 本集内容\n"
+                f"- 环境: {self.setting}\n"
+                f"- 角色: {chars_text}\n"
+                f"- 情感基调: {self.emotional_tone}\n"
+                f"- 事件摘要:\n{events_text}\n"
+            )
+
+            if hook_prompt:
+                system_prompt += f"\n{hook_prompt}\n"
+
+            if next_context:
+                system_prompt += next_context
+
+            system_prompt += (
+                f"\n\n## 钩子写作要求\n"
+                f"1. 钩子必须是「正在发生的动作被中断」，而非「已经结束的事情被描述」\n"
+                f"2. 必须包含具体角色名 + 具体动作 + 悬念\n"
+                f"3. 字数控制在 80-150 字之间\n"
+                f"4. 画面感要强，可以用「画面定格」「镜头」等电影语言\n"
+            )
+
+            user_prompt = (
+                f"请为第 {self.node_id} 集生成一个全新的结尾悬念钩子。\n\n"
+                f"严格输出以下 JSON 格式：\n"
+                f'{{"episode_hook": "你的钩子文本"}}'
+            )
+
+            app_logger.log_ai_call(
+                module="钩子重写",
+                action=f"重写 {self.node_id} 的结尾钩子",
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+            )
+
+            result = ai_service.generate_json(
+                user_prompt=user_prompt,
+                system_prompt=system_prompt,
+                temperature=self.ai_params.get("temperature", 0.7),
+                top_p=self.ai_params.get("top_p", 0.9),
+                top_k=self.ai_params.get("top_k", 40),
+                max_tokens=self.ai_params.get("max_tokens", 2048),
+            )
+
+            hook_text = result.get("episode_hook", "")
+            app_logger.log_ai_result(
+                module="钩子重写",
+                action=f"{self.node_id} 钩子重写完成",
+                result_summary=f"新钩子: {hook_text[:50]}...",
+                result_detail=hook_text,
+            )
+            self.finished.emit({"episode_hook": hook_text})
+
+        except Exception as e:
+            logger.error("HookRewriteWorker 失败: %s", e, exc_info=True)
+            app_logger.error("钩子重写", f"重写失败: {str(e)}")
+            self.error.emit(f"钩子重写失败：{str(e)}")
 
 
 # ====================================================================
@@ -1050,6 +1362,19 @@ class AutoAnswerWorker(BaseWorker):
                 .replace("{questions_json}", questions_json)
             )
 
+            app_logger.log_ai_call(
+                module="创世-自动回答",
+                action=f"AI 生成答案（策略：{strategy_label}）",
+                system_prompt=system_gen,
+                user_prompt=user_gen,
+                extra_params={
+                    "策略": strategy_label,
+                    "问题数": len(self.questions),
+                    "温度": self.ai_params.get("temperature"),
+                    "max_tokens": self.ai_params.get("max_tokens"),
+                },
+            )
+
             gen_result = ai_service.generate_json(
                 user_prompt=user_gen,
                 system_prompt=system_gen,
@@ -1061,6 +1386,13 @@ class AutoAnswerWorker(BaseWorker):
             )
             raw_answers = gen_result.get("answers", [])
             answer_map = {a["id"]: a["answer"] for a in raw_answers if "id" in a}
+
+            app_logger.log_ai_result(
+                module="创世-自动回答",
+                action=f"Step 1 完成（{strategy_label}）",
+                result_summary=f"生成 {len(raw_answers)} 条答案",
+                result_detail=str(gen_result),
+            )
 
             # ── Step 2: 逻辑校验 ──
             self.progress.emit("🔍 正在校验答案逻辑一致性…")
@@ -1079,6 +1411,17 @@ class AutoAnswerWorker(BaseWorker):
                 .replace("{qa_pairs_json}", qa_pairs_json)
             )
 
+            app_logger.log_ai_call(
+                module="创世-自动回答",
+                action="AI 逻辑校验答案",
+                system_prompt=SYSTEM_PROMPT_ANSWER_VERIFY,
+                user_prompt=user_verify,
+                extra_params={
+                    "校验问答对数": len(qa_for_verify),
+                    "温度": self.ai_params.get("temperature"),
+                },
+            )
+
             verify_result = ai_service.generate_json(
                 user_prompt=user_verify,
                 system_prompt=SYSTEM_PROMPT_ANSWER_VERIFY,
@@ -1091,6 +1434,13 @@ class AutoAnswerWorker(BaseWorker):
 
             verified = verify_result.get("verified_answers", [])
             revised_count = sum(1 for v in verified if v.get("revised"))
+
+            app_logger.log_ai_result(
+                module="创世-自动回答",
+                action="Step 2 校验完成",
+                result_summary=f"校验 {len(verified)} 条答案，其中 {revised_count} 条被修正",
+                result_detail=str(verify_result),
+            )
 
             final_answers = [
                 {"id": v["id"], "answer": v["answer"], "revised": v.get("revised", False)}
@@ -1105,4 +1455,5 @@ class AutoAnswerWorker(BaseWorker):
 
         except Exception as e:
             logger.error("AutoAnswerWorker 失败: %s", e, exc_info=True)
+            app_logger.error("创世-自动回答", f"自动回答失败: {str(e)}")
             self.error.emit(f"自动回答失败：{str(e)}")

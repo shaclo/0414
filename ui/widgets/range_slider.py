@@ -225,7 +225,8 @@ class DurationRangeWidget(QWidget):
         self._min_spin.setSingleStep(0.5)
         self._min_spin.setDecimals(1)
         self._min_spin.setValue(low)
-        self._min_spin.setMaximumWidth(72)
+        self._min_spin.setMinimumWidth(150)
+        self._min_spin.setFixedHeight(32)
         self._min_spin.valueChanged.connect(self._on_min_spin)
         layout.addWidget(self._min_spin)
 
@@ -237,7 +238,8 @@ class DurationRangeWidget(QWidget):
         self._max_spin.setSingleStep(0.5)
         self._max_spin.setDecimals(1)
         self._max_spin.setValue(high)
-        self._max_spin.setMaximumWidth(72)
+        self._max_spin.setMinimumWidth(150)
+        self._max_spin.setFixedHeight(32)
         self._max_spin.valueChanged.connect(self._on_max_spin)
         layout.addWidget(self._max_spin)
 

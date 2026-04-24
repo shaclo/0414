@@ -139,6 +139,62 @@ class Phase3Flesh(QWidget):
         self._refresh_provider_checkboxes()
         cl.addWidget(provider_group)
 
+        # --- 爽感 & 钩子公式选择 (tag 样式) ---
+        formula_group = QGroupBox("🎯 爽感 & 钩子公式（点击 + 添加候选，生成时从候选中随机选用）")
+        formula_group.setStyleSheet(
+            "QGroupBox{font-weight:bold;border:1px solid #dcdde1;"
+            "border-radius:4px;margin-top:6px;padding-top:16px;}"
+            "QGroupBox::title{subcontrol-origin:margin;left:8px;}"
+        )
+        fg_layout = QVBoxLayout(formula_group)
+        fg_layout.setSpacing(4)
+
+        # 爽感行
+        sat_row = QHBoxLayout()
+        sat_row.addWidget(QLabel("<b>⚡ 爽感:</b>"))
+        self._var_sat_tag_container = QWidget()
+        self._var_sat_tag_flow = QHBoxLayout(self._var_sat_tag_container)
+        self._var_sat_tag_flow.setContentsMargins(0, 0, 0, 0)
+        self._var_sat_tag_flow.setSpacing(4)
+        sat_row.addWidget(self._var_sat_tag_container, 1)
+        btn_add_sat = QPushButton("+")
+        btn_add_sat.setFixedSize(28, 24)
+        btn_add_sat.setToolTip("添加爽感公式")
+        btn_add_sat.setStyleSheet(
+            "QPushButton{color:#e67e22;background:#fef5e7;font-weight:bold;"
+            "border:1px solid #bdc3c7;border-radius:3px;padding:0;}"
+            "QPushButton:hover{background:#fdebd0;}"
+        )
+        btn_add_sat.clicked.connect(self._add_sat_tag)
+        sat_row.addWidget(btn_add_sat)
+        fg_layout.addLayout(sat_row)
+
+        # 钩子行
+        hook_row = QHBoxLayout()
+        hook_row.addWidget(QLabel("<b>🪝 钩子:</b>"))
+        self._var_hook_tag_container = QWidget()
+        self._var_hook_tag_flow = QHBoxLayout(self._var_hook_tag_container)
+        self._var_hook_tag_flow.setContentsMargins(0, 0, 0, 0)
+        self._var_hook_tag_flow.setSpacing(4)
+        hook_row.addWidget(self._var_hook_tag_container, 1)
+        btn_add_hook = QPushButton("+")
+        btn_add_hook.setFixedSize(28, 24)
+        btn_add_hook.setToolTip("添加钩子公式")
+        btn_add_hook.setStyleSheet(
+            "QPushButton{color:#8e44ad;background:#f5eef8;font-weight:bold;"
+            "border:1px solid #bdc3c7;border-radius:3px;padding:0;}"
+            "QPushButton:hover{background:#ebdef0;}"
+        )
+        btn_add_hook.clicked.connect(self._add_hook_tag)
+        fg_layout.addLayout(hook_row)
+
+        # 已选公式 ID 集合
+        self._var_sat_selected_ids = set()
+        self._var_hook_selected_ids = set()
+        self._refresh_formula_tags()
+
+        cl.addWidget(formula_group)
+
         # 生成按钮行
         gen_row = QHBoxLayout()
         self._btn_generate = QPushButton("开始生成变体")
@@ -694,6 +750,113 @@ class Phase3Flesh(QWidget):
         return selected if selected else None
 
     # ------------------------------------------------------------------ #
+    # 爽感 & 钩子公式 tag 管理
+    # ------------------------------------------------------------------ #
+    def _refresh_formula_tags(self):
+        """刷新爽感/钩子 tag 显示"""
+        from config.prompt_templates import prompt_template_manager as _ptm
+        # 清空爽感行
+        while self._var_sat_tag_flow.count():
+            item = self._var_sat_tag_flow.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+        # 清空钩子行
+        while self._var_hook_tag_flow.count():
+            item = self._var_hook_tag_flow.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+
+        # 重建爽感 tags
+        sat_map = {s.id: s for s in _ptm.get_satisfactions()}
+        for sid in sorted(self._var_sat_selected_ids):
+            s = sat_map.get(sid)
+            if s:
+                level_cn = {"small": "小爽", "medium": "中爽", "big": "大爽"}.get(s.level, s.level)
+                self._var_sat_tag_flow.addWidget(
+                    self._make_formula_tag(f"{s.name}（{level_cn}）", sid, "sat")
+                )
+        self._var_sat_tag_flow.addStretch()
+
+        # 重建钩子 tags
+        hook_map = {h.id: h for h in _ptm.get_hooks()}
+        for hid in sorted(self._var_hook_selected_ids):
+            h = hook_map.get(hid)
+            if h:
+                self._var_hook_tag_flow.addWidget(
+                    self._make_formula_tag(h.name, hid, "hook")
+                )
+        self._var_hook_tag_flow.addStretch()
+
+    def _make_formula_tag(self, label: str, template_id: str, category: str) -> QWidget:
+        """创建一个公式 tag 控件: [打脸反杀（小爽） x]"""
+        tag = QWidget()
+        tag.setFixedHeight(24)
+        h = QHBoxLayout(tag)
+        h.setContentsMargins(6, 0, 2, 0)
+        h.setSpacing(2)
+        lbl = QLabel(label)
+        lbl.setStyleSheet("color:#2c3e50;")
+        h.addWidget(lbl)
+        btn_x = QPushButton("x")
+        btn_x.setFixedSize(16, 16)
+        btn_x.setStyleSheet(
+            "QPushButton{border:none;color:#e74c3c;font-weight:bold;padding:0;}"
+            "QPushButton:hover{color:#c0392b;background:#fadbd8;border-radius:8px;}"
+        )
+        btn_x.setCursor(Qt.PointingHandCursor)
+        if category == "sat":
+            btn_x.clicked.connect(lambda _, tid=template_id: self._remove_sat_tag(tid))
+        else:
+            btn_x.clicked.connect(lambda _, tid=template_id: self._remove_hook_tag(tid))
+        h.addWidget(btn_x)
+        color = "#fef5e7" if category == "sat" else "#f5eef8"
+        border_color = "#e67e22" if category == "sat" else "#8e44ad"
+        tag.setObjectName("formulaTag")
+        tag.setStyleSheet(
+            f"#formulaTag{{background:{color};border:1px solid {border_color};"
+            f"border-radius:10px;}}"
+        )
+        return tag
+
+    def _remove_sat_tag(self, template_id: str):
+        self._var_sat_selected_ids.discard(template_id)
+        self._refresh_formula_tags()
+
+    def _remove_hook_tag(self, template_id: str):
+        self._var_hook_selected_ids.discard(template_id)
+        self._refresh_formula_tags()
+
+    def _add_sat_tag(self):
+        from config.prompt_templates import prompt_template_manager as _ptm
+        from ui.widgets.formula_picker_dialog import FormulaPickerDialog
+        dlg = FormulaPickerDialog(
+            title="选择爽感公式",
+            templates=_ptm.get_satisfactions(),
+            already_selected_ids=self._var_sat_selected_ids,
+            parent=self,
+        )
+        if dlg.exec() == FormulaPickerDialog.Accepted:
+            chosen = dlg.get_chosen_id()
+            if chosen:
+                self._var_sat_selected_ids.add(chosen)
+                self._refresh_formula_tags()
+
+    def _add_hook_tag(self):
+        from config.prompt_templates import prompt_template_manager as _ptm
+        from ui.widgets.formula_picker_dialog import FormulaPickerDialog
+        dlg = FormulaPickerDialog(
+            title="选择钩子公式",
+            templates=_ptm.get_hooks(),
+            already_selected_ids=self._var_hook_selected_ids,
+            parent=self,
+        )
+        if dlg.exec() == FormulaPickerDialog.Accepted:
+            chosen = dlg.get_chosen_id()
+            if chosen:
+                self._var_hook_selected_ids.add(chosen)
+                self._refresh_formula_tags()
+
+    # ------------------------------------------------------------------ #
     # AI-Call-4: 盲视变异
     # ------------------------------------------------------------------ #
     def _on_generate(self):
@@ -724,6 +887,27 @@ class Phase3Flesh(QWidget):
         if genre_var:
             combined_var = (combined_var + "\n\n" + genre_var).strip()
 
+        # 组装爽感 & 钩子公式注入（从用户勾选的候选范围中随机选取）
+        from config.prompt_templates import prompt_template_manager as _ptm
+        sat_checked_ids = list(self._var_sat_selected_ids)
+        hook_checked_ids = list(self._var_hook_selected_ids)
+        sat_injection = _ptm.build_satisfaction_prompt_by_ids(sat_checked_ids) if sat_checked_ids else ""
+        hook_injection = _ptm.build_hook_prompt_by_ids(hook_checked_ids) if hook_checked_ids else ""
+
+        # 提取上一集的 episode_hook（按排序查找前序节点，不依赖 ID 格式猜测）
+        previous_episode_hook = ""
+        import re as _re
+        def _ep_sort_key(n):
+            nums = _re.findall(r'\d+', n.get("node_id", ""))
+            return tuple(int(x) for x in nums) if nums else (0,)
+
+        sorted_nodes = sorted(self.project_data.cpg_nodes, key=_ep_sort_key)
+        current_key = _ep_sort_key(node)
+        for i, n in enumerate(sorted_nodes):
+            if _ep_sort_key(n) == current_key and i > 0:
+                previous_episode_hook = sorted_nodes[i - 1].get("episode_hook", "")
+                break
+
         self._worker = VariationWorker(
             sparkle=self.project_data.sparkle,
             world_variables=self.project_data.world_variables,
@@ -736,6 +920,9 @@ class Phase3Flesh(QWidget):
             characters=self.project_data.characters,
             drama_style_block=combined_var,
             provider_pool=self._get_selected_provider_pool(),
+            satisfaction_prompt_injection=sat_injection,
+            hook_prompt_injection=hook_injection,
+            previous_episode_hook=previous_episode_hook,
         )
         self._worker.progress.connect(self.status_message)
         self._worker.beat_ready.connect(self._on_beat_ready)

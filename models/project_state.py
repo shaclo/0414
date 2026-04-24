@@ -49,6 +49,9 @@ class ProjectData:
     cpg_nodes: List[dict] = field(default_factory=list)     # CPGNode 列表
     cpg_edges: List[dict] = field(default_factory=list)     # CausalEdge 列表
     hauge_stages: List[dict] = field(default_factory=list)  # Hauge 阶段数据
+    skeleton_confirmed_eps: List[str] = field(default_factory=list)  # 已确认的骨架节点 ID
+    hook_selections: Dict[str, List[str]] = field(default_factory=dict)  # 每集钩子选择 {"Ep1": ["hook_id1", ...], ...}
+    ch1_versions: List[dict] = field(default_factory=list)  # 第一章候选版本列表（供后续切换）
 
     # ----- Phase 2: 人物 -----
     characters: List[dict] = field(default_factory=list)           # Character 列表
@@ -97,7 +100,11 @@ class ProjectData:
         """从 .story.json 文件加载项目"""
         with open(filepath, 'r', encoding='utf-8') as f:
             data = json.load(f)
-        return cls(**data)
+        # 过滤掉文件中有但当前 dataclass 不认识的字段（向前兼容）
+        # 缺失的字段使用 dataclass 的默认值（向后兼容）
+        known_fields = {f.name for f in cls.__dataclass_fields__.values()}
+        filtered = {k: v for k, v in data.items() if k in known_fields}
+        return cls(**filtered)
 
     def push_history(self, action: str, node_id: str = "", extra: dict = None):
         """
@@ -139,6 +146,7 @@ class ProjectData:
             self.confirmed_beats = {}
             self.ite_results = None
             self.rag_results = {}
+            self.skeleton_confirmed_eps = []
             self.current_phase = "genesis"
         elif phase == "skeleton":
             self.confirmed_beats = {}
@@ -159,7 +167,7 @@ class ProjectData:
 def make_node_snapshot(node: dict) -> dict:
     """提取节点内容字段为版本快照"""
     result = {}
-    for k in ("title", "setting", "emotional_tone", "episode_hook"):
+    for k in ("title", "setting", "emotional_tone", "episode_hook", "opening_hook"):
         result[k] = node.get(k, "")
     for k in ("characters", "event_summaries"):
         v = node.get(k, [])

@@ -148,6 +148,9 @@ class PersonaEngine:
         drama_style_block: str = "",
         protagonist_goal: str = "",
         characters_summary: str = "",
+        satisfaction_prompt_injection: str = "",
+        hook_prompt_injection: str = "",
+        previous_episode_hook: str = "",
     ) -> list:
         """
         为每个激活的人格构建 AI 调用参数。
@@ -172,6 +175,7 @@ class PersonaEngine:
             .replace("{previous_confirmed_beats_json}", previous_confirmed_beats_json)
             .replace("{protagonist_goal}", protagonist_goal or "（未设定主角目标）")
             .replace("{characters_summary}", characters_summary or "（未设定角色）")
+            .replace("{previous_episode_hook}", previous_episode_hook or "（本集为开篇，无前集钩子）")
         )
 
         calls = []
@@ -183,6 +187,12 @@ class PersonaEngine:
             # 注入风格块
             if drama_style_block:
                 system_prompt += "\n" + drama_style_block
+            # 注入用户配置的爽感公式
+            if satisfaction_prompt_injection:
+                system_prompt += "\n\n" + satisfaction_prompt_injection
+            # 注入用户配置的钩子公式
+            if hook_prompt_injection:
+                system_prompt += "\n\n" + hook_prompt_injection
             calls.append({
                 "user_prompt": user_prompt,
                 "system_prompt": system_prompt,
@@ -215,6 +225,9 @@ class PersonaEngine:
         protagonist_goal: str = "",
         characters_summary: str = "",
         provider_pool: list = None,
+        satisfaction_prompt_injection: str = "",
+        hook_prompt_injection: str = "",
+        previous_episode_hook: str = "",
     ) -> List[dict]:
         """
         执行盲视变异：并行调用所有激活人格。
@@ -239,6 +252,9 @@ class PersonaEngine:
             drama_style_block=drama_style_block,
             protagonist_goal=protagonist_goal,
             characters_summary=characters_summary,
+            satisfaction_prompt_injection=satisfaction_prompt_injection,
+            hook_prompt_injection=hook_prompt_injection,
+            previous_episode_hook=previous_episode_hook,
         )
 
         raw_results = await ai_service.parallel_generate(calls, provider_pool=provider_pool)

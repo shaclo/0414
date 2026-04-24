@@ -216,21 +216,67 @@ class CharRelationDetailDialog(QDialog):
 
 
 # ============================================================
+# 配色方案
+# ============================================================
+GRAPH_THEMES = {
+    "default": {
+        "name": "清新明亮",
+        "bg": "#f5f6fa",
+        "node_border": "#2c3e50",
+        "edge_line": "#2c3e50",
+        "label_bg": QColor(255, 255, 255, 240),
+        "label_text": "#2c3e50",
+        "roles": {
+            "主角": ("#e74c3c", "#ffffff"),
+            "反派": ("#8e44ad", "#ffffff"),
+            "辅助": ("#27ae60", "#ffffff"),
+            "配角": ("#2980b9", "#ffffff"),
+            "群演": ("#7f8c8d", "#ffffff"),
+        }
+    },
+    "dark": {
+        "name": "极简暗黑 (默认)",
+        "bg": "#1e272e",
+        "node_border": "#d2dae2",
+        "edge_line": "#d2dae2",
+        "label_bg": QColor(30, 39, 46, 240),
+        "label_text": "#d2dae2",
+        "roles": {
+            "主角": ("#ff4757", "#ffffff"),
+            "反派": ("#9b59b6", "#ffffff"),
+            "辅助": ("#2ed573", "#ffffff"),
+            "配角": ("#1e90ff", "#ffffff"),
+            "群演": ("#747d8c", "#ffffff"),
+        }
+    },
+    "high_contrast": {
+        "name": "高对比度",
+        "bg": "#000000",
+        "node_border": "#ffffff",
+        "edge_line": "#ffffff",
+        "label_bg": QColor(0, 0, 0, 255),
+        "label_text": "#ffff00",
+        "roles": {
+            "主角": ("#ff0000", "#ffffff"),
+            "反派": ("#800080", "#ffffff"),
+            "辅助": ("#00ff00", "#ffffff"),
+            "配角": ("#0000ff", "#ffffff"),
+            "群演": ("#444444", "#ffffff"),
+        }
+    }
+}
+
+# ============================================================
 # 角色节点（可拖动 + 实时边更新）
 # ============================================================
 class CharacterNode(QGraphicsEllipseItem):
     """力导向图中的角色节点，拖动时实时更新连线"""
 
     IMPORTANCE_SIZE = {"A": 86, "B": 66, "C": 50}
-    ROLE_COLORS = {
-        "主角": ("#c0392b", "#ffffff"),
-        "反派": ("#6c3483", "#ffffff"),
-        "辅助": ("#1e8449", "#ffffff"),
-        "配角": ("#2471a3", "#ffffff"),
-        "群演": ("#566573", "#ecf0f1"),
-    }
 
-    def __init__(self, char_data: dict):
+    def __init__(self, char_data: dict, theme: dict = None):
+        if theme is None:
+            theme = GRAPH_THEMES["default"]
         self.char_data = char_data
         imp = char_data.get("importance_level", "C")
         self.node_size = self.IMPORTANCE_SIZE.get(imp, 50)
@@ -238,9 +284,10 @@ class CharacterNode(QGraphicsEllipseItem):
                          self.node_size, self.node_size)
 
         role_type = char_data.get("role_type", "配角")
-        bg_color, fg_color = self.ROLE_COLORS.get(role_type, ("#2471a3", "#ffffff"))
+        roles_colors = theme.get("roles", {})
+        bg_color, fg_color = roles_colors.get(role_type, roles_colors.get("配角", ("#2980b9", "#ffffff")))
         self.setBrush(QBrush(QColor(bg_color)))
-        self.setPen(QPen(QColor("#2c3e50"), 2.5))
+        self.setPen(QPen(QColor(theme.get("node_border")), 2.5))
 
         self.setFlags(
             QGraphicsItem.ItemIsMovable |
@@ -256,7 +303,7 @@ class CharacterNode(QGraphicsEllipseItem):
         font_size = 10 if imp == "A" else (9 if imp == "B" else 8)
         font = QFont("Microsoft YaHei", font_size, QFont.Bold)
         self._label.setFont(font)
-        self._label.setDefaultTextColor(QColor(fg_color))
+        self._label.setDefaultTextColor(QColor("#ffffff"))  # 强制全白色
         br = self._label.boundingRect()
         self._label.setPos(-br.width()/2, -br.height()/2)
 
@@ -307,7 +354,9 @@ class RelationEdge:
     """两个角色之间的关系连线 + 标签"""
 
     def __init__(self, from_node: CharacterNode, to_node: CharacterNode,
-                 relation: dict, scene: QGraphicsScene):
+                 relation: dict, scene: QGraphicsScene, theme: dict = None):
+        if theme is None:
+            theme = GRAPH_THEMES["default"]
         self.from_node = from_node
         self.to_node = to_node
         self.relation = relation
@@ -318,7 +367,7 @@ class RelationEdge:
 
         # 连线
         self.line = QGraphicsLineItem()
-        pen = QPen(QColor("#2c3e50"), 2.0, Qt.SolidLine)
+        pen = QPen(QColor(theme.get("edge_line")), 2.0, Qt.SolidLine)
         self.line.setPen(pen)
         self.line.setZValue(1)
         scene.addItem(self.line)
@@ -327,14 +376,14 @@ class RelationEdge:
         label_text = relation.get("relation_type", "")
         if label_text:
             self.label_bg = QGraphicsRectItem()
-            self.label_bg.setBrush(QBrush(QColor(255, 255, 255, 220)))
-            self.label_bg.setPen(QPen(QColor("#bdc3c7"), 1))
+            self.label_bg.setBrush(QBrush(theme.get("label_bg")))
+            self.label_bg.setPen(QPen(QColor(theme.get("edge_line")), 1))
             self.label_bg.setZValue(2)
             scene.addItem(self.label_bg)
 
             self.label = QGraphicsTextItem(label_text)
             self.label.setFont(QFont("Microsoft YaHei", 8))
-            self.label.setDefaultTextColor(QColor("#2c3e50"))
+            self.label.setDefaultTextColor(QColor(theme.get("label_text")))
             self.label.setZValue(3)
             scene.addItem(self.label)
         else:
@@ -345,7 +394,7 @@ class RelationEdge:
         self.arrow = scene.addPolygon(
             QPolygonF([QPointF(0, -5), QPointF(10, 0), QPointF(0, 5)]),
             QPen(Qt.NoPen),
-            QBrush(QColor("#2c3e50"))
+            QBrush(QColor(theme.get("edge_line")))
         )
         self.arrow.setZValue(2)
 
@@ -570,6 +619,7 @@ class CharacterGraphWidget(QWidget):
         self._sim_running = False
         self._repulsion = self.DEFAULT_REPULSION
         self._current_layout = "force_directed"
+        self._current_theme_id = "dark"
         self._show_fullscreen_btn = show_fullscreen_btn
         self._setup_ui()
 
@@ -577,9 +627,50 @@ class CharacterGraphWidget(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
 
-        # ---- 工具条第一行 ----
+        if self._show_fullscreen_btn:
+            # ---- 主窗口精简模式：只有标题 + 全屏查看按钮 ----
+            toolbar = QHBoxLayout()
+            toolbar.addWidget(QLabel("人物关系图"))
+            btn_expand = QPushButton("全屏查看")
+            btn_expand.setStyleSheet(
+                "QPushButton{background:#2c3e50;color:white;font-weight:bold;"
+                "border-radius:3px;border:none;padding:4px 10px;}"
+                "QPushButton:hover{background:#34495e;}"
+            )
+            btn_expand.clicked.connect(self._on_expand)
+            toolbar.addWidget(btn_expand)
+            toolbar.addStretch()
+            layout.addLayout(toolbar)
+
+            # 仍然需要 scene/view/timer 供 set_data / _rebuild_graph 内部使用，
+            # 但不添加到 layout（不可见）
+            self._scene = QGraphicsScene()
+            self._view = QGraphicsView(self._scene)
+            self._view.setVisible(False)
+            self._timer = QTimer(self)
+            self._timer.setInterval(30)
+            self._timer.timeout.connect(self._simulation_step)
+
+            # 创建不可见的 combo 和 slider（内部方法会引用）
+            self._layout_combo = QComboBox()
+            for key, label in LAYOUT_ALGORITHMS.items():
+                self._layout_combo.addItem(label, key)
+            self._gravity_slider = QSlider(Qt.Horizontal)
+            self._gravity_slider.setValue(int(self._repulsion))
+            self._gravity_label = QLabel("")
+            return
+
+        # ---- 全屏对话框完整模式 ----
         toolbar = QHBoxLayout()
         toolbar.addWidget(QLabel("人物关系图"))
+
+        toolbar.addWidget(QLabel("  配色:"))
+        self._theme_combo = QComboBox()
+        self._theme_combo.setMinimumWidth(100)
+        for key, theme_data in GRAPH_THEMES.items():
+            self._theme_combo.addItem(theme_data["name"], key)
+        self._theme_combo.currentIndexChanged.connect(self._on_theme_changed)
+        toolbar.addWidget(self._theme_combo)
 
         toolbar.addWidget(QLabel("  布局:"))
         self._layout_combo = QComboBox()
@@ -596,16 +687,6 @@ class CharacterGraphWidget(QWidget):
         btn_fit = QPushButton("适应视图")
         btn_fit.clicked.connect(self._fit_view)
         toolbar.addWidget(btn_fit)
-
-        if self._show_fullscreen_btn:
-            btn_expand = QPushButton("全屏查看")
-            btn_expand.setStyleSheet(
-                "QPushButton{background:#2c3e50;color:white;font-weight:bold;"
-                "border-radius:3px;border:none;padding:4px 10px;}"
-                "QPushButton:hover{background:#34495e;}"
-            )
-            btn_expand.clicked.connect(self._on_expand)
-            toolbar.addWidget(btn_expand)
 
         toolbar.addWidget(QLabel("  间距:"))
         self._gravity_slider = QSlider(Qt.Horizontal)
@@ -633,7 +714,7 @@ class CharacterGraphWidget(QWidget):
         self._view.setDragMode(QGraphicsView.ScrollHandDrag)
         self._view.setMinimumHeight(280)
         self._view.setStyleSheet(
-            "QGraphicsView { background: #ecf0f1; "
+            "QGraphicsView { "
             "border: 1px solid #95a5a6; border-radius: 6px; }"
         )
         layout.addWidget(self._view, 1)
@@ -646,6 +727,7 @@ class CharacterGraphWidget(QWidget):
         tip = QLabel("拖拽节点调整位置 | 双击角色查看/编辑关系 | 滚轮缩放")
         tip.setStyleSheet("color: #7f8c8d;")
         layout.addWidget(tip)
+
 
         self._view.wheelEvent = self._on_wheel
 
@@ -678,6 +760,12 @@ class CharacterGraphWidget(QWidget):
     # ------------------------------------------------------------------ #
     # 图构建
     # ------------------------------------------------------------------ #
+    def _on_theme_changed(self, index):
+        key = self._theme_combo.itemData(index)
+        if key and key != self._current_theme_id:
+            self._current_theme_id = key
+            self._rebuild_graph()
+
     def _rebuild_graph(self):
         self._timer.stop()
         self._sim_running = False
@@ -699,8 +787,11 @@ class CharacterGraphWidget(QWidget):
             key=lambda c: importance_order.get(c.get("importance_level", "C"), 2)
         )
 
+        theme = GRAPH_THEMES[self._current_theme_id]
+        self._view.setBackgroundBrush(QBrush(QColor(theme["bg"])))
+
         for i, char in enumerate(sorted_chars):
-            node = CharacterNode(char)
+            node = CharacterNode(char, theme)
             cid = char.get("char_id", f"node_{i}")
             # 初始随机位置
             node.setPos(random.uniform(-200, 200), random.uniform(-200, 200))
@@ -714,7 +805,7 @@ class CharacterGraphWidget(QWidget):
             from_node = self._find_node(from_id)
             to_node = self._find_node(to_id)
             if from_node and to_node and from_node != to_node:
-                edge = RelationEdge(from_node, to_node, rel, self._scene)
+                edge = RelationEdge(from_node, to_node, rel, self._scene, theme)
                 self._edges.append(edge)
 
         # 应用布局

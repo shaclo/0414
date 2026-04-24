@@ -5,10 +5,13 @@
 # ============================================================
 
 import json
+import logging
 import os
 import random
 from dataclasses import dataclass, field, asdict
 from typing import List, Optional
+
+logger = logging.getLogger(__name__)
 
 _CONFIG_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)))
 _TEMPLATES_FILE = os.path.join(_CONFIG_DIR, "prompt_templates.json")
@@ -49,6 +52,8 @@ class PromptTemplateManager:
         else:
             self._load_defaults()
             self.save()
+        # 迁移：补充新增的默认模板（不影响用户已有的自定义内容）
+        self._migrate_defaults()
 
     def save(self):
         data = {
@@ -170,7 +175,7 @@ class PromptTemplateManager:
             parts.append(f"**\u5019\u9009{i}: {h.name}**\n{h.prompt_text}")
         n_chosen = len(chosen)
         header = (
-            f'## \u672c\u96c6\u94a9\u5b50\u516c\u5f0f\u5019\u9009\uff08\u914d\u5408\u4e0a\u8ff0\u94a9\u5b50\u5199\u4f5c\u94c1\u5f8b\u4f7f\u7528\uff09\n'
+            f'## \u672c\u96c6\u94a9\u5b50\u516c\u5f0f\u5019\u9009\uff08\u5fc5\u987b\u4e25\u683c\u9075\u5b88\uff01\uff09\n'
             f'\u8bf7\u4ece\u4ee5\u4e0b {n_chosen} \u79cd\u94a9\u5b50\u516c\u5f0f\u4e2d\u9009\u62e9\u6700\u9002\u5408\u672c\u96c6\u5267\u60c5\u7684 **1 \u79cd**\uff0c\n'
             f'\u6309\u7167\u516c\u5f0f\u7684\u683c\u5f0f\u548c\u5199\u6cd5\u8981\u6c42\u4e25\u683c\u6267\u884c\uff1a\n\n'
         )
@@ -243,6 +248,37 @@ class PromptTemplateManager:
         )
         return header + "\n\n".join(parts)
 
+
+    # ---- 迁移：补充新增的默认模板 ----
+    def _migrate_defaults(self):
+        """检查是否有新增的默认模板缺失，如果缺失则自动补充"""
+        # 临时获取默认模板
+        old_sat, old_hooks = self._satisfactions, self._hooks
+        self._load_defaults()
+        default_sats = {s.id: s for s in self._satisfactions}
+        default_hooks = {h.id: h for h in self._hooks}
+        self._satisfactions, self._hooks = old_sat, old_hooks
+
+        # 检查爽感模板
+        existing_sat_ids = {s.id for s in self._satisfactions}
+        added_sat = []
+        for sid, s in default_sats.items():
+            if sid not in existing_sat_ids:
+                self._satisfactions.append(s)
+                added_sat.append(sid)
+
+        # 检查钩子模板
+        existing_hook_ids = {h.id for h in self._hooks}
+        added_hooks = []
+        for hid, h in default_hooks.items():
+            if hid not in existing_hook_ids:
+                self._hooks.append(h)
+                added_hooks.append(hid)
+
+        if added_sat or added_hooks:
+            self.save()
+            logger.info("模板迁移：补充了 %d 个爽感模板 %s, %d 个钩子模板 %s",
+                        len(added_sat), added_sat, len(added_hooks), added_hooks)
 
     # ---- 默认模板 ----
     def _load_defaults(self):
@@ -465,6 +501,81 @@ class PromptTemplateManager:
                     "  \"她下意识握住门把手，准备承受被锁死的绝望——门竟然没有锁。"
                     "他给了她逃跑的机会，却用信任给她戴上了最沉重的枷锁。\"\n"
                     "**❌ 禁忌**: 不能用旁白解读隐喻含义，但可以用一句内心独白点题"
+                ),
+            ),
+            HookTemplate(
+                id="physical_cutoff", name="动作截断（冲突叙事）",
+                prompt_text=(
+                    "**公式**: [角色扬起肢体即将动手打脸/反击] + [动作完全定格在半空未落下] + [镜头锁定紧绷发力的肢体表情]\n"
+                    "**写法要求**:\n"
+                    "  1. 动作必须是有明确攻击目标的——拳头/巴掌/武器正在挥向某人\n"
+                    "  2. 定格在动作的最高点——力量已经蓄满但尚未释放的瞬间\n"
+                    "  3. 用镜头语言描写肌肉紧绷、指节发白、衣袖因惯性飘起等细节\n"
+                    "  4. 绝不能写出打中/没打中的结果\n"
+                    "**✅ 范例**:\n"
+                    "  \"他的拳头带着风声砸向对方的脸——定格。指关节上的青筋根根暴起，"
+                    "袖口因挥拳的惯性向后飞扬。对面那张嚣张的脸近在咫尺。画面冻结。\"\n"
+                    "**❌ 禁忌**: 不能写\"拳头落下了\"或\"她躲开了\"——动作必须悬停在半空"
+                ),
+            ),
+            HookTemplate(
+                id="doorstep_unknown", name="门外未知（环境悬疑）",
+                prompt_text=(
+                    "**公式**: [门外传来清晰异响/门铃持续响动] + [手已经握住门把手即将拉开] + [画面定格在即将开门的指尖缝隙]\n"
+                    "**写法要求**:\n"
+                    "  1. 异响必须具体——是敲门声、门铃声、脚步声、还是某种不该出现的声音\n"
+                    "  2. 角色的反应要层层递进——犹豫→深呼吸→握住把手→开始转动\n"
+                    "  3. 最后定格在门缝打开一条细线的瞬间，让观众只能看到一丝光/一片影\n"
+                    "  4. 可以用环境声音强化悬疑感（风声突然停了/时钟滴答声格外清晰）\n"
+                    "**✅ 范例**:\n"
+                    "  \"'叮咚——叮咚——叮咚——'门铃第三次响起时，她终于站了起来。"
+                    "手指握住冰冷的金属门把，缓缓拧动——门缝露出一条细线，一只皮鞋的鞋尖出现在门槛上。画面冻结。\"\n"
+                    "**❌ 禁忌**: 不能揭示门外是谁——答案留给下一集"
+                ),
+            ),
+            HookTemplate(
+                id="identity_reveal", name="身份临门（反转叙事）",
+                prompt_text=(
+                    "**公式**: [关键信物/面具即将摘下露出真容] + [全场目光聚焦屏息等待] + [定格在信物即将脱落的临界瞬间]\n"
+                    "**写法要求**:\n"
+                    "  1. 身份揭露必须是观众期待已久或完全意外的——积累足够的前文铺垫\n"
+                    "  2. 摘下面具/翻开文件/脱下伪装的动作要写成慢动作——每个细节都拉长\n"
+                    "  3. 周围人的屏息反应要同步描写（全场寂静/有人倒吸一口凉气）\n"
+                    "  4. 定格在面具/信物即将完全脱落但还没有完全脱落的临界一帧\n"
+                    "**✅ 范例**:\n"
+                    "  \"她的手指勾住面具的边缘，缓缓向上推——面具下露出一截下巴，熟悉的弧度让全场的呼吸同时凝固。"
+                    "面具滑到鼻梁的位置——画面冻结。那半张脸，仿佛某个不该出现在这里的人。\"\n"
+                    "**❌ 禁忌**: 不能完全揭露身份——必须停在\"即将看清但还没看清\"的临界点"
+                ),
+            ),
+            HookTemplate(
+                id="posture_reversal", name="立场反转（情绪叙事）",
+                prompt_text=(
+                    "**公式**: [一直敌对的角色突然转身改变立场] + [话语/动作即将彻底倒戈] + [定格在转身半侧、眼神剧变的瞬间]\n"
+                    "**写法要求**:\n"
+                    "  1. 立场反转必须有足够的前文铺垫——这个角色之前一直站在对立面\n"
+                    "  2. 转身的动作要有仪式感——不是随意的回头，而是带着决绝的身体转向\n"
+                    "  3. 眼神变化是关键——从冷漠/敌意突然变成坚定/温柔/愧疚\n"
+                    "  4. 话只说了一半就黑屏——让观众猜他接下来要说什么\n"
+                    "**✅ 范例**:\n"
+                    "  \"一直站在父亲身后的她，此刻缓缓转过身来。她的目光越过父亲的肩膀，落在角落里遍体鳞伤的他身上。"
+                    "\"我不会再——\"她的嘴唇动了，但声音被画面冻结吞没。\"\n"
+                    "**❌ 禁忌**: 不能说完整句话——必须在立场宣示的关键词之前截断"
+                ),
+            ),
+            HookTemplate(
+                id="evidence_uncover", name="证据露底（真相叙事）",
+                prompt_text=(
+                    "**公式**: [隐藏证据即将完全掉落/展开曝光] + [反派脸色骤变惊慌阻止] + [定格在证据即将暴露的最后一刻]\n"
+                    "**写法要求**:\n"
+                    "  1. 证据必须是具体的物件——照片/录音/文件/视频/信物\n"
+                    "  2. 证据暴露的过程要有\"意外感\"——不是主动揭发，而是无意间掉落/被风吹开/被孩子翻出\n"
+                    "  3. 反派的反应要快于所有人——他率先变脸说明他知道这东西意味着什么\n"
+                    "  4. 定格在证据即将被所有人看到但还差最后一步的瞬间\n"
+                    "**✅ 范例**:\n"
+                    "  \"文件夹从桌沿滑落，纸张在空中散开。一张泛黄的照片旋转着飘向地面——照片上，"
+                    "一个熟悉的身影站在不该出现的地方。他的脸色刷地变白，猛地伸出手——但照片已经快要落到她的脚边。画面冻结。\"\n"
+                    "**❌ 禁忌**: 不能让任何人看清证据的完整内容——只能看到局部/轮廓"
                 ),
             ),
         ]

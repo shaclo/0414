@@ -77,7 +77,7 @@ class CharacterEditor(QWidget):
         ga_row.addWidget(QLabel("年龄："))
         self._age_edit = QLineEdit()
         self._age_edit.setPlaceholderText("如 25 或 中年")
-        self._age_edit.setMaximumWidth(80)
+        self._age_edit.setMinimumWidth(80)
         self._age_edit.textChanged.connect(self._emit_change)
         ga_row.addWidget(self._age_edit)
         form.addRow("性别：", ga_row)
@@ -108,10 +108,11 @@ class CharacterEditor(QWidget):
         form.addRow("核心动机：", self._motivation_edit)
 
         # 外貌特征
-        self._appearance_edit = QLineEdit()
+        self._appearance_edit = QTextEdit()
         self._appearance_edit.setPlaceholderText(
             "关键外貌特征，如：清瘦少年，左手有烧伤疤痕"
         )
+        self._appearance_edit.setMaximumHeight(64)
         self._appearance_edit.textChanged.connect(self._emit_change)
         form.addRow("外貌特征：", self._appearance_edit)
 
@@ -125,23 +126,27 @@ class CharacterEditor(QWidget):
         # A级角色专属字段（默认隐藏）
         self._a_group = QGroupBox("🌟 核心角色深度设计（仅A级）")
         a_form = QFormLayout(self._a_group)
-        self._bg_edit = QLineEdit()
+        self._bg_edit = QTextEdit()
         self._bg_edit.setPlaceholderText("成长环境/出身背景，影响性格形成")
+        self._bg_edit.setMaximumHeight(64)
         self._bg_edit.textChanged.connect(self._emit_change)
         a_form.addRow("成长背景：", self._bg_edit)
 
-        self._stress_edit = QLineEdit()
+        self._stress_edit = QTextEdit()
         self._stress_edit.setPlaceholderText("面对压力时的典型反应，如：回避冲突/正面硬刚/冷静分析")
+        self._stress_edit.setMaximumHeight(64)
         self._stress_edit.textChanged.connect(self._emit_change)
         a_form.addRow("压力反应：", self._stress_edit)
 
-        self._fear_edit = QLineEdit()
+        self._fear_edit = QTextEdit()
         self._fear_edit.setPlaceholderText("内心最深层恐惧，如：被抛弃/失控/暴露真实自我")
+        self._fear_edit.setMaximumHeight(64)
         self._fear_edit.textChanged.connect(self._emit_change)
         a_form.addRow("核心恐惧：", self._fear_edit)
 
-        self._desire_edit = QLineEdit()
+        self._desire_edit = QTextEdit()
         self._desire_edit.setPlaceholderText("内心最深层渴望，如：被认可/掌控命运/爱与被爱")
+        self._desire_edit.setMaximumHeight(64)
         self._desire_edit.textChanged.connect(self._emit_change)
         a_form.addRow("核心渴望：", self._desire_edit)
 
@@ -191,14 +196,14 @@ class CharacterEditor(QWidget):
         self._position_edit.setText(char_dict.get("position", ""))
         self._personality_edit.setText(char_dict.get("personality", ""))
         self._motivation_edit.setPlainText(char_dict.get("motivation", ""))
-        self._appearance_edit.setText(char_dict.get("appearance", ""))
+        self._appearance_edit.setPlainText(char_dict.get("appearance", ""))
         self._notes_edit.setPlainText(char_dict.get("notes", ""))
 
         # A级专属字段
-        self._bg_edit.setText(char_dict.get("background_environment", ""))
-        self._stress_edit.setText(char_dict.get("stress_reaction", ""))
-        self._fear_edit.setText(char_dict.get("core_fear", ""))
-        self._desire_edit.setText(char_dict.get("core_desire", ""))
+        self._bg_edit.setPlainText(char_dict.get("background_environment", ""))
+        self._stress_edit.setPlainText(char_dict.get("stress_reaction", ""))
+        self._fear_edit.setPlainText(char_dict.get("core_fear", ""))
+        self._desire_edit.setPlainText(char_dict.get("core_desire", ""))
         self._a_group.setVisible(imp == "A")
 
         self._block_signals = False
@@ -238,15 +243,15 @@ class CharacterEditor(QWidget):
             "position":     self._position_edit.text().strip(),
             "personality":  self._personality_edit.text().strip(),
             "motivation":   self._motivation_edit.toPlainText().strip(),
-            "appearance":   self._appearance_edit.text().strip(),
+            "appearance":   self._appearance_edit.toPlainText().strip(),
             "notes":        self._notes_edit.toPlainText().strip(),
         }
         # A级角色专属字段
         if d["importance_level"] == "A":
-            d["background_environment"] = self._bg_edit.text().strip()
-            d["stress_reaction"] = self._stress_edit.text().strip()
-            d["core_fear"] = self._fear_edit.text().strip()
-            d["core_desire"] = self._desire_edit.text().strip()
+            d["background_environment"] = self._bg_edit.toPlainText().strip()
+            d["stress_reaction"] = self._stress_edit.toPlainText().strip()
+            d["core_fear"] = self._fear_edit.toPlainText().strip()
+            d["core_desire"] = self._desire_edit.toPlainText().strip()
         return d
 
     # ------------------------------------------------------------------ #
