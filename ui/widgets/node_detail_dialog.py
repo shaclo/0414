@@ -263,6 +263,126 @@ class NodeDetailDialog(QDialog):
         self.setWindowFlags(self.windowFlags() | Qt.WindowMaximizeButtonHint)
         self._setup_ui()
         self._load_node_to_form(get_active_version_snapshot(node))
+        self._update_nav_buttons()
+
+    # ------------------------------------------------------------------ #
+    # 快捷导航
+    # ------------------------------------------------------------------ #
+    def _update_nav_buttons(self):
+        idx = -1
+        for i, n in enumerate(self._pd.cpg_nodes):
+            if n.get("node_id") == self._node.get("node_id"):
+                idx = i
+                break
+        self._btn_prev.setEnabled(idx > 0)
+        self._btn_next.setEnabled(idx < len(self._pd.cpg_nodes) - 1 and idx != -1)
+
+        nid = self._node.get("node_id", "")
+        stage = self._node.get("hauge_stage_name", "")
+        title = self._node.get("title", "")
+        self._btn_node_title.setText(f"  {nid} — {stage}  |✏️ {title}")
+        self.setWindowTitle(f"节点详情 — {nid}  {title}")
+
+    def _on_rename_node(self):
+        """点击标题按钮，弹出对话框修改章节名称"""
+        from PySide6.QtWidgets import QInputDialog
+        nid = self._node.get("node_id", "")
+        current_title = self._node.get("title", "")
+        
+        dialog = QInputDialog(self)
+        dialog.setWindowTitle(f"修改章节名称 - {nid}")
+        dialog.setLabelText("章节名称:")
+        dialog.setTextValue(current_title)
+        
+        # 强制加宽对话框（通过加宽内部的输入框实现）
+        from PySide6.QtWidgets import QLineEdit
+        line_edit = dialog.findChild(QLineEdit)
+        if line_edit:
+            line_edit.setMinimumWidth(500)
+        else:
+            dialog.setMinimumWidth(600)
+            
+        ok = dialog.exec_() == QInputDialog.Accepted if hasattr(dialog, 'exec_') else dialog.exec() == QInputDialog.Accepted
+        new_title = dialog.textValue()
+        
+        if ok and new_title.strip() and new_title.strip() != current_title:
+            new_title = new_title.strip()
+            self._node["title"] = new_title
+            # 同步到当前激活版本的 snapshot
+            from models.project_state import get_active_version_snapshot
+            snap = get_active_version_snapshot(self._node)
+            if snap is not None:
+                snap["title"] = new_title
+            # 刷新标题按鈕和表单
+            self._update_nav_buttons()
+            self._f_title.setText(new_title)
+            # 更新快照，避免切换时误判为未保存
+            if hasattr(self, '_loaded_form_snapshot'):
+                self._loaded_form_snapshot["title"] = new_title
+            self.action = "saved"
+
+    def _has_unsaved_changes(self) -> bool:
+        """比较当前表单内容与上次加载时的内容"""
+        if not hasattr(self, '_loaded_form_snapshot'):
+            return False
+        current = self._read_form_to_dict()
+        old = self._loaded_form_snapshot
+        for k in ["title", "setting", "emotional_tone", "episode_hook"]:
+            if str(current.get(k, "")).strip() != str(old.get(k, "")).strip():
+                return True
+        # characters: 都是 list
+        if current.get("characters", []) != old.get("characters", []):
+            return True
+        # events: 都是 list
+        if current.get("event_summaries", []) != old.get("event_summaries", []):
+            return True
+        return False
+
+    def _switch_node(self, delta: int):
+        if self._has_unsaved_changes():
+            reply = QMessageBox.question(
+                self, "未保存的修改",
+                "当前节点有未保存的修改，是否在切换前保存？",
+                QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel
+            )
+            if reply == QMessageBox.Cancel:
+                return
+            if reply == QMessageBox.Yes:
+                self._do_save()
+
+        idx = -1
+        for i, n in enumerate(self._pd.cpg_nodes):
+            if n.get("node_id") == self._node.get("node_id"):
+                idx = i
+                break
+        if idx == -1: return
+
+        new_idx = idx + delta
+        if new_idx < 0 or new_idx >= len(self._pd.cpg_nodes):
+            return
+
+        # 切换节点
+        self._node = self._pd.cpg_nodes[new_idx]
+        
+        # 刷新 UI
+        self._update_nav_buttons()
+        self._populate_id_combo()
+        
+        # 更新连接标签
+        nid = self._node.get("node_id", "")
+        self._all_other_nodes = [n for n in self._pd.cpg_nodes if n.get("node_id") != nid]
+        current_ins  = {e["from_node"] for e in (self._pd.cpg_edges or []) if e.get("to_node") == nid}
+        current_outs = {e["to_node"]   for e in (self._pd.cpg_edges or []) if e.get("from_node") == nid}
+        self._in_tags = set(current_ins)
+        self._out_tags = set(current_outs)
+        self._refresh_edge_tags()
+        
+        # 重新加载版本下拉框
+        self._refresh_version_combo()
+        # 注意：_refresh_version_combo 内部使用了 blockSignals，不会触发 _on_version_switch，
+        # 因此需要在这里手动加载激活版本的快照到表单
+        snap = get_active_version_snapshot(self._node)
+        self._load_node_to_form(snap)
 
     # ------------------------------------------------------------------ #
     # UI 构建
@@ -273,10 +393,33 @@ class NodeDetailDialog(QDialog):
 
         # ---- 顶部: 标题 + 版本下拉 ----
         top_row = QHBoxLayout()
-        nid = self._node.get("node_id", "")
-        stage = self._node.get("hauge_stage_name", "")
-        top_row.addWidget(QLabel(f"<b>{nid}</b> — {stage}"))
+        
+        self._btn_prev = QPushButton("◀ 上一集")
+        self._btn_prev.setMinimumHeight(28)
+        self._btn_prev.setStyleSheet("QPushButton{padding: 4px 12px; font-weight: bold;}")
+        self._btn_prev.clicked.connect(lambda: self._switch_node(-1))
+        top_row.addWidget(self._btn_prev)
+        
+        self._btn_next = QPushButton("下一集 ▶")
+        self._btn_next.setMinimumHeight(28)
+        self._btn_next.setStyleSheet("QPushButton{padding: 4px 12px; font-weight: bold;}")
+        self._btn_next.clicked.connect(lambda: self._switch_node(1))
+        top_row.addWidget(self._btn_next)
+        
+        self._btn_node_title = QPushButton()
+        self._btn_node_title.setFlat(True)
+        self._btn_node_title.setStyleSheet(
+            "QPushButton{font-size:14px; font-weight:bold; text-align:left; padding:2px 8px;"
+            "border:1px dashed transparent; border-radius:4px;}"
+            "QPushButton:hover{border:1px dashed #3498db; background:#ebf5fb;}"
+        )
+        self._btn_node_title.setToolTip("点击可修改章节名称")
+        self._btn_node_title.setCursor(Qt.PointingHandCursor)
+        self._btn_node_title.clicked.connect(self._on_rename_node)
+        top_row.addWidget(self._btn_node_title)
+        
         top_row.addStretch()
+        
         top_row.addWidget(QLabel("版本:"))
         self._ver_combo = QComboBox()
         self._ver_combo.setMinimumWidth(240)
@@ -514,6 +657,8 @@ class NodeDetailDialog(QDialog):
             ))
         else:
             self._f_events.setPlainText("")
+        # 记录加载后的表单快照，用于检测是否有未保存的修改
+        self._loaded_form_snapshot = self._read_form_to_dict()
 
     def _read_form_to_dict(self) -> dict:
         chars_raw = self._f_chars.toPlainText()

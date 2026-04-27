@@ -513,28 +513,36 @@ class MainWindow(QMainWindow):
 
         dlg = QDialog(self)
         dlg.setWindowTitle("系统更新")
-        dlg.setMinimumWidth(480)
-        dlg.setMinimumHeight(380)
+        dlg.setMinimumWidth(680)
+        dlg.setMinimumHeight(420)
 
-        layout = QVBoxLayout(dlg)
-        layout.setSpacing(10)
-        layout.setContentsMargins(24, 24, 24, 24)
+        main_layout = QVBoxLayout(dlg)
+        main_layout.setSpacing(10)
+        main_layout.setContentsMargins(24, 24, 24, 24)
 
         # 标题
         title = QLabel("📽️ 短剧剧本生成器")
         title.setStyleSheet(" font-weight:bold;")
         title.setAlignment(_Qt.AlignCenter)
-        layout.addWidget(title)
+        main_layout.addWidget(title)
 
         subtitle = QLabel("NarrativeLoom BVSR × Causal Distillation")
         subtitle.setStyleSheet(" color:#7f8c8d;")
         subtitle.setAlignment(_Qt.AlignCenter)
-        layout.addWidget(subtitle)
+        main_layout.addWidget(subtitle)
 
         sep = QLabel()
         sep.setFixedHeight(1)
         sep.setStyleSheet("background:#dcdde1;")
-        layout.addWidget(sep)
+        main_layout.addWidget(sep)
+
+        # Content Layout (Horizontal Split)
+        content_layout = QHBoxLayout()
+        main_layout.addLayout(content_layout)
+
+        # Left Side (Info & Actions)
+        left_layout = QVBoxLayout()
+        content_layout.addLayout(left_layout, 1)
 
         # 版本信息
         info_layout = QFormLayout()
@@ -545,29 +553,18 @@ class MainWindow(QMainWindow):
         date_label = QLabel(APP_BUILD_DATE)
         date_label.setStyleSheet("")
         info_layout.addRow("最后更新：", date_label)
-        layout.addLayout(info_layout)
+        left_layout.addLayout(info_layout)
 
         sep2 = QLabel()
         sep2.setFixedHeight(1)
         sep2.setStyleSheet("background:#dcdde1;")
-        layout.addWidget(sep2)
+        left_layout.addWidget(sep2)
 
         # 状态区
         status_label = QLabel("点击「检查更新」查看是否有新版本。")
         status_label.setWordWrap(True)
         status_label.setStyleSheet(" margin-top:4px;")
-        layout.addWidget(status_label)
-
-        # 更新日志
-        log_edit = QTextEdit()
-        log_edit.setReadOnly(True)
-        log_edit.setMaximumHeight(120)
-        log_edit.setStyleSheet(
-            "QTextEdit{background:#f8f9fa;border:1px solid #dcdde1;"
-            "border-radius:4px;padding:6px;}"
-        )
-        log_edit.hide()
-        layout.addWidget(log_edit)
+        left_layout.addWidget(status_label)
 
         # 进度条
         progress_bar = QProgressBar()
@@ -579,7 +576,9 @@ class MainWindow(QMainWindow):
             "QProgressBar::chunk{background:#27ae60;border-radius:3px;}"
         )
         progress_bar.hide()
-        layout.addWidget(progress_bar)
+        left_layout.addWidget(progress_bar)
+
+        left_layout.addStretch()
 
         # 按钮
         btn_check = QPushButton("🔍 检查更新")
@@ -589,7 +588,7 @@ class MainWindow(QMainWindow):
             "QPushButton:hover{background:#2980b9;}"
             "QPushButton:disabled{background:#bdc3c7;}"
         )
-        layout.addWidget(btn_check)
+        left_layout.addWidget(btn_check)
 
         btn_download = QPushButton("⬇️ 下载并更新")
         btn_download.setStyleSheet(
@@ -599,7 +598,7 @@ class MainWindow(QMainWindow):
             "QPushButton:disabled{background:#bdc3c7;}"
         )
         btn_download.hide()
-        layout.addWidget(btn_download)
+        left_layout.addWidget(btn_download)
 
         btn_restart = QPushButton("🔄 立即重启应用")
         btn_restart.setStyleSheet(
@@ -608,11 +607,28 @@ class MainWindow(QMainWindow):
             "QPushButton:hover{background:#c0392b;}"
         )
         btn_restart.hide()
-        layout.addWidget(btn_restart)
+        left_layout.addWidget(btn_restart)
 
         btn_close = QPushButton("关闭")
         btn_close.clicked.connect(dlg.accept)
-        layout.addWidget(btn_close)
+        left_layout.addWidget(btn_close)
+
+        # Right Side (Update Notes)
+        right_layout = QVBoxLayout()
+        content_layout.addLayout(right_layout, 1)
+
+        log_label = QLabel("更新内容：")
+        log_label.setStyleSheet("font-weight:bold; color:#2c3e50;")
+        right_layout.addWidget(log_label)
+
+        log_edit = QTextEdit()
+        log_edit.setReadOnly(True)
+        log_edit.setPlaceholderText("暂无更新内容或未检查更新...")
+        log_edit.setStyleSheet(
+            "QTextEdit{background:#f8f9fa;border:1px solid #dcdde1;"
+            "border-radius:4px;padding:6px;}"
+        )
+        right_layout.addWidget(log_edit)
 
         # — 逻辑 —
         _state = {"download_url": "", "checker": None, "downloader": None}
@@ -632,7 +648,7 @@ class MainWindow(QMainWindow):
                         f"✅ 发现新版本: v{info['latest_version']}（当前: v{APP_VERSION}）"
                     )
                     status_label.setStyleSheet(" color:#27ae60; font-weight:bold;")
-                    log_edit.setPlainText(info["release_notes"])
+                    log_edit.setMarkdown(info["release_notes"])
                     log_edit.show()
                     _state["download_url"] = info["download_url"]
                     btn_download.show()

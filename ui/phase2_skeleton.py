@@ -9,10 +9,10 @@ from PySide6.QtWidgets import (
     QPushButton, QSplitter, QTextEdit, QMessageBox,
     QGroupBox, QInputDialog, QDoubleSpinBox, QFrame, QComboBox, QLineEdit,
     QListWidget, QListWidgetItem, QDialog, QDialogButtonBox, QFormLayout, QCheckBox,
-    QSlider, QRadioButton, QButtonGroup, QScrollArea,
+    QSlider, QRadioButton, QButtonGroup, QScrollArea, QStyledItemDelegate,
 )
-from PySide6.QtCore import Qt, Signal, QTimer, QSize
-from PySide6.QtGui import QColor
+from PySide6.QtCore import Qt, Signal, QTimer, QSize, QRect
+from PySide6.QtGui import QColor, QFont, QPainter, QPen
 
 from ui.widgets.range_slider import DurationRangeWidget
 from ui.widgets.hook_selector_widget import HookSelectorWidget
@@ -32,6 +32,79 @@ STAGE_NAMES = {
     6: "终局 (Aftermath)",
 }
 STAGE_NAMES_SHORT = {1:"机会", 2:"变点", 3:"无路可退", 4:"挫折", 5:"高潮", 6:"终局"}
+
+
+class NodeCardDelegate(QStyledItemDelegate):
+    """自定义卡片 delegate，支持两行文字显示"""
+    LINE1_ROLE = 266
+    LINE2_ROLE = 267
+
+    def paint(self, painter: QPainter, option, index):
+        painter.save()
+        painter.setRenderHint(QPainter.Antialiasing)
+
+        from PySide6.QtWidgets import QStyle
+        rect = option.rect.adjusted(2, 2, -2, -2)
+
+        # 基础白底卡片
+        painter.setPen(Qt.NoPen)
+        painter.setBrush(QColor("#ffffff"))
+        painter.drawRoundedRect(rect, 6, 6)
+
+        # 左侧彩色饰条 (根据阶段颜色)
+        bg = index.data(Qt.BackgroundRole)
+        stage_color = bg.color() if (bg and hasattr(bg, 'color')) else QColor("#b2bec3")
+        ribbon_rect = QRect(rect.left(), rect.top(), 6, rect.height())
+        painter.setBrush(stage_color)
+        painter.setClipRect(ribbon_rect)
+        painter.drawRoundedRect(rect, 6, 6)
+        painter.setClipping(False)
+
+        # 边框和交互状态
+        if option.state & QStyle.State_Selected:
+            painter.setPen(QPen(QColor("#0984e3"), 2))
+            painter.setBrush(Qt.NoBrush)
+            painter.drawRoundedRect(rect, 6, 6)
+        elif option.state & QStyle.State_MouseOver:
+            painter.setPen(QPen(QColor("#74b9ff"), 1))
+            painter.setBrush(Qt.NoBrush)
+            painter.drawRoundedRect(rect, 6, 6)
+        else:
+            painter.setPen(QPen(QColor("#dcdde1"), 1))
+            painter.setBrush(Qt.NoBrush)
+            painter.drawRoundedRect(rect, 6, 6)
+
+        # 文本区域 (留出左侧 ribbon 的空间)
+        text_rect = rect.adjusted(12, 4, -4, -4)
+        line1 = str(index.data(self.LINE1_ROLE) or index.data(Qt.DisplayRole) or "")
+        line2 = str(index.data(self.LINE2_ROLE) or "")
+
+        h = text_rect.height()
+        line1_rect = QRect(text_rect.left(), text_rect.top(), text_rect.width(), h // 2)
+        line2_rect = QRect(text_rect.left(), text_rect.top() + h // 2, text_rect.width(), h // 2)
+
+        # 第一行：粗体
+        f1 = QFont(painter.font())
+        f1.setBold(True)
+        f1.setPointSize(9)
+        painter.setFont(f1)
+        painter.setPen(QColor("#2c3e50"))
+        # PySide6 的 drawText 标志位可以直接传整数 0x0080 | 0x0001
+        painter.drawText(line1_rect, Qt.AlignVCenter | Qt.AlignLeft, line1)
+
+        # 第二行：常规，稍小
+        f2 = QFont(painter.font())
+        f2.setBold(False)
+        f2.setPointSize(8)
+        painter.setFont(f2)
+        painter.setPen(QColor("#636e72"))
+        painter.drawText(line2_rect, Qt.AlignVCenter | Qt.AlignLeft, line2)
+
+        painter.restore()
+
+    def sizeHint(self, option, index):
+        return QSize(185, 52)
+
 
 
 # ============================================================
@@ -356,7 +429,7 @@ class Phase2Skeleton(QWidget):
         # 卡片式节点列表（轻量高性能，替代 CPGGraphEditor）
         graph_container = QWidget()
         gc_layout = QVBoxLayout(graph_container)
-        gc_layout.setContentsMargins(0, 0, 0, 0)
+        gc_layout.setContentsMargins(8, 8, 8, 8)
 
         self._node_list = QListWidget()
         self._node_list.setViewMode(QListWidget.IconMode)
@@ -364,21 +437,13 @@ class Phase2Skeleton(QWidget):
         self._node_list.setWrapping(True)
         self._node_list.setSpacing(6)
         self._node_list.setSelectionMode(QListWidget.SingleSelection)
-        self._node_list.setWordWrap(True)
+        self._node_list.setWordWrap(False)
         self._node_list.setIconSize(QSize(0, 0))
-        self._node_list.setGridSize(QSize(200, 72))
+        self._node_list.setGridSize(QSize(195, 60))
+        self._node_list.setItemDelegate(NodeCardDelegate(self._node_list))
         self._node_list.setStyleSheet("""
-            QListWidget { background: #f5f6fa; border: 1px solid #dcdde1; border-radius: 6px; }
-            QListWidget::item {
-                background: #ffffff; border: 1px solid #dcdde1; border-radius: 6px;
-                padding: 6px 8px; margin: 2px;
-            }
-            QListWidget::item:selected {
-                background: #dfe6e9; border: 2px solid #0984e3;
-            }
-            QListWidget::item:hover {
-                background: #f0f3f8; border: 1px solid #74b9ff;
-            }
+            QListWidget { background: #f5f6fa; border: none; border-radius: 6px; padding: 4px; }
+            QListWidget::item { background: transparent; }
         """)
         self._node_list.itemDoubleClicked.connect(self._on_card_double_clicked)
         gc_layout.addWidget(self._node_list)
@@ -490,20 +555,16 @@ class Phase2Skeleton(QWidget):
         self._seg_group, seg_inner = self._make_collapsible("STEP 2 🔄 分段生成", expanded=True)
         seg_row1 = QHBoxLayout()
         seg_row1.addWidget(QLabel("起始集:"))
-        self._seg_start_spin = _IntSpinBox()
-        self._seg_start_spin.setRange(1, 200)
-        self._seg_start_spin.setValue(2)
-        self._seg_start_spin.setMinimumWidth(100)
-        self._seg_start_spin.setFixedHeight(32)
-        seg_row1.addWidget(self._seg_start_spin)
+        self._seg_start_combo = QComboBox()
+        self._seg_start_combo.setMinimumWidth(160)
+        self._seg_start_combo.setFixedHeight(32)
+        seg_row1.addWidget(self._seg_start_combo)
 
         seg_row1.addWidget(QLabel("结束集:"))
-        self._seg_end_spin = _IntSpinBox()
-        self._seg_end_spin.setRange(1, 200)
-        self._seg_end_spin.setValue(5)
-        self._seg_end_spin.setMinimumWidth(100)
-        self._seg_end_spin.setFixedHeight(32)
-        seg_row1.addWidget(self._seg_end_spin)
+        self._seg_end_combo = QComboBox()
+        self._seg_end_combo.setMinimumWidth(160)
+        self._seg_end_combo.setFixedHeight(32)
+        seg_row1.addWidget(self._seg_end_combo)
 
         self._btn_seg_gen = QPushButton("🎲 生成本段")
         self._btn_seg_gen.setStyleSheet(
@@ -539,12 +600,16 @@ class Phase2Skeleton(QWidget):
 
         # 钩子公式选择器（分段生成）
         self._seg_hook_selector = HookSelectorWidget(collapsed=True)
+        self._seg_hook_selector.selectionChanged.connect(self._on_seg_hook_changed)
         seg_inner.addWidget(self._seg_hook_selector)
 
         self._seg_progress_label = QLabel("进度: 已确认 0/0 集")
         self._seg_progress_label.setStyleSheet("color:#7f8c8d;")
         seg_inner.addWidget(self._seg_progress_label)
         bl.addWidget(self._seg_group)
+
+        # 初始化下拉框内容
+        self._refresh_seg_combos()
 
         # --- AI 设置（默认折叠） ---
         ai_group, ai_inner = self._make_collapsible("⚙️ AI 调用设置", expanded=False)
@@ -664,15 +729,19 @@ class Phase2Skeleton(QWidget):
         ch1_hooks = self.project_data.hook_selections.get("Ep1", [])
         if ch1_hooks:
             self._ch1_hook_selector.set_selected_ids(ch1_hooks)
-        # 分段钩子：取最近一次有记录的集的选择作为默认
-        seg_hooks = []
-        for ep_id in reversed(sorted(self.project_data.hook_selections.keys(),
-                                       key=lambda x: self._parse_ep_num(x))):
-            if ep_id != "Ep1":
-                seg_hooks = self.project_data.hook_selections[ep_id]
-                break
+        # 分段钩子：优先使用 _seg_default，否则取最近一次有记录的集的选择
+        seg_hooks = self.project_data.hook_selections.get("_seg_default", [])
+        if not seg_hooks:
+            for ep_id in reversed(sorted(self.project_data.hook_selections.keys(),
+                                           key=lambda x: self._parse_ep_num(x))):
+                if ep_id not in ("Ep1", "_seg_default"):
+                    seg_hooks = self.project_data.hook_selections[ep_id]
+                    break
         if seg_hooks:
             self._seg_hook_selector.set_selected_ids(seg_hooks)
+
+        # 刷新下拉框
+        self._refresh_seg_combos()
 
         self._sync_ch1_state()
 
@@ -700,30 +769,28 @@ class Phase2Skeleton(QWidget):
             versions = node.get("versions", [])
             if versions:
                 active_v = node.get("active_version", 0)
-                ver_tag = f"  v{active_v}"
+                ver_tag = f"v{active_v}"
             else:
                 ver_tag = ""
-            # 分段确认视觉标记
             confirmed_eps = set(self.project_data.skeleton_confirmed_eps)
-            if nid in confirmed_eps:
-                label = f"✅ {nid}  {stage}\n{title[:12]}{ver_tag}"
-            else:
-                label = f"{nid}  {stage}\n{title[:12]}{ver_tag}"
-            item = QListWidgetItem(label)
+            check = "✅ " if nid in confirmed_eps else ""
+            # 第一行：Ep号 + 版本号（粗体），第二行：章节标题（细体）
+            line1 = f"{check}{nid}  {ver_tag}" if ver_tag else f"{check}{nid}"
+            line2 = title if title else stage
+            item = QListWidgetItem(line1)  # DisplayRole 用于 fallback
             item.setData(Qt.UserRole, nid)
-            item.setSizeHint(QSize(190, 62))
+            item.setData(NodeCardDelegate.LINE1_ROLE, line1)
+            item.setData(NodeCardDelegate.LINE2_ROLE, line2)
             item.setToolTip(
                 f"节点: {nid}\n阶段: {stage}\n标题: {title}\n"
                 f"版本: v{node.get('active_version', 0)}\n"
                 f"钩子: {node.get('episode_hook','')}"
             )
-            # 背景色：已确认=浅绿，未确认=阶段色
-            if nid in confirmed_eps:
-                item.setBackground(QColor("#d5f5e3"))
-            else:
-                sid = node.get("hauge_stage_id", 1)
-                colors = {1:"#dfe6e9", 2:"#ffeaa7", 3:"#fab1a0", 4:"#ff7675", 5:"#fd79a8", 6:"#a29bfe"}
-                item.setBackground(QColor(colors.get(sid, "#ffffff")))
+            # 统一将阶段颜色设为左侧饰条的颜色，现代清爽风格
+            sid = node.get("hauge_stage_id", 1)
+            # 现代莫兰迪/强调色系: 机会(青) 变点(黄) 无路(红) 挫折(粉) 高潮(紫) 终局(蓝)
+            colors = {1:"#00cec9", 2:"#fdcb6e", 3:"#d63031", 4:"#e84393", 5:"#6c5ce7", 6:"#0984e3"}
+            item.setBackground(QColor(colors.get(sid, "#b2bec3")))
             self._node_list.addItem(item)
         self._update_seg_progress()
 
@@ -966,13 +1033,82 @@ class Phase2Skeleton(QWidget):
         self.status_message.emit("错误: " + msg)
 
     # ------------------------------------------------------------------ #
-    # 分段生成
+    # 分段生成 — 下拉框管理
+    # ------------------------------------------------------------------ #
+    def _refresh_seg_combos(self):
+        """刷新起始集/结束集下拉框，标注已生成状态"""
+        total = self._episodes_spin.value()
+        existing_ids = {n.get("node_id", "") for n in self.project_data.cpg_nodes}
+
+        # 记住当前选择
+        old_start = self._get_seg_start_value()
+        old_end = self._get_seg_end_value()
+
+        self._seg_start_combo.blockSignals(True)
+        self._seg_end_combo.blockSignals(True)
+        self._seg_start_combo.clear()
+        self._seg_end_combo.clear()
+
+        for i in range(1, total + 1):
+            ep_id = f"Ep{i}"
+            if ep_id in existing_ids:
+                label = f"Ep{i}  ✅ 已生成"
+            else:
+                label = f"Ep{i}"
+            self._seg_start_combo.addItem(label, i)
+            self._seg_end_combo.addItem(label, i)
+
+        # 恢复选择
+        if old_start and old_start <= total:
+            self._seg_start_combo.setCurrentIndex(old_start - 1)
+        elif total >= 2:
+            self._seg_start_combo.setCurrentIndex(1)  # 默认第2集
+        if old_end and old_end <= total:
+            self._seg_end_combo.setCurrentIndex(old_end - 1)
+        elif total >= 5:
+            self._seg_end_combo.setCurrentIndex(4)  # 默认第5集
+        else:
+            self._seg_end_combo.setCurrentIndex(total - 1)
+
+        self._seg_start_combo.blockSignals(False)
+        self._seg_end_combo.blockSignals(False)
+
+    def _get_seg_start_value(self) -> int:
+        """从下拉框获取起始集编号"""
+        idx = self._seg_start_combo.currentIndex()
+        if idx < 0:
+            return 0
+        return self._seg_start_combo.itemData(idx) or 0
+
+    def _get_seg_end_value(self) -> int:
+        """从下拉框获取结束集编号"""
+        idx = self._seg_end_combo.currentIndex()
+        if idx < 0:
+            return 0
+        return self._seg_end_combo.itemData(idx) or 0
+
+    def _set_seg_combo_values(self, start_val: int, end_val: int):
+        """设置起始/结束下拉框的值"""
+        total = self._seg_start_combo.count()
+        if 1 <= start_val <= total:
+            self._seg_start_combo.setCurrentIndex(start_val - 1)
+        if 1 <= end_val <= total:
+            self._seg_end_combo.setCurrentIndex(end_val - 1)
+
+    def _on_seg_hook_changed(self, selected_ids):
+        """分段钩子选择变化时立即持久化"""
+        if selected_ids:
+            self.project_data.hook_selections["_seg_default"] = list(selected_ids)
+
+    # ------------------------------------------------------------------ #
+    # 分段生成 — 进度
     # ------------------------------------------------------------------ #
     def _update_seg_progress(self):
-        """刷新分段确认进度标签"""
+        """刷新分段确认进度标签 + 下拉框状态"""
         confirmed = len(self.project_data.skeleton_confirmed_eps)
         total = self._episodes_spin.value()
         self._seg_progress_label.setText(f"进度: 已确认 {confirmed}/{total} 集")
+        self._refresh_seg_combos()
 
     def _rebuild_sequential_edges(self):
         """
@@ -1015,8 +1151,11 @@ class Phase2Skeleton(QWidget):
             QMessageBox.warning(self, "提示", "请至少选择一个钩子公式！")
             return
 
-        start_ep = self._seg_start_spin.value()
-        end_ep = self._seg_end_spin.value()
+        start_ep = self._get_seg_start_value()
+        end_ep = self._get_seg_end_value()
+        if start_ep < 1 or end_ep < 1:
+            QMessageBox.warning(self, "提示", "请先选择起始集和结束集！")
+            return
         if start_ep > end_ep:
             QMessageBox.warning(self, "提示", "起始集不能大于结束集！")
             return
@@ -1025,6 +1164,24 @@ class Phase2Skeleton(QWidget):
         if end_ep > total:
             QMessageBox.warning(self, "提示", f"结束集不能超过总集数 {total}！")
             return
+
+        # 跳章检测：检查起始集之前是否有未生成的集
+        existing_ids = {n.get("node_id", "") for n in self.project_data.cpg_nodes}
+        missing_before = [i for i in range(1, start_ep) if f"Ep{i}" not in existing_ids]
+        if missing_before:
+            missing_str = ", ".join(f"Ep{i}" for i in missing_before[:10])
+            if len(missing_before) > 10:
+                missing_str += f" 等共{len(missing_before)}集"
+            reply = QMessageBox.warning(
+                self, "⚠️ 跳章警告",
+                f"检测到起始集（Ep{start_ep}）之前有以下章节尚未生成：\n\n"
+                f"{missing_str}\n\n"
+                f"跳过这些章节可能导致剧情断裂、AI 缺少上下文。\n"
+                f"建议先生成缺失的章节。\n\n确定要跳过吗？",
+                QMessageBox.Yes | QMessageBox.No,
+            )
+            if reply == QMessageBox.No:
+                return
 
         # 检查范围内是否已存在节点（不管是否已确认）
         existing_ids = {n.get("node_id", "") for n in self.project_data.cpg_nodes}
@@ -1069,8 +1226,8 @@ class Phase2Skeleton(QWidget):
             self._hide_loading()
             self._rebuild_sequential_edges()
             self._load_to_editor()
-            start_ep = self._seg_start_spin.value()
-            end_ep = self._seg_end_spin.value()
+            start_ep = self._get_seg_start_value()
+            end_ep = self._get_seg_end_value()
             self.status_message.emit(
                 f"✅ 分段骨架全部完成：第 {start_ep}~{end_ep} 集（{self._seg_generated_count} 个节点）"
             )
@@ -1188,8 +1345,8 @@ class Phase2Skeleton(QWidget):
 
     def _on_seg_confirm(self):
         """确认当前范围内的节点"""
-        start_ep = self._seg_start_spin.value()
-        end_ep = self._seg_end_spin.value()
+        start_ep = self._get_seg_start_value()
+        end_ep = self._get_seg_end_value()
 
         # 找到范围内存在的节点
         confirmed_count = 0
@@ -1205,12 +1362,11 @@ class Phase2Skeleton(QWidget):
             QMessageBox.information(self, "提示", "该范围内没有可确认的新节点。")
             return
 
-        # 自动推进 SpinBox
+        # 自动推进下拉框
         total = self._episodes_spin.value()
         new_start = end_ep + 1
         if new_start <= total:
-            self._seg_start_spin.setValue(new_start)
-            self._seg_end_spin.setValue(min(new_start + 4, total))
+            self._set_seg_combo_values(new_start, min(new_start + 4, total))
 
         # 记录分段的钩子选择
         seg_hooks = self._seg_hook_selector.selected_ids()
@@ -1476,9 +1632,9 @@ class Phase2Skeleton(QWidget):
         self._sync_ch1_state()
 
         self._ch1_progress_label.setText("")
-        self._seg_start_spin.setValue(2)
         total = self._episodes_spin.value()
-        self._seg_end_spin.setValue(min(5, total))
+        self._refresh_seg_combos()
+        self._set_seg_combo_values(2, min(5, total))
 
         app_logger.success(
             "骨架-第一章确认",
