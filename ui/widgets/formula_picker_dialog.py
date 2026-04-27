@@ -73,6 +73,8 @@ class FormulaPickerDialog(QDialog):
                 )
                 display_name = f"{t.name}（{level_cn}）"
             item = QListWidgetItem(display_name)
+            item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
+            item.setCheckState(Qt.Unchecked)
             item.setData(Qt.UserRole, t.id)
             self._list_widget.addItem(item)
 
@@ -119,14 +121,20 @@ class FormulaPickerDialog(QDialog):
 
         root.addLayout(btn_row)
 
+        self._list_widget.itemChanged.connect(self._on_item_changed)
+
         # 默认选中第一个
         if self._list_widget.count() > 0:
             self._list_widget.setCurrentRow(0)
 
+    def _on_item_changed(self, item):
+        checked_count = sum(1 for i in range(self._list_widget.count())
+                            if self._list_widget.item(i).checkState() == Qt.Checked)
+        self._btn_add.setEnabled(checked_count > 0)
+
     def _on_row_changed(self, row):
         if row < 0 or row >= len(self._visible_templates):
             self._detail_browser.clear()
-            self._btn_add.setEnabled(False)
             return
 
         t = self._visible_templates[row]
@@ -146,15 +154,17 @@ class FormulaPickerDialog(QDialog):
         html_parts.append(f"<div style='margin-top:8px;'>{text}</div>")
 
         self._detail_browser.setHtml("".join(html_parts))
-        self._btn_add.setEnabled(True)
 
     def _do_add(self):
-        row = self._list_widget.currentRow()
-        if row < 0 or row >= len(self._visible_templates):
+        self._chosen_ids = []
+        for i in range(self._list_widget.count()):
+            item = self._list_widget.item(i)
+            if item.checkState() == Qt.Checked:
+                self._chosen_ids.append(item.data(Qt.UserRole))
+        if not self._chosen_ids:
             return
-        self._chosen_id = self._visible_templates[row].id
         self.accept()
 
-    def get_chosen_id(self) -> str:
-        """返回选中的模板 ID，如果取消则为 None"""
-        return self._chosen_id
+    def get_chosen_ids(self) -> list:
+        """返回选中的模板 ID 列表"""
+        return getattr(self, "_chosen_ids", [])

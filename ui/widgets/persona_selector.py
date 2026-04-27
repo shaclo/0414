@@ -12,6 +12,42 @@ from PySide6.QtCore import Signal
 from typing import List, Dict
 
 
+class CollapsibleCategory(QWidget):
+    """一个可折叠的分类组"""
+    def __init__(self, title, parent=None):
+        super().__init__(parent)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+        
+        self.btn_toggle = QPushButton(f"▼ {title}")
+        self.btn_toggle.setCheckable(True)
+        self.btn_toggle.setChecked(True)  # True = expanded
+        self.btn_toggle.setStyleSheet(
+            "QPushButton { text-align: left; font-weight: bold; border: none; padding: 4px; color: #2c3e50; }"
+            "QPushButton:hover { background: #ecf0f1; border-radius: 4px; }"
+        )
+        self.btn_toggle.toggled.connect(self._on_toggle)
+        
+        self.content_widget = QWidget()
+        self.content_layout = QVBoxLayout(self.content_widget)
+        self.content_layout.setContentsMargins(16, 2, 0, 8)
+        self.content_layout.setSpacing(4)
+        
+        layout.addWidget(self.btn_toggle)
+        layout.addWidget(self.content_widget)
+        
+    def _on_toggle(self, checked):
+        if checked:
+            self.btn_toggle.setText(self.btn_toggle.text().replace("▶", "▼"))
+        else:
+            self.btn_toggle.setText(self.btn_toggle.text().replace("▼", "▶"))
+        self.content_widget.setVisible(checked)
+        
+    def addWidget(self, widget):
+        self.content_layout.addWidget(widget)
+
+
 class PersonaSelector(QWidget):
     """
     人格多选面板。
@@ -61,15 +97,12 @@ class PersonaSelector(QWidget):
         self._checkboxes.clear()
 
         self._group = QGroupBox("🎭 选择参与生成的人格")
-        self._group.setCheckable(True)
-        self._group.setChecked(True)
         self._group.setStyleSheet(
             "QGroupBox { font-weight: bold; padding-top: 16px; }"
-            "QGroupBox::indicator { width: 13px; height: 13px; }"
         )
-        self._inner_widget = QWidget()
-        self._group_layout = QVBoxLayout(self._inner_widget)
-        self._group_layout.setContentsMargins(4, 4, 4, 4)
+        
+        self._group_layout = QVBoxLayout(self._group)
+        self._group_layout.setContentsMargins(8, 16, 8, 8)
         self._group_layout.setSpacing(4)
 
         personas = self._get_personas()
@@ -86,23 +119,17 @@ class PersonaSelector(QWidget):
             if cat_key not in personas_by_category:
                 continue
 
-            # 类别标签
-            self._group_layout.addWidget(QLabel(f"{cat_label}:"))
+            # 使用可折叠分类组件
+            category_group = CollapsibleCategory(cat_label)
+            self._group_layout.addWidget(category_group)
 
-            # 每行最多4个复选框，自动换行
             items = personas_by_category[cat_key]
-            MAX_PER_ROW = 4
-            for i in range(0, len(items), MAX_PER_ROW):
-                row = QHBoxLayout()
-                row.setContentsMargins(16, 0, 0, 0)
-                for key, persona in items[i:i + MAX_PER_ROW]:
-                    cb = QCheckBox(persona.get("name", key))
-                    cb.setChecked(True)  # 默认全选
-                    cb.stateChanged.connect(self._on_changed)
-                    row.addWidget(cb)
-                    self._checkboxes[key] = cb
-                row.addStretch()
-                self._group_layout.addLayout(row)
+            for key, persona in items:
+                cb = QCheckBox(persona.get("name", key))
+                cb.setChecked(False)  # 默认不选
+                cb.stateChanged.connect(self._on_changed)
+                category_group.addWidget(cb)
+                self._checkboxes[key] = cb
 
         # 全选/全不选 按钮
         btn_row = QHBoxLayout()
@@ -121,12 +148,6 @@ class PersonaSelector(QWidget):
 
         self._group_layout.addLayout(btn_row)
 
-        # 将内容组件加入 GroupBox，并连接折叠
-        outer_layout = QVBoxLayout(self._group)
-        outer_layout.setContentsMargins(8, 4, 8, 8)
-        outer_layout.addWidget(self._inner_widget)
-        self._group.toggled.connect(self._inner_widget.setVisible)
-
         self._main_layout.addWidget(self._group)
 
         self._update_count()
@@ -137,10 +158,9 @@ class PersonaSelector(QWidget):
         prev_selected = self.get_selected_keys()
         self._build_content()
         # 恢复之前的选中状态（对仍存在的 key）
-        if prev_selected:
-            for k, cb in self._checkboxes.items():
-                cb.setChecked(k in prev_selected)
-            self._update_count()
+        for k, cb in self._checkboxes.items():
+            cb.setChecked(k in prev_selected)
+        self._update_count()
 
     def _on_changed(self):
         self._update_count()

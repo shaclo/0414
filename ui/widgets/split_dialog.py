@@ -70,7 +70,7 @@ class SplitDialog(QDialog):
         # 处理模式
         root.addWidget(QLabel("📌 拆分后处理:"))
         mode_widget = QWidget()
-        mode_layout = QVBoxLayout(mode_widget)
+        mode_layout = QHBoxLayout(mode_widget)
         self._rb_split_only = QRadioButton("仅拆分 — 只分配事件，其余字段手动填写")
         self._rb_fill       = QRadioButton("补全  — AI 补全标题/钩子/情感（不改事件）")
         self._rb_expand     = QRadioButton("扩写  — AI 充实事件细节（保持风格）")

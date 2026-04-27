@@ -127,20 +127,26 @@ class Phase3Flesh(QWidget):
         cl.addWidget(prompt_group)
 
         # 供应商多选（Beat 并行时随机分配）
-        provider_group = QGroupBox("🔀 供应商分配（多选 = Beat 并行时随机分配）")
+        provider_group = QGroupBox("🔀 供应商分配")
         provider_group.setStyleSheet(
             "QGroupBox{font-weight:bold;border:1px solid #dcdde1;"
             "border-radius:4px;margin-top:6px;padding-top:16px;}"
             "QGroupBox::title{subcontrol-origin:margin;left:8px;}"
         )
-        self._provider_checks_layout = QHBoxLayout(provider_group)
+        provider_vbox = QVBoxLayout(provider_group)
+        hint_prov = QLabel("（多选 = Beat 并行时随机分配）")
+        hint_prov.setStyleSheet("color:#7f8c8d; font-size:12px;")
+        provider_vbox.addWidget(hint_prov)
+        
+        self._provider_checks_layout = QHBoxLayout()
         self._provider_checks_layout.setSpacing(12)
+        provider_vbox.addLayout(self._provider_checks_layout)
         self._provider_checkboxes: list = []
         self._refresh_provider_checkboxes()
         cl.addWidget(provider_group)
 
         # --- 爽感 & 钩子公式选择 (tag 样式) ---
-        formula_group = QGroupBox("🎯 爽感 & 钩子公式（点击 + 添加候选，生成时从候选中随机选用）")
+        formula_group = QGroupBox("🎯 爽感 & 钩子公式")
         formula_group.setStyleSheet(
             "QGroupBox{font-weight:bold;border:1px solid #dcdde1;"
             "border-radius:4px;margin-top:6px;padding-top:16px;}"
@@ -148,12 +154,18 @@ class Phase3Flesh(QWidget):
         )
         fg_layout = QVBoxLayout(formula_group)
         fg_layout.setSpacing(4)
+        
+        hint_label = QLabel("（点击 + 添加候选，生成时从候选中随机选用）")
+        hint_label.setStyleSheet("color:#7f8c8d; font-size:12px;")
+        fg_layout.addWidget(hint_label)
 
         # 爽感行
         sat_row = QHBoxLayout()
-        sat_row.addWidget(QLabel("<b>⚡ 爽感:</b>"))
+        lbl_sat = QLabel("<b>⚡ 爽感:</b>")
+        sat_row.addWidget(lbl_sat, alignment=Qt.AlignTop)
         self._var_sat_tag_container = QWidget()
-        self._var_sat_tag_flow = QHBoxLayout(self._var_sat_tag_container)
+        self._var_sat_tag_container.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        self._var_sat_tag_flow = QVBoxLayout(self._var_sat_tag_container)
         self._var_sat_tag_flow.setContentsMargins(0, 0, 0, 0)
         self._var_sat_tag_flow.setSpacing(4)
         sat_row.addWidget(self._var_sat_tag_container, 1)
@@ -166,14 +178,16 @@ class Phase3Flesh(QWidget):
             "QPushButton:hover{background:#fdebd0;}"
         )
         btn_add_sat.clicked.connect(self._add_sat_tag)
-        sat_row.addWidget(btn_add_sat)
+        sat_row.addWidget(btn_add_sat, alignment=Qt.AlignTop)
         fg_layout.addLayout(sat_row)
 
         # 钩子行
         hook_row = QHBoxLayout()
-        hook_row.addWidget(QLabel("<b>🪝 钩子:</b>"))
+        lbl_hook = QLabel("<b>🪝 钩子:</b>")
+        hook_row.addWidget(lbl_hook, alignment=Qt.AlignTop)
         self._var_hook_tag_container = QWidget()
-        self._var_hook_tag_flow = QHBoxLayout(self._var_hook_tag_container)
+        self._var_hook_tag_container.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        self._var_hook_tag_flow = QVBoxLayout(self._var_hook_tag_container)
         self._var_hook_tag_flow.setContentsMargins(0, 0, 0, 0)
         self._var_hook_tag_flow.setSpacing(4)
         hook_row.addWidget(self._var_hook_tag_container, 1)
@@ -186,6 +200,7 @@ class Phase3Flesh(QWidget):
             "QPushButton:hover{background:#ebdef0;}"
         )
         btn_add_hook.clicked.connect(self._add_hook_tag)
+        hook_row.addWidget(btn_add_hook, alignment=Qt.AlignTop)
         fg_layout.addLayout(hook_row)
 
         # 已选公式 ID 集合
@@ -196,7 +211,10 @@ class Phase3Flesh(QWidget):
         cl.addWidget(formula_group)
 
         # 生成按钮行
-        gen_row = QHBoxLayout()
+        gen_layout = QVBoxLayout()
+        gen_layout.setSpacing(8)
+
+        gen_row1 = QHBoxLayout()
         self._btn_generate = QPushButton("开始生成变体")
         self._btn_generate.setMinimumHeight(38)
         self._btn_generate.setStyleSheet(
@@ -206,16 +224,21 @@ class Phase3Flesh(QWidget):
             "QPushButton:disabled{background:#bdc3c7;color:#888;}"
         )
         self._btn_generate.clicked.connect(self._on_generate)
-        gen_row.addWidget(self._btn_generate)
+        gen_row1.addWidget(self._btn_generate)
+        gen_row1.addStretch()
+        gen_layout.addLayout(gen_row1)
 
-        gen_row.addWidget(QLabel("  批量生成后续"))
-        self._batch_count_spin = QSpinBox()
+        gen_row2 = QHBoxLayout()
+        gen_row2.addWidget(QLabel("批量生成后续"))
+        from ui.widgets.int_spinbox import IntSpinBox
+        self._batch_count_spin = IntSpinBox()
         self._batch_count_spin.setRange(1, 99)
         self._batch_count_spin.setValue(3)
         self._batch_count_spin.setSuffix(" 章")
         self._batch_count_spin.setToolTip("一键按当前人格配置生成后续多个章节")
-        self._batch_count_spin.setMinimumWidth(80)
-        gen_row.addWidget(self._batch_count_spin)
+        self._batch_count_spin.setMinimumWidth(100)
+        self._batch_count_spin.setFixedHeight(38)
+        gen_row2.addWidget(self._batch_count_spin)
 
         self._btn_batch = QPushButton("🚀 一键批量生成")
         self._btn_batch.setMinimumHeight(38)
@@ -226,8 +249,11 @@ class Phase3Flesh(QWidget):
             "QPushButton:disabled{background:#bdc3c7;color:#888;}"
         )
         self._btn_batch.clicked.connect(self._on_batch_generate)
-        gen_row.addWidget(self._btn_batch)
+        gen_row2.addWidget(self._btn_batch)
+        gen_row2.addStretch()
+        gen_layout.addLayout(gen_row2)
 
+        gen_row3 = QHBoxLayout()
         self._btn_autopilot = QPushButton("✈️ 全部自动生成（覆盖已有）")
         self._btn_autopilot.setMinimumHeight(38)
         self._btn_autopilot.setToolTip(
@@ -242,10 +268,11 @@ class Phase3Flesh(QWidget):
             "QPushButton:disabled{background:#bdc3c7;color:#888;}"
         )
         self._btn_autopilot.clicked.connect(self._on_autopilot_generate)
-        gen_row.addWidget(self._btn_autopilot)
+        gen_row3.addWidget(self._btn_autopilot)
+        gen_row3.addStretch()
+        gen_layout.addLayout(gen_row3)
 
-        gen_row.addStretch()
-        cl.addLayout(gen_row)
+        cl.addLayout(gen_layout)
 
         # === 卡片区 (放在左侧下方) ===
         cards_container = QWidget()
@@ -329,12 +356,13 @@ class Phase3Flesh(QWidget):
         left_scroll.setWidgetResizable(True)
         left_scroll.setFrameShape(QScrollArea.NoFrame)
         left_scroll.setWidget(left_widget)
+        left_scroll.setMaximumWidth(520)
 
         main_splitter.addWidget(left_scroll)
         main_splitter.addWidget(right)
-        main_splitter.setStretchFactor(0, 1)
+        main_splitter.setStretchFactor(0, 0)
         main_splitter.setStretchFactor(1, 1)
-        main_splitter.setSizes([500, 500])
+        main_splitter.setSizes([460, 540])
 
         vl.addWidget(main_splitter, 1)
 
@@ -632,6 +660,12 @@ class Phase3Flesh(QWidget):
         if not selected_keys:
             QMessageBox.warning(self, "提示", "请至少选择一个人格！")
             return
+        if not self._var_sat_selected_ids:
+            QMessageBox.warning(self, "提示", "请至少添加一个爽感公式！")
+            return
+        if not self._var_hook_selected_ids:
+            QMessageBox.warning(self, "提示", "请至少添加一个钩子公式！")
+            return
 
         # 获取当前节点索引
         current_idx = self._node_combo.currentIndex()
@@ -664,6 +698,12 @@ class Phase3Flesh(QWidget):
         selected_keys = self._persona_selector.get_selected_keys()
         if not selected_keys:
             QMessageBox.warning(self, "提示", "请至少选择一个人格！")
+            return
+        if not self._var_sat_selected_ids:
+            QMessageBox.warning(self, "提示", "请至少添加一个爽感公式！")
+            return
+        if not self._var_hook_selected_ids:
+            QMessageBox.warning(self, "提示", "请至少添加一个钩子公式！")
             return
 
         total_nodes = len(self.project_data.cpg_nodes)
@@ -773,7 +813,8 @@ class Phase3Flesh(QWidget):
             if s:
                 level_cn = {"small": "小爽", "medium": "中爽", "big": "大爽"}.get(s.level, s.level)
                 self._var_sat_tag_flow.addWidget(
-                    self._make_formula_tag(f"{s.name}（{level_cn}）", sid, "sat")
+                    self._make_formula_tag(f"{s.name}（{level_cn}）", sid, "sat"),
+                    alignment=Qt.AlignLeft
                 )
         self._var_sat_tag_flow.addStretch()
 
@@ -783,7 +824,8 @@ class Phase3Flesh(QWidget):
             h = hook_map.get(hid)
             if h:
                 self._var_hook_tag_flow.addWidget(
-                    self._make_formula_tag(h.name, hid, "hook")
+                    self._make_formula_tag(h.name, hid, "hook"),
+                    alignment=Qt.AlignLeft
                 )
         self._var_hook_tag_flow.addStretch()
 
@@ -836,9 +878,9 @@ class Phase3Flesh(QWidget):
             parent=self,
         )
         if dlg.exec() == FormulaPickerDialog.Accepted:
-            chosen = dlg.get_chosen_id()
+            chosen = dlg.get_chosen_ids()
             if chosen:
-                self._var_sat_selected_ids.add(chosen)
+                self._var_sat_selected_ids.update(chosen)
                 self._refresh_formula_tags()
 
     def _add_hook_tag(self):
@@ -851,9 +893,9 @@ class Phase3Flesh(QWidget):
             parent=self,
         )
         if dlg.exec() == FormulaPickerDialog.Accepted:
-            chosen = dlg.get_chosen_id()
+            chosen = dlg.get_chosen_ids()
             if chosen:
-                self._var_hook_selected_ids.add(chosen)
+                self._var_hook_selected_ids.update(chosen)
                 self._refresh_formula_tags()
 
     # ------------------------------------------------------------------ #
@@ -867,6 +909,12 @@ class Phase3Flesh(QWidget):
         selected_keys = self._persona_selector.get_selected_keys()
         if not selected_keys:
             QMessageBox.warning(self, "提示", "请至少选择一个人格！")
+            return
+        if not self._var_sat_selected_ids:
+            QMessageBox.warning(self, "提示", "请至少添加一个爽感公式！")
+            return
+        if not self._var_hook_selected_ids:
+            QMessageBox.warning(self, "提示", "请至少添加一个钩子公式！")
             return
 
         self._clear_cards()

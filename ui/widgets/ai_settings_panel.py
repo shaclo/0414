@@ -50,7 +50,7 @@ class AISettingsPanel(QWidget):
 
         # --- 温度 ---
         temp_row = QHBoxLayout()
-        temp_row.addWidget(QLabel("温度 (Temperature):"))
+        temp_row.addWidget(QLabel("温度:"))
         self._temp_slider = QSlider(Qt.Horizontal)
         self._temp_slider.setRange(0, 200)  # 0.00 ~ 2.00，步进 0.01
         self._temp_slider.setValue(int(self._suggested_temp * 100))
@@ -59,6 +59,16 @@ class AISettingsPanel(QWidget):
         self._temp_label = QLabel(f"{self._suggested_temp:.2f}")
         self._temp_label.setMinimumWidth(40)
         temp_row.addWidget(self._temp_label)
+        
+        # --- Max Tokens (移到第一行，节省空间) ---
+        temp_row.addWidget(QLabel("  Max Tokens:"))
+        self._max_tokens_spin = QSpinBox()
+        self._max_tokens_spin.setRange(256, 65536)
+        self._max_tokens_spin.setSingleStep(512)
+        self._max_tokens_spin.setValue(DEFAULT_MAX_TOKENS)
+        self._max_tokens_spin.valueChanged.connect(self.settings_changed)
+        temp_row.addWidget(self._max_tokens_spin)
+        
         group_layout.addLayout(temp_row)
 
         # --- Top-P ---
@@ -78,16 +88,8 @@ class AISettingsPanel(QWidget):
         self._topk_spin.setValue(DEFAULT_TOP_K)
         self._topk_spin.valueChanged.connect(self.settings_changed)
         topp_row.addWidget(self._topk_spin)
-
-        # --- Max Tokens ---
-        topp_row.addWidget(QLabel("Max Tokens:"))
-        self._max_tokens_spin = QSpinBox()
-        self._max_tokens_spin.setRange(256, 65536)
-        self._max_tokens_spin.setSingleStep(512)
-        self._max_tokens_spin.setValue(DEFAULT_MAX_TOKENS)
-        self._max_tokens_spin.valueChanged.connect(self.settings_changed)
-        topp_row.addWidget(self._max_tokens_spin)
-
+        
+        topp_row.addStretch()
         group_layout.addLayout(topp_row)
 
         outer_layout = QVBoxLayout(group)

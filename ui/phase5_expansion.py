@@ -213,9 +213,12 @@ class Phase5Expansion(QWidget):
 
         # 爽感行
         sat_row = QHBoxLayout()
-        sat_row.addWidget(QLabel("<b>⚡ 爽感:</b>"))
+        sat_label = QLabel("<b>⚡ 爽感:</b>")
+        sat_label.setAlignment(Qt.AlignTop)
+        sat_row.addWidget(sat_label)
         self._exp_sat_tag_container = QWidget()
-        self._exp_sat_tag_flow = QHBoxLayout(self._exp_sat_tag_container)
+        self._exp_sat_tag_flow = QVBoxLayout(self._exp_sat_tag_container)
+        self._exp_sat_tag_flow.setAlignment(Qt.AlignLeft | Qt.AlignTop)
         self._exp_sat_tag_flow.setContentsMargins(0, 0, 0, 0)
         self._exp_sat_tag_flow.setSpacing(4)
         sat_row.addWidget(self._exp_sat_tag_container, 1)
@@ -228,14 +231,17 @@ class Phase5Expansion(QWidget):
             "QPushButton:hover{background:#fdebd0;}"
         )
         btn_add_sat.clicked.connect(self._add_exp_sat_tag)
-        sat_row.addWidget(btn_add_sat)
+        sat_row.addWidget(btn_add_sat, alignment=Qt.AlignTop)
         fg_layout.addLayout(sat_row)
 
         # 钩子行
         hook_row = QHBoxLayout()
-        hook_row.addWidget(QLabel("<b>🪝 钩子:</b>"))
+        hook_label = QLabel("<b>🪝 钩子:</b>")
+        hook_label.setAlignment(Qt.AlignTop)
+        hook_row.addWidget(hook_label)
         self._exp_hook_tag_container = QWidget()
-        self._exp_hook_tag_flow = QHBoxLayout(self._exp_hook_tag_container)
+        self._exp_hook_tag_flow = QVBoxLayout(self._exp_hook_tag_container)
+        self._exp_hook_tag_flow.setAlignment(Qt.AlignLeft | Qt.AlignTop)
         self._exp_hook_tag_flow.setContentsMargins(0, 0, 0, 0)
         self._exp_hook_tag_flow.setSpacing(4)
         hook_row.addWidget(self._exp_hook_tag_container, 1)
@@ -248,6 +254,7 @@ class Phase5Expansion(QWidget):
             "QPushButton:hover{background:#ebdef0;}"
         )
         btn_add_hook.clicked.connect(self._add_exp_hook_tag)
+        hook_row.addWidget(btn_add_hook, alignment=Qt.AlignTop)
         fg_layout.addLayout(hook_row)
 
         # 已选公式 ID 集合（用 enabled 状态初始化）
@@ -256,34 +263,38 @@ class Phase5Expansion(QWidget):
         self._refresh_exp_formula_tags()
 
         # 爽感节奏参数
-        from PySide6.QtWidgets import QSpinBox
+        from ui.widgets.int_spinbox import IntSpinBox
         interval_row = QHBoxLayout()
         interval_row.addWidget(QLabel("小爽每"))
-        self._sat_small_spin = QSpinBox()
+        self._sat_small_spin = IntSpinBox()
         self._sat_small_spin.setRange(1, 5)
         self._sat_small_spin.setValue(self.project_data.sat_small_interval)
         self._sat_small_spin.setSuffix("集")
-        self._sat_small_spin.setFixedWidth(90)
+        self._sat_small_spin.setMinimumWidth(100)
+        self._sat_small_spin.setFixedHeight(32)
         self._sat_small_spin.valueChanged.connect(self._on_sat_interval_changed)
         interval_row.addWidget(self._sat_small_spin)
 
         interval_row.addWidget(QLabel(" 中爽每"))
-        self._sat_medium_spin = QSpinBox()
+        self._sat_medium_spin = IntSpinBox()
         self._sat_medium_spin.setRange(1, 20)
         self._sat_medium_spin.setValue(self.project_data.sat_medium_interval)
         self._sat_medium_spin.setSuffix("集")
-        self._sat_medium_spin.setFixedWidth(90)
+        self._sat_medium_spin.setMinimumWidth(100)
+        self._sat_medium_spin.setFixedHeight(32)
         self._sat_medium_spin.valueChanged.connect(self._on_sat_interval_changed)
         interval_row.addWidget(self._sat_medium_spin)
 
         interval_row.addWidget(QLabel(" 大爽每"))
-        self._sat_big_spin = QSpinBox()
+        self._sat_big_spin = IntSpinBox()
         self._sat_big_spin.setRange(1, 50)
         self._sat_big_spin.setValue(self.project_data.sat_big_interval)
         self._sat_big_spin.setSuffix("集")
-        self._sat_big_spin.setFixedWidth(90)
+        self._sat_big_spin.setMinimumWidth(100)
+        self._sat_big_spin.setFixedHeight(32)
         self._sat_big_spin.valueChanged.connect(self._on_sat_interval_changed)
         interval_row.addWidget(self._sat_big_spin)
+        
         interval_row.addStretch()
         fg_layout.addLayout(interval_row)
 
@@ -336,12 +347,13 @@ class Phase5Expansion(QWidget):
 
         # 重新生成当前 + 后续 N 章
         btn_row1.addWidget(QLabel("  从当前起重生:"))
-        from PySide6.QtWidgets import QSpinBox
-        self._regen_spin = QSpinBox()
+        from ui.widgets.int_spinbox import IntSpinBox
+        self._regen_spin = IntSpinBox()
         self._regen_spin.setRange(1, 20)
         self._regen_spin.setValue(1)
         self._regen_spin.setSuffix(" 章")
-        self._regen_spin.setFixedWidth(80)
+        self._regen_spin.setMinimumWidth(100)
+        self._regen_spin.setFixedHeight(36)
         btn_row1.addWidget(self._regen_spin)
 
         self._btn_regen_subsequent = QPushButton("🔄 重新生成")
@@ -369,6 +381,15 @@ class Phase5Expansion(QWidget):
         )
         self._btn_batch.clicked.connect(self._on_expand_all)
         btn_row2.addWidget(self._btn_batch)
+
+        self._btn_clear_all = QPushButton("🗑️ 一键清除扩写内容")
+        self._btn_clear_all.setStyleSheet(
+            "QPushButton{background:#e74c3c;color:white;border:none;"
+            "border-radius:4px;padding:6px 14px;}"
+            "QPushButton:hover{background:#c0392b;}"
+        )
+        self._btn_clear_all.clicked.connect(self._on_clear_all_expansions)
+        btn_row2.addWidget(self._btn_clear_all)
 
         btn_row2.addStretch()
 
@@ -796,6 +817,23 @@ class Phase5Expansion(QWidget):
                 self._node_combo.setCurrentIndex(i)
                 break
         self._expand_node(first_nid)
+
+    def _on_clear_all_expansions(self):
+        reply = QMessageBox.warning(
+            self, "确认清除",
+            "这将会清除所有已扩写的剧本内容（仅正文，不影响 Beat 和骨架）。\n"
+            "此操作不可撤销，确定吗？",
+            QMessageBox.Yes | QMessageBox.No,
+            defaultButton=QMessageBox.No
+        )
+        if reply == QMessageBox.Yes:
+            self.project_data.screenplay_texts.clear()
+            self.project_data.push_history("clear_expansions")
+            self._refresh_node_combo()
+            if self._current_node_id:
+                self._screenplay_editor.set_text("")
+            self.status_message.emit("🧹 已清除所有扩写内容，请记得按 Ctrl+S 保存项目")
+            app_logger.info("扩写-清除", "用户清除了所有扩写的剧本内容")
 
     def _expand_node(self, node_id: str):
         node = next((n for n in self.project_data.cpg_nodes
