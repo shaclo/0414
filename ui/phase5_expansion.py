@@ -9,7 +9,7 @@ from PySide6.QtWidgets import (
     QPushButton, QSplitter, QComboBox, QTextEdit,
     QGroupBox, QMessageBox, QFileDialog, QSlider,
 )
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, Signal, QTimer
 
 from env import (
     SYSTEM_PROMPT_EXPANSION, USER_PROMPT_EXPANSION,
@@ -46,7 +46,12 @@ class Phase5Expansion(QWidget):
         self.project_data = project_data
         self._worker = None
         self._current_node_id: str = ""
+        self._expanding_node_id: str = ""   # 正在扩写的节点ID（不随用户切换而变）
         self._batch_queue: list = []     # 批量扩写队列（节点ID列表）
+        self._elapsed_seconds = 0
+        self._elapsed_timer = QTimer(self)
+        self._elapsed_timer.setInterval(1000)
+        self._elapsed_timer.timeout.connect(self._on_elapsed_tick)
         self._setup_ui()
 
     # ------------------------------------------------------------------ #
@@ -365,6 +370,23 @@ class Phase5Expansion(QWidget):
         )
         self._btn_regen_subsequent.clicked.connect(self._on_regen_subsequent)
         btn_row1.addWidget(self._btn_regen_subsequent)
+
+        # 取消按钮（仅在生成过程中可见）
+        self._btn_cancel = QPushButton("⏹ 取消生成")
+        self._btn_cancel.setStyleSheet(
+            "QPushButton{background:#e74c3c;color:white;font-weight:bold;"
+            "border:none;border-radius:4px;padding:6px 14px;}"
+            "QPushButton:hover{background:#c0392b;}"
+        )
+        self._btn_cancel.setVisible(False)
+        self._btn_cancel.clicked.connect(self._on_cancel_generation)
+        btn_row1.addWidget(self._btn_cancel)
+
+        # 耗时显示标签（仅在生成过程中可见）
+        self._elapsed_label = QLabel("")
+        self._elapsed_label.setStyleSheet("color:#e67e22; font-weight:bold;")
+        self._elapsed_label.setVisible(False)
+        btn_row1.addWidget(self._elapsed_label)
 
         btn_row1.addStretch()
         root.addLayout(btn_row1)
@@ -882,6 +904,7 @@ class Phase5Expansion(QWidget):
         target_min, target_max = self._screenplay_editor.get_target_range()
         target_word_count = f"{target_min}-{target_max}"
 
+        self._expanding_node_id = node_id  # 记录正在扩写的节点，不随用户切换而变
         self._set_busy(True)
         self.status_message.emit(f"🎬 正在扩写 {node_id}：{node.get('title','')}…")
 
@@ -1024,9 +1047,13 @@ class Phase5Expansion(QWidget):
         # 后处理：过滤元创作语言泄露
         text = self._postprocess_screenplay(text)
 
-        # 保存到 project_data
-        self.project_data.screenplay_texts[self._current_node_id] = text
-        self._screenplay_editor.set_text(text)
+        # 使用 _expanding_node_id 保存，而不是 _current_node_id，防止用户切换页面导致写入错误节点
+        target_nid = self._expanding_node_id or self._current_node_id
+        self.project_data.screenplay_texts[target_nid] = text
+
+        # 只有当用户正在查看该节点时才更新编辑器
+        if self._current_node_id == target_nid:
+            self._screenplay_editor.set_text(text)
 
         # 刷新下拉进度显示
         self._refresh_node_combo()
@@ -1042,7 +1069,7 @@ class Phase5Expansion(QWidget):
             self._expand_node(next_nid)
         else:
             self.status_message.emit(
-                f"✅ {self._current_node_id} 扩写完成 "
+                f"✅ {target_nid} 扩写完成 "
                 f"({len(text)}字)"
             )
 
@@ -1367,6 +1394,42 @@ class Phase5Expansion(QWidget):
         self._btn_save.setEnabled(not busy)
         self._btn_regen_subsequent.setEnabled(not busy)
         self._btn_rewrite.setText("生成中…" if busy else "🔄 重新扩写当前节点")
+        # 取消按钮与耗时显示
+        self._btn_cancel.setVisible(busy)
+        self._elapsed_label.setVisible(busy)
+        if busy:
+            self._elapsed_seconds = 0
+            self._elapsed_label.setText("‣ 已耗时 0s")
+            self._elapsed_timer.start()
+        else:
+            self._elapsed_timer.stop()
+            self._elapsed_label.setText("")
+
+    def _on_elapsed_tick(self):
+        self._elapsed_seconds += 1
+        secs = self._elapsed_seconds
+        if secs < 60:
+            time_str = f"{secs}s"
+        else:
+            time_str = f"{secs // 60}m{secs % 60:02d}s"
+        remaining = len(self._batch_queue)
+        extra = f"  (队列剩余 {remaining} 个)" if remaining else ""
+        self._elapsed_label.setText(f"‣ 已耗时 {time_str}{extra}")
+        # 状态栏也同步显示
+        self.status_message.emit(
+            f"🎬 正在扩写 {self._expanding_node_id}… 已耗时 {time_str}{extra}"
+        )
+
+    def _on_cancel_generation(self):
+        """用户主动取消当前扩写任务"""
+        self._batch_queue.clear()
+        if self._worker and self._worker.isRunning():
+            app_logger.warning("扩写-取消", f"用户手动取消扩写任务（{self._current_node_id}）")
+            self._worker.terminate()          # 强制终止线程
+            self._worker.wait(2000)            # 等待最多 2s
+            self._worker = None
+        self._set_busy(False)
+        self.status_message.emit("❌ 扩写已取消")
 
     def _on_error(self, msg: str):
         self._set_busy(False)

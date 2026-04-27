@@ -1079,6 +1079,16 @@ class Phase3Flesh(QWidget):
         self.project_data.confirmed_beats[nid] = beat_data
         self.project_data.push_history("confirm_beat", nid)
 
+        # 保存本次生成使用的参数快照（用于复盘追溯）
+        from datetime import datetime
+        self.project_data.flesh_generation_params[nid] = {
+            "persona_keys": self._persona_selector.get_selected_keys(),
+            "confirmed_persona_key": self._selected_persona_key,
+            "sat_ids": sorted(self._var_sat_selected_ids),
+            "hook_ids": sorted(self._var_hook_selected_ids),
+            "timestamp": datetime.now().isoformat(),
+        }
+
         from env import PERSONA_DEFINITIONS
         pname = PERSONA_DEFINITIONS.get(self._selected_persona_key, {}).get("name", self._selected_persona_key)
         app_logger.success(

@@ -48,21 +48,26 @@ class ScreenplayEditor(QWidget):
         toolbar.addStretch()
 
         toolbar.addWidget(QLabel("目标字数:"))
-        self._min_spin = QSpinBox()
+        from ui.widgets.int_spinbox import IntSpinBox
+        self._min_spin = IntSpinBox()
         self._min_spin.setRange(100, 5000)
         self._min_spin.setSingleStep(100)
         self._min_spin.setValue(self._target_min)
+        self._min_spin.setMinimumWidth(80)
         self._min_spin.setMaximumWidth(105)
+        self._min_spin.setFixedHeight(32)
         self._min_spin.valueChanged.connect(self._on_target_changed)
         toolbar.addWidget(self._min_spin)
 
         toolbar.addWidget(QLabel("-"))
 
-        self._max_spin = QSpinBox()
+        self._max_spin = IntSpinBox()
         self._max_spin.setRange(100, 5000)
         self._max_spin.setSingleStep(100)
         self._max_spin.setValue(self._target_max)
+        self._max_spin.setMinimumWidth(80)
         self._max_spin.setMaximumWidth(105)
+        self._max_spin.setFixedHeight(32)
         self._max_spin.valueChanged.connect(self._on_target_changed)
         toolbar.addWidget(self._max_spin)
 

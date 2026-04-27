@@ -61,6 +61,10 @@ class ProjectData:
     confirmed_beats: Dict[str, Optional[dict]] = field(default_factory=dict)
     # { "Ep1": {...StoryBeat dict...}, "Ep2": null, ... }
 
+    flesh_generation_params: Dict[str, dict] = field(default_factory=dict)
+    # 每个节点生成时使用的参数快照（用于复盘）
+    # { "Ep1": {"persona_keys": [...], "sat_ids": [...], "hook_ids": [...], "timestamp": "..."}, ... }
+
     ite_results: Optional[dict] = None      # 最近一次 ITE 分析结果
     rag_results: Dict[str, dict] = field(default_factory=dict)
 

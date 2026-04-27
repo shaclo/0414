@@ -910,6 +910,17 @@ class Phase2Skeleton(QWidget):
             )
             return
 
+        # ---- 确认检测 ----
+        confirmed_count = len(self.project_data.skeleton_confirmed_eps)
+        total_count = len(self.project_data.cpg_nodes)
+        if confirmed_count < total_count:
+            QMessageBox.warning(
+                self, "未完全确认",
+                f"当前有 {total_count - confirmed_count} 个节点未确认。\n"
+                f"请先确认所有节点（点击『确认本段』），再进入血肉阶段！"
+            )
+            return
+
         for node in self.project_data.cpg_nodes:
             nid = node.get("node_id", "")
             if nid and nid not in self.project_data.confirmed_beats:
