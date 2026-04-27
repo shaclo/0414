@@ -7,8 +7,8 @@
 # ====================================================================
 # 系统版本信息
 # ====================================================================
-APP_VERSION = "1.1.4"
-APP_BUILD_DATE = "2026-04-23"
+APP_VERSION = "1.1.4.202604271547"
+APP_BUILD_DATE = "2026-04-27"
 GITHUB_REPO_OWNER = "shaclo"
 GITHUB_REPO_NAME = "0414"
 GITHUB_RELEASES_API = f"https://api.github.com/repos/{GITHUB_REPO_OWNER}/{GITHUB_REPO_NAME}/releases/latest"

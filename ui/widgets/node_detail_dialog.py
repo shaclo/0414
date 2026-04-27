@@ -271,11 +271,40 @@ class NodeDetailDialog(QDialog):
         root = QVBoxLayout(self)
         root.setSpacing(6)
 
-        # ---- 顶部: 标题 + 版本下拉 ----
+        # ---- 顶部: 导航按钮 + 标题 + 版本下拉 ----
         top_row = QHBoxLayout()
+
+        # 上一集 / 下一集 导航按钮
+        self._btn_prev = QPushButton("◀ 上一集")
+        self._btn_prev.setAutoDefault(False)
+        self._btn_prev.setDefault(False)
+        self._btn_prev.setFixedHeight(28)
+        self._btn_prev.setStyleSheet(
+            "QPushButton{color:#2980b9;border:1px solid #aed6f1;border-radius:4px;padding:2px 10px;}"
+            "QPushButton:hover{background:#d6eaf8;}"
+            "QPushButton:disabled{color:#bdc3c7;border-color:#ddd;}"
+        )
+        self._btn_prev.clicked.connect(lambda: self._navigate(-1))
+        top_row.addWidget(self._btn_prev)
+
+        self._btn_next = QPushButton("下一集 ▶")
+        self._btn_next.setAutoDefault(False)
+        self._btn_next.setDefault(False)
+        self._btn_next.setFixedHeight(28)
+        self._btn_next.setStyleSheet(
+            "QPushButton{color:#2980b9;border:1px solid #aed6f1;border-radius:4px;padding:2px 10px;}"
+            "QPushButton:hover{background:#d6eaf8;}"
+            "QPushButton:disabled{color:#bdc3c7;border-color:#ddd;}"
+        )
+        self._btn_next.clicked.connect(lambda: self._navigate(1))
+        top_row.addWidget(self._btn_next)
+
+        top_row.addSpacing(8)
+
         nid = self._node.get("node_id", "")
         stage = self._node.get("hauge_stage_name", "")
-        top_row.addWidget(QLabel(f"<b>{nid}</b> — {stage}"))
+        self._title_label = QLabel(f"<b>{nid}</b> — {stage}")
+        top_row.addWidget(self._title_label)
         top_row.addStretch()
         top_row.addWidget(QLabel("版本:"))
         self._ver_combo = QComboBox()
@@ -284,6 +313,7 @@ class NodeDetailDialog(QDialog):
         top_row.addWidget(self._ver_combo)
         root.addLayout(top_row)
         self._refresh_version_combo()
+        self._update_nav_buttons()
 
         # ---- 中部: 左右分栏 ----
         splitter = QSplitter(Qt.Horizontal)
@@ -480,6 +510,67 @@ class NodeDetailDialog(QDialog):
         # 切换聊天记录到该版本
         if hasattr(self, '_chat_browser'):
             self._switch_chat_to_version(idx)
+
+    # ---- 节点导航 ----
+    def _get_sorted_nodes(self):
+        """按节点编号排序返回全部节点列表"""
+        import re
+        def _sort_key(n):
+            nums = re.findall(r'\d+', n.get("node_id", ""))
+            return tuple(int(x) for x in nums) if nums else (9999,)
+        return sorted(self._pd.cpg_nodes, key=_sort_key)
+
+    def _update_nav_buttons(self):
+        """根据当前节点位置更新上一集/下一集按钮的可用状态"""
+        sorted_nodes = self._get_sorted_nodes()
+        current_nid = self._node.get("node_id", "")
+        idx = next((i for i, n in enumerate(sorted_nodes) if n.get("node_id") == current_nid), -1)
+        self._btn_prev.setEnabled(idx > 0)
+        self._btn_next.setEnabled(0 <= idx < len(sorted_nodes) - 1)
+
+    def _navigate(self, direction: int):
+        """切换到上一集 (direction=-1) 或下一集 (direction=1)"""
+        sorted_nodes = self._get_sorted_nodes()
+        current_nid = self._node.get("node_id", "")
+        idx = next((i for i, n in enumerate(sorted_nodes) if n.get("node_id") == current_nid), -1)
+        target_idx = idx + direction
+        if target_idx < 0 or target_idx >= len(sorted_nodes):
+            return
+
+        # 切换到目标节点
+        self._node = sorted_nodes[target_idx]
+        nid = self._node.get("node_id", "")
+        stage = self._node.get("hauge_stage_name", "")
+        title = self._node.get("title", "")
+
+        # 更新窗口标题和标签
+        self.setWindowTitle(f"节点详情 — {nid}  {title}")
+        self._title_label.setText(f"<b>{nid}</b> — {stage}")
+
+        # 刷新版本下拉 + 表单
+        self._refresh_version_combo()
+        self._load_node_to_form(get_active_version_snapshot(self._node))
+
+        # 刷新因果边
+        self._all_other_nodes = [n for n in self._pd.cpg_nodes if n.get("node_id") != nid]
+        self._in_tags = {e["from_node"] for e in (self._pd.cpg_edges or []) if e.get("to_node") == nid}
+        self._out_tags = {e["to_node"] for e in (self._pd.cpg_edges or []) if e.get("from_node") == nid}
+        self._refresh_edge_tags()
+
+        # 刷新聊天记录
+        self._current_chat_ver = self._node.get("active_version", 0)
+        self._chat_history = self._load_version_chat(self._current_chat_ver)
+        self._render_chat_history()
+        self._clear_option_buttons()
+        if hasattr(self, '_btn_apply_chat'):
+            self._btn_apply_chat.setVisible(False)
+        self._pending_modify_node = None
+
+        # 刷新编号下拉
+        self._populate_id_combo()
+
+        # 更新导航按钮状态
+        self._update_nav_buttons()
 
     # ---- 工具: 从事件对象提取纯文本 ----
     @staticmethod

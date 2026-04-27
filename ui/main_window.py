@@ -339,7 +339,7 @@ class MainWindow(QMainWindow):
         if pd.cpg_nodes:
             highest = max(highest, 2)  # 骨架完成
         if any(v for v in pd.confirmed_beats.values()):
-            highest = max(highest, 3)  # 血肉（至少部分完成）
+            highest = max(highest, 4)  # 只要有部分血肉节点确认，就允许进入扩写（4）
 
         return highest
 

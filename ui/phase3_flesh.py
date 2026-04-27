@@ -225,6 +225,18 @@ class Phase3Flesh(QWidget):
         )
         self._btn_generate.clicked.connect(self._on_generate)
         gen_row1.addWidget(self._btn_generate)
+
+        self._btn_stop = QPushButton("⛔ 停止生成")
+        self._btn_stop.setMinimumHeight(38)
+        self._btn_stop.setStyleSheet(
+            "QPushButton{background:#e74c3c;color:white;font-weight:bold;"
+            "border-radius:5px;border:none;}"
+            "QPushButton:hover{background:#c0392b;}"
+        )
+        self._btn_stop.clicked.connect(self._on_stop_generation)
+        self._btn_stop.setVisible(False)
+        gen_row1.addWidget(self._btn_stop)
+
         gen_row1.addStretch()
         gen_layout.addLayout(gen_row1)
 
@@ -458,7 +470,7 @@ class Phase3Flesh(QWidget):
         self._radio_group.addButton(self._radio_reset, 2)
         ngl.addWidget(self._radio_reset)
 
-        self._radio_done = QRadioButton("全部节点已确认 -> 进入锁定阶段")
+        self._radio_done = QRadioButton("全部节点已确认 -> 进入扩写阶段")
         self._radio_group.addButton(self._radio_done, 3)
         ngl.addWidget(self._radio_done)
 
@@ -990,6 +1002,10 @@ class Phase3Flesh(QWidget):
             )
             card.selected.connect(self._on_card_selected)
             self._cards_layout.addWidget(card)
+            
+            # 如果目前没有选中任何卡片，自动选中这一张
+            if not self._selected_persona_key:
+                card.set_selected(True)
         else:
             self.status_message.emit(
                 f"[警告] 人格 {result['persona_key']} 生成失败: {result.get('error','')}"
@@ -1373,9 +1389,27 @@ class Phase3Flesh(QWidget):
         self._btn_generate.setEnabled(not busy)
         self._btn_regen_node.setEnabled(not busy)
         self._btn_skip.setEnabled(not busy)
+        self._btn_batch.setEnabled(not busy)
+        self._btn_autopilot.setEnabled(not busy)
         if self._selected_persona_key:
             self._btn_confirm.setEnabled(not busy)
         self._btn_generate.setText("处理中..." if busy else "开始生成变体")
+        self._btn_stop.setVisible(busy)
+
+    def _on_stop_generation(self):
+        """强制终止当前生成任务"""
+        from services.logger_service import app_logger
+        if self._worker and self._worker.isRunning():
+            app_logger.warning("血肉-停止生成", "用户手动终止生成任务")
+            self._worker.terminate()
+            self._worker.wait(2000)
+            self._worker = None
+        # 同时终止批量/自动生成队列
+        self._batch_mode = False
+        self._batch_auto_confirm = False
+        self._batch_remaining = 0
+        self._set_busy_var(False)
+        self.status_message.emit("❌ 生成已停止")
 
     def _on_error_var(self, msg: str):
         self._set_busy_var(False)
