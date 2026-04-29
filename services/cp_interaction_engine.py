@@ -4,7 +4,7 @@ import os
 from typing import Dict, Any, List
 
 class CPInteractionEngine:
-    """CP 互动模板抽样引擎。仅在血肉阶段（Phase 4）被 worker 调用。"""
+    """人物冲突关系模板抽样引擎。仅在血肉阶段（Phase 4）被 worker 调用。"""
 
     STAGE_WHITELIST = {"flesh"}  # 仅血肉阶段允许调用
 
@@ -82,7 +82,7 @@ class CPInteractionEngine:
         # 阶段守卫：非血肉阶段调用 -> 抛出 RuntimeError
         if stage not in self.STAGE_WHITELIST:
             raise RuntimeError(
-                f"CP 互动模板库禁止在 {stage} 阶段调用。"
+                f"人物冲突关系模板库禁止在 {stage} 阶段调用。"
                 f"仅允许在 {self.STAGE_WHITELIST} 中使用。"
             )
 

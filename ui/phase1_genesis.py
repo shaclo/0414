@@ -88,7 +88,7 @@ class Phase1Genesis(QWidget):
         genre_row.addWidget(self._genre_desc, 1)
         il.addLayout(genre_row)
 
-        self._has_cp_checkbox = QCheckBox("本剧本含男女主主线（启用 CP 互动模板）")
+        self._has_cp_checkbox = QCheckBox("本剧本含人物冲突关系主线（启用人物关系互动模板）")
         self._has_cp_checkbox.setChecked(False)
         il.addWidget(self._has_cp_checkbox)
 

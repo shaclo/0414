@@ -66,7 +66,7 @@ def _format_chars_summary(characters: list) -> str:
             base += f" / 弧线: {arc}"
         cp_role = c.get("cp_role") or ""
         if cp_role:
-            base += f" / CP角色: {cp_role}"
+            base += f" / 冲突关系角色: {cp_role}"
         lines.append(base)
     return "\n".join(lines)
 
@@ -872,7 +872,7 @@ class VariationWorker(BaseWorker):
             if self.project_data and getattr(self.project_data, "has_cp_main_line", False) and self.cp_engine:
                 cp_suggestion = self.cp_engine.sample(self.target_node, self.project_data, stage="flesh")
                 if cp_suggestion:
-                    cp_suggestion_block = f"## CP 互动建议（必须采用，可改写不可省略）\n- 模板 ID: {cp_suggestion['id']}\n- 模板原文: {cp_suggestion['raw_template']}\n- 已渲染: {cp_suggestion['rendered_text']}\n- 钩子类型: {cp_suggestion['hook_type']}\n- 嵌入要求: 必须嵌入本集某个具体因果事件，占本集篇幅 ≤30%"
+                    cp_suggestion_block = f"## 人物关系互动建议（必须采用，可改写不可省略）\n- 模板 ID: {cp_suggestion['id']}\n- 模板原文: {cp_suggestion['raw_template']}\n- 已渲染: {cp_suggestion['rendered_text']}\n- 钩子类型: {cp_suggestion['hook_type']}\n- 嵌入要求: 必须嵌入本集某个具体因果事件，占本集篇幅 ≤30%"
 
             character_micro_change_requirement = self._build_character_micro_change_requirement(self.target_node)
             hook_history_constraint = self._build_hook_history_constraint()

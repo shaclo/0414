@@ -1,6 +1,6 @@
 # ============================================================
 # ui/widgets/cp_settings_dialog.py
-# CP 互动模板设置 & 预览对话框
+# 人物冲突关系模板设置 & 预览对话框
 # ============================================================
 
 import json
@@ -74,7 +74,7 @@ def _collect_all_templates(data: dict) -> list:
 
 class CPSettingsDialog(QDialog):
     """
-    CP 互动模板设置 & 预览对话框。
+    人物冲突关系模板设置 & 预览对话框。
     左侧：当前项目 CP 状态 + 模板列表（可按题材筛选）
     右侧：选中模板的完整内容预览
     """
@@ -85,7 +85,7 @@ class CPSettingsDialog(QDialog):
         self._all_templates: list = []   # [(section_label, tpl_dict), ...]
         self._filtered: list = []
 
-        self.setWindowTitle("CP 互动模板设置")
+        self.setWindowTitle("人物冲突关系模板设置")
         self.setMinimumSize(960, 640)
         self._load_data()
         self._setup_ui()
@@ -105,7 +105,7 @@ class CPSettingsDialog(QDialog):
 
         # 顶部说明
         tip = QLabel(
-            "CP 互动模板库（来源：config/cp_interaction_templates.json）。\n"
+            "人物冲突关系模板库（来源：config/cp_interaction_templates.json）。\n"
             "血肉阶段生成时，系统自动从题材匹配的模板中抽取一条注入 AI Prompt，要求 AI 在本集内使用。"
         )
         tip.setWordWrap(True)
@@ -113,12 +113,12 @@ class CPSettingsDialog(QDialog):
         root.addWidget(tip)
 
         # ── 状态栏 ──
-        status_group = QGroupBox("当前项目 CP 状态")
+        status_group = QGroupBox("当前项目人物冲突关系状态")
         sg_layout = QHBoxLayout(status_group)
 
         has_cp = bool(self._project_data and getattr(self._project_data, "has_cp_main_line", False))
-        status_text = "✅ 已启用（在「创世」阶段勾选了「含男女主 CP 主线」）" if has_cp \
-            else "❌ 未启用（若需开启，请在「创世」阶段勾选「含男女主 CP 主线」）"
+        status_text = "✅ 已启用（在「创世」阶段勾选了「含人物冲突关系主线」）" if has_cp \
+            else "❌ 未启用（若需开启，请在「创世」阶段勾选「含人物冲突关系主线」）"
         status_lbl = QLabel(status_text)
         status_lbl.setStyleSheet(
             "color:#27ae60;font-weight:bold;" if has_cp else "color:#e74c3c;"
@@ -129,7 +129,7 @@ class CPSettingsDialog(QDialog):
 
         role_a = self._derive_role("A")
         role_b = self._derive_role("B")
-        role_lbl = QLabel(f"CP角色：{role_a or '（未设定）'} × {role_b or '（未设定）'}")
+        role_lbl = QLabel(f"冲突关系角色：{role_a or '（未设定）'} × {role_b or '（未设定）'}")
         role_lbl.setStyleSheet("color:#2c3e50;")
         sg_layout.addWidget(role_lbl)
         sg_layout.addStretch()
@@ -286,7 +286,7 @@ class CPSettingsDialog(QDialog):
             if phase:
                 label += f"  P{phase}"
             item = QListWidgetItem(label)
-            item.setData(Qt.UserRole, len(self._list))
+            item.setData(Qt.UserRole, self._list.count())
             self._list.addItem(item)
 
         self._count_lbl.setText(f"共 {len(filtered)} 条")

@@ -165,13 +165,13 @@ class CharacterEditor(QWidget):
         self._arc_edit.textChanged.connect(self._emit_change)
         a_form.addRow("📈 角色弧线：", self._arc_edit)
 
-        # v1.1.6 CP 角色标记（血肉阶段 CP 互动模板占位符注入用）
+        # v1.1.6 冲突关系角色标记（血肉阶段人物关系模板占位符注入用）
         self._cp_role_combo = QComboBox()
         self._cp_role_combo.addItem("无", "")
-        self._cp_role_combo.addItem("A（CP主角）", "A")
-        self._cp_role_combo.addItem("B（CP副角）", "B")
+        self._cp_role_combo.addItem("A（关系主角）", "A")
+        self._cp_role_combo.addItem("B（关系副角）", "B")
         self._cp_role_combo.currentIndexChanged.connect(self._emit_change)
-        a_form.addRow("💑 CP角色：", self._cp_role_combo)
+        a_form.addRow("⚡ 冲突关系角色：", self._cp_role_combo)
 
         self._a_group.setVisible(False)
         gl.addWidget(self._a_group)

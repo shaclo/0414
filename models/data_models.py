@@ -75,7 +75,7 @@ class StoryBeat:
     v1.1.6 新增 4 个字段（输出验收硬指标）：
         character_micro_change — 本集 A 级角色的微变化点（动作/台词外化，禁止内心独白）
         twist_summary          — 本集 ≥1 处转折点的简述（与 causal_events.twist_type 配合使用）
-        cp_interaction_used    — 本集采用的 CP 互动模板（仅 has_cp_main_line=True 时填写）
+        cp_interaction_used    — 本集采用的人物冲突关系模板（仅 has_cp_main_line=True 时填写）
                                   格式：{"id": "genre_004", "rendered_text": "..."}
         density_score          — 自评因果事件密度（int，要求 ≥3）
     """

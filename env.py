@@ -7,7 +7,7 @@
 # ====================================================================
 # 系统版本信息
 # ====================================================================
-APP_VERSION = "1.1.6"
+APP_VERSION = "1.1.6.20204291740"
 APP_BUILD_DATE = "2026-04-29"
 GITHUB_REPO_OWNER = "shaclo"
 GITHUB_REPO_NAME = "0414"
@@ -339,9 +339,9 @@ SYSTEM_PROMPT_SKELETON_SEGMENT = """\
 - 主线大反派最迟在 Ep5 必须正面登场或现身片段
 
 ## 阶段隔离铁律（v1.1.6）
-- 禁止在 event_units / event_summaries / opening_hook / episode_hook 中包含任何 CP 情绪互动用语
-  （撩拨/吃醋/调情/亲吻/拥抱/护妻揽腰/双向奔赴/贴耳低语/情侣式互动等）
-- 骨架阶段只产出"剧情事件"，CP 情绪由血肉阶段补充
+- 禁止在 event_units / event_summaries / opening_hook / episode_hook 中包含任何人物关系情绪互动细节
+  （撩拨/吃醋/调情/亲吻/拥抱/深情对视/双向奔赴/贴耳低语/挑衅示威/暗中较量/情绪对峙等）
+- 骨架阶段只产出"剧情事件"，人物关系情绪互动由血肉阶段补充
 
 {chapter_specific_instruction}
 
@@ -558,7 +558,7 @@ Story Beat（故事节拍）。这个节拍必须完全符合世界观设定，
 7. **钩子铁律**：必须包含一个 hook（悬念钩子），并在结尾标注 [信息钩|反转钩|动机钩|危机钩]。
 8. **扣子原则**：台上没有一颗扣子是多余的——每个事件必须直接或间接服务于核心冲突，
    填写 serves_core_conflict 字段说明。**禁止任何环境描写超过 1 行；禁止任何与因果链无关的氛围渲染**。
-9. **【血肉阶段独占】CP 互动铁律**：若系统注入 `cp_suggestion_block` 字段，本集必须包含 1 处 CP 互动（来自 cp_interaction_templates.json）。CP 互动必须满足：①嵌入某个具体因果事件；②占本集篇幅 ≤30%；③同类钩子不连续 3 集；④禁止 OOC（必须匹配角色 signature_traits）。
+9. **【血肉阶段独占】人物关系互动铁律**：若系统注入 `cp_suggestion_block` 字段，本集必须包含 1 处人物关系互动（来自 cp_interaction_templates.json）。互动必须满足：①嵌入某个具体因果事件；②占本集篇幅 ≤30%；③同类钩子不连续 3 集；④禁止 OOC（必须匹配角色 signature_traits）。
 10. **节奏铁律**：**禁止重复同一冲突的多个动作切片**（如打斗的'挥拳→闪避→反击→受伤'拆 4 集）。同一冲突最多展开为 1 集；连续 ≥2 集相同主场景必须切换地点。
 
 ## 创作自由度
@@ -633,16 +633,12 @@ USER_PROMPT_VARIATION = """## 故事梗概
 ## 主角核心目标（全剧不变的终极动机，本集的所有事件必须服务于此目标）
 {protagonist_goal}
 
-## 【CP 互动建议】（仅当有 CP 主线时注入）
 {cp_suggestion_block}
 
-## 【本集人物变化要求】
 {character_micro_change_requirement}
 
-## 【钩子配比约束】（本集需避开同类）
 {hook_history_constraint}
 
-## 【场景切换硬约束】（最近 2 集主场景）
 {scene_continuity_constraint}
 
 请按照 v1.1.6 升级 schema 输出 JSON（含 character_micro_change / twist_summary / density_score / cp_interaction_used 字段）。"""
@@ -1489,7 +1485,7 @@ SYSTEM_PROMPT_EXPANSION = """你是一位资深的短剧剧本编剧，擅长将
 - **环境描写字数占比 ≤15%**（短剧拍摄不需要文字氛围）
 - **台词 + 动作 + 剧情推进字数 ≥85%**
 - **禁止超过 3 行的纯氛围描写**
-- **只允许将血肉阶段已确认的 CP 互动镜头化、对白化、动作化。禁止新增任何未在 Beat 中出现的 CP 互动；禁止将已有 CP 互动扩展为超过 30% 篇幅的独立段落。**
+- **只允许将血肉阶段已确认的人物关系互动镜头化、对白化、动作化。禁止新增任何未在 Beat 中出现的人物关系互动；禁止将已有互动扩展为超过 30% 篇幅的独立段落。**
 
 ## 场景结构规则（核心！）
 1. **每集包含不多于 {scenes_per_episode} 个场景** — 每个场景有独立的空间、时间、戏剧目的

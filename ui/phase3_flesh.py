@@ -212,8 +212,8 @@ class Phase3Flesh(QWidget):
 
         cl.addWidget(formula_group)
 
-        # ── CP 互动状态面板 ──
-        self._cp_panel = QGroupBox("💑 CP 互动模板")
+        # ── 人物冲突关系状态面板 ──
+        self._cp_panel = QGroupBox("⚡ 人物冲突关系模板")
         self._cp_panel.setStyleSheet(
             "QGroupBox{border:1px solid #a9cce3;border-radius:4px;"
             "margin-top:6px;padding-top:4px;}"
@@ -225,12 +225,12 @@ class Phase3Flesh(QWidget):
         cp_layout.setSpacing(4)
 
         cp_top = QHBoxLayout()
-        self._cp_status_lbl = QLabel("CP互动：未启用")
+        self._cp_status_lbl = QLabel("人物关系互动：未启用")
         self._cp_status_lbl.setStyleSheet("color:#7f8c8d;")
         cp_top.addWidget(self._cp_status_lbl)
         cp_top.addStretch()
 
-        self._btn_cp_preview = QPushButton("🎲 预抽 CP 模板")
+        self._btn_cp_preview = QPushButton("🎲 预抽人物关系模板")
         self._btn_cp_preview.setFixedHeight(26)
         self._btn_cp_preview.setStyleSheet(
             "QPushButton{background:#eaf2ff;color:#2980b9;"
@@ -556,7 +556,7 @@ class Phase3Flesh(QWidget):
         has_cp = bool(getattr(self.project_data, "has_cp_main_line", False))
 
         if not has_cp:
-            self._cp_status_lbl.setText("CP互动：未启用（在「创世」阶段勾选含CP主线后生效）")
+            self._cp_status_lbl.setText("人物关系互动：未启用（在「创世」阶段勾选含人物冲突关系主线后生效）")
             self._cp_status_lbl.setStyleSheet("color:#7f8c8d;")
             self._btn_cp_preview.setEnabled(False)
             self._cp_preview_label.setVisible(False)
@@ -574,10 +574,10 @@ class Phase3Flesh(QWidget):
                     role_b = name
 
         if role_a and role_b:
-            self._cp_status_lbl.setText(f"✅ CP互动已启用  |  CP角色：{role_a} × {role_b}")
+            self._cp_status_lbl.setText(f"✅ 人物关系互动已启用  |  冲突关系角色：{role_a} × {role_b}")
             self._cp_status_lbl.setStyleSheet("color:#27ae60; font-weight:bold;")
         else:
-            self._cp_status_lbl.setText("⚠️ CP互动已启用，但尚未在角色表中设定 CP角色A/B（请进入「人物设定」标记）")
+            self._cp_status_lbl.setText("⚠️ 人物关系互动已启用，但尚未在角色表中设定 冲突关系角色A/B（请进入「人物设定」标记）")
             self._cp_status_lbl.setStyleSheet("color:#e67e22;")
 
         self._btn_cp_preview.setEnabled(True)
@@ -597,7 +597,7 @@ class Phase3Flesh(QWidget):
             return
 
         if not result:
-            self._cp_preview_label.setText("未抽到模板（检查 CP角色A/B 是否已设定，或模板库文件是否存在）")
+            self._cp_preview_label.setText("未抽到模板（检查冲突关系角色A/B 是否已设定，或模板库文件是否存在）")
             self._cp_preview_label.setVisible(True)
             return
 
@@ -1199,16 +1199,23 @@ class Phase3Flesh(QWidget):
         self.project_data.confirmed_beats[nid] = beat_data
         self.project_data.push_history("confirm_beat", nid)
 
-        # v1.1.6: 更新 CP 钩子历史（配比约束）
-        if getattr(self.project_data, "has_cp_main_line", False):
+        # v1.1.6: 更新钩子类型历史（配比约束）—— 始终追踪，不限于冲突关系主线
+        hook_field = beat_data.get("hook", "") or ""
+        hook_type = ""
+        # 从 hook 字段尾部提取 [类型] 标签
+        import re
+        tag_match = re.search(r'\[(信息钩|反转钩|动机钩|危机钩)\]', hook_field)
+        if tag_match:
+            hook_type = tag_match.group(1)
+        # 如果启用了冲突关系主线，则也尝试从 cp_interaction_used 提取钩子类型
+        if not hook_type and getattr(self.project_data, "has_cp_main_line", False):
             cp_used = beat_data.get("cp_interaction_used") or {}
-            hook_type = cp_used.get("hook_type", "") if isinstance(cp_used, dict) else ""
-            if not hook_type:
-                hook_type = beat_data.get("hook", "")[:6]  # fallback: 取结尾钩子前6字符
-            if hook_type:
-                history = list(getattr(self.project_data, "cp_hook_history", []) or [])
-                history.append(hook_type)
-                self.project_data.cp_hook_history = history[-6:]  # 保留最近6条
+            if isinstance(cp_used, dict):
+                hook_type = cp_used.get("hook_type", "")
+        if hook_type:
+            history = list(getattr(self.project_data, "cp_hook_history", []) or [])
+            history.append(hook_type)
+            self.project_data.cp_hook_history = history[-6:]  # 保留最近6条
 
         # 保存本次生成使用的参数快照（用于复盘追溯）
         from datetime import datetime
@@ -1601,7 +1608,7 @@ class Phase3Flesh(QWidget):
             if micro_change:
                 lines.append(f"  • A级角色微变化: {micro_change}")
             if cp_interaction:
-                lines.append(f"  • CP互动 (模板 {cp_interaction.get('id','')}): {cp_interaction.get('rendered_text','')}")
+                lines.append(f"  • 人物关系互动 (模板 {cp_interaction.get('id','')}): {cp_interaction.get('rendered_text','')}")
             lines.append("")
 
         # 因果事件链

@@ -116,8 +116,8 @@ class MainWindow(QMainWindow):
         bvsr_act.triggered.connect(self._on_bvsr_settings)
         sys_menu.addAction(bvsr_act)
 
-        cp_act = QAction("CP 互动模板设置...", self)
-        cp_act.setStatusTip("查看并预览 CP 互动模板库，确认血肉阶段的 CP 注入状态")
+        cp_act = QAction("人物冲突关系模板设置...", self)
+        cp_act.setStatusTip("查看并预览人物冲突关系模板库，确认血肉阶段的关系互动注入状态")
         cp_act.triggered.connect(self._on_cp_settings)
         sys_menu.addAction(cp_act)
 
