@@ -82,6 +82,12 @@ class ProjectData:
     # [{ "timestamp": "...", "action": "confirm_beat|generate_skeleton|...",
     #    "node": "Ep1", "snapshot": {...} }]
 
+    # ----- v1.1.6: CP 互动相关 -----
+    has_cp_main_line: bool = False           # 是否含男女主主线（Phase 1 创世阶段勾选）
+    cp_role_a: str = ""                       # CP 主角色 A 名（从角色表 cp_role=="A" 派生或手动设置）
+    cp_role_b: str = ""                       # CP 主角色 B 名（从角色表 cp_role=="B" 派生或手动设置）
+    cp_hook_history: List[str] = field(default_factory=list)  # 最近已用钩子类型列表（配比约束）
+
     # ----- 骨架 AI 辅助修改 自定义设置 -----
     custom_drama_directions: Optional[List[list]] = None    # [[key, label], ...] 自定义情节方向
     custom_structure_options: Optional[List[list]] = None   # [[key, label], ...] 自定义结构微调

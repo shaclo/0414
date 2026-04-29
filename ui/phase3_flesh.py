@@ -22,6 +22,7 @@ from env import (
 )
 from services.worker import VariationWorker, ITEWorker, RAGWorker
 from services.rag_controller import rag_controller
+from services.cp_interaction_engine import CPInteractionEngine
 from services.logger_service import app_logger
 from ui.widgets.ai_settings_panel import AISettingsPanel
 from ui.widgets.prompt_viewer import PromptViewer
@@ -57,6 +58,7 @@ class Phase3Flesh(QWidget):
         self._batch_auto_confirm  = False
         self._batch_remaining     = 0
         self._batch_persona_key   = None
+        self._cp_engine           = CPInteractionEngine()
         self._setup_ui()
 
     # ------------------------------------------------------------------ #
@@ -209,6 +211,48 @@ class Phase3Flesh(QWidget):
         self._refresh_formula_tags()
 
         cl.addWidget(formula_group)
+
+        # ── CP 互动状态面板 ──
+        self._cp_panel = QGroupBox("💑 CP 互动模板")
+        self._cp_panel.setStyleSheet(
+            "QGroupBox{border:1px solid #a9cce3;border-radius:4px;"
+            "margin-top:6px;padding-top:4px;}"
+            "QGroupBox::title{subcontrol-origin:margin;left:8px;"
+            "color:#2980b9;font-weight:bold;}"
+        )
+        cp_layout = QVBoxLayout(self._cp_panel)
+        cp_layout.setContentsMargins(8, 4, 8, 6)
+        cp_layout.setSpacing(4)
+
+        cp_top = QHBoxLayout()
+        self._cp_status_lbl = QLabel("CP互动：未启用")
+        self._cp_status_lbl.setStyleSheet("color:#7f8c8d;")
+        cp_top.addWidget(self._cp_status_lbl)
+        cp_top.addStretch()
+
+        self._btn_cp_preview = QPushButton("🎲 预抽 CP 模板")
+        self._btn_cp_preview.setFixedHeight(26)
+        self._btn_cp_preview.setStyleSheet(
+            "QPushButton{background:#eaf2ff;color:#2980b9;"
+            "border:1px solid #aed6f1;border-radius:3px;padding:0 8px;}"
+            "QPushButton:hover{background:#d6eaf8;}"
+            "QPushButton:disabled{color:#bdc3c7;}"
+        )
+        self._btn_cp_preview.clicked.connect(self._on_cp_preview)
+        cp_top.addWidget(self._btn_cp_preview)
+        cp_layout.addLayout(cp_top)
+
+        self._cp_preview_label = QLabel("")
+        self._cp_preview_label.setWordWrap(True)
+        self._cp_preview_label.setStyleSheet(
+            "background:#f0f9ff;border:1px solid #bee3f8;"
+            "border-radius:3px;padding:6px;color:#1a5276;"
+            "font-family:'Microsoft YaHei','Noto Sans CJK SC',sans-serif;"
+        )
+        self._cp_preview_label.setVisible(False)
+        cp_layout.addWidget(self._cp_preview_label)
+
+        cl.addWidget(self._cp_panel)
 
         # 生成按钮行
         gen_layout = QVBoxLayout()
@@ -505,6 +549,64 @@ class Phase3Flesh(QWidget):
         self._refresh_modify_combo()
         self._update_progress()
         self._show_var_view()
+        self._update_cp_panel()
+
+    def _update_cp_panel(self):
+        """根据 project_data 的 CP 状态刷新面板显示。"""
+        has_cp = bool(getattr(self.project_data, "has_cp_main_line", False))
+
+        if not has_cp:
+            self._cp_status_lbl.setText("CP互动：未启用（在「创世」阶段勾选含CP主线后生效）")
+            self._cp_status_lbl.setStyleSheet("color:#7f8c8d;")
+            self._btn_cp_preview.setEnabled(False)
+            self._cp_preview_label.setVisible(False)
+            return
+
+        role_a = getattr(self.project_data, "cp_role_a", "") or ""
+        role_b = getattr(self.project_data, "cp_role_b", "") or ""
+        if not role_a or not role_b:
+            for c in (getattr(self.project_data, "characters", None) or []):
+                cp_role = c.get("cp_role", "") if isinstance(c, dict) else getattr(c, "cp_role", "")
+                name = c.get("name", "") if isinstance(c, dict) else getattr(c, "name", "")
+                if cp_role == "A" and not role_a:
+                    role_a = name
+                elif cp_role == "B" and not role_b:
+                    role_b = name
+
+        if role_a and role_b:
+            self._cp_status_lbl.setText(f"✅ CP互动已启用  |  CP角色：{role_a} × {role_b}")
+            self._cp_status_lbl.setStyleSheet("color:#27ae60; font-weight:bold;")
+        else:
+            self._cp_status_lbl.setText("⚠️ CP互动已启用，但尚未在角色表中设定 CP角色A/B（请进入「人物设定」标记）")
+            self._cp_status_lbl.setStyleSheet("color:#e67e22;")
+
+        self._btn_cp_preview.setEnabled(True)
+
+    def _on_cp_preview(self):
+        """预抽一条 CP 模板并显示在面板上。"""
+        node = self._get_current_node()
+        if not node:
+            self._cp_preview_label.setText("（请先选择节点）")
+            self._cp_preview_label.setVisible(True)
+            return
+        try:
+            result = self._cp_engine.sample(node, self.project_data, stage="flesh")
+        except Exception as e:
+            self._cp_preview_label.setText(f"抽取失败：{e}")
+            self._cp_preview_label.setVisible(True)
+            return
+
+        if not result:
+            self._cp_preview_label.setText("未抽到模板（检查 CP角色A/B 是否已设定，或模板库文件是否存在）")
+            self._cp_preview_label.setVisible(True)
+            return
+
+        text = (
+            f"【{result['hook_type']}】  ID: {result['id']}\n"
+            f"{result['rendered_text']}"
+        )
+        self._cp_preview_label.setText(text)
+        self._cp_preview_label.setVisible(True)
 
     def _show_var_view(self):
         self._view_var.setVisible(True)
@@ -983,6 +1085,8 @@ class Phase3Flesh(QWidget):
             satisfaction_prompt_injection=sat_injection,
             hook_prompt_injection=hook_injection,
             previous_episode_hook=previous_episode_hook,
+            cp_engine=self._cp_engine if getattr(self.project_data, "has_cp_main_line", False) else None,
+            project_data=self.project_data,
         )
         self._worker.progress.connect(self.status_message)
         self._worker.beat_ready.connect(self._on_beat_ready)
@@ -1094,6 +1198,17 @@ class Phase3Flesh(QWidget):
         self._confirmed_beat_data = beat_data
         self.project_data.confirmed_beats[nid] = beat_data
         self.project_data.push_history("confirm_beat", nid)
+
+        # v1.1.6: 更新 CP 钩子历史（配比约束）
+        if getattr(self.project_data, "has_cp_main_line", False):
+            cp_used = beat_data.get("cp_interaction_used") or {}
+            hook_type = cp_used.get("hook_type", "") if isinstance(cp_used, dict) else ""
+            if not hook_type:
+                hook_type = beat_data.get("hook", "")[:6]  # fallback: 取结尾钩子前6字符
+            if hook_type:
+                history = list(getattr(self.project_data, "cp_hook_history", []) or [])
+                history.append(hook_type)
+                self.project_data.cp_hook_history = history[-6:]  # 保留最近6条
 
         # 保存本次生成使用的参数快照（用于复盘追溯）
         from datetime import datetime

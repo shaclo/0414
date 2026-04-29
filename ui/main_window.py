@@ -116,6 +116,11 @@ class MainWindow(QMainWindow):
         bvsr_act.triggered.connect(self._on_bvsr_settings)
         sys_menu.addAction(bvsr_act)
 
+        cp_act = QAction("CP 互动模板设置...", self)
+        cp_act.setStatusTip("查看并预览 CP 互动模板库，确认血肉阶段的 CP 注入状态")
+        cp_act.triggered.connect(self._on_cp_settings)
+        sys_menu.addAction(cp_act)
+
         strategy_act = QAction("回答风格策略...", self)
         strategy_act.setStatusTip("管理苏格拉底问答阶段「AI 自动回答」的风格策略和 Prompt 指令")
         strategy_act.triggered.connect(self._on_answer_strategy_settings)
@@ -489,6 +494,15 @@ class MainWindow(QMainWindow):
             if isinstance(w, Phase1Genesis) and hasattr(w, '_qa_panel'):
                 w._qa_panel.refresh_strategies()
 
+
+    def _on_cp_settings(self):
+        from ui.widgets.cp_settings_dialog import CPSettingsDialog
+        dlg = CPSettingsDialog(project_data=self.project_data, parent=self)
+        dlg.exec()
+        from ui.phase3_flesh import Phase3Flesh
+        for w in self._phase_widgets:
+            if isinstance(w, Phase3Flesh) and hasattr(w, "_update_cp_panel"):
+                w._update_cp_panel()
 
     def _on_genre_settings(self):
         from ui.widgets.genre_settings_dialog import GenreSettingsDialog

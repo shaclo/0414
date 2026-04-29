@@ -245,6 +245,8 @@ class Phase2Characters(QWidget):
             "gender": "未知",
             "age": "", "position": "", "personality": "",
             "motivation": "", "appearance": "", "notes": "",
+            # v1.1.6 新增字段
+            "signature_traits": [], "arc_outline": "", "cp_role": "",
         }
         self.project_data.characters.append(new_char)
         self._refresh_list()
@@ -379,6 +381,10 @@ class Phase2Characters(QWidget):
             # 也按名称映射（AI有时用名称作 char_id）
             id_map[c.get("name", "")] = new_id
             c["char_id"] = new_id
+            # v1.1.6：补全 AI 生成角色可能缺失的新字段
+            c.setdefault("signature_traits", [])
+            c.setdefault("arc_outline", "")
+            c.setdefault("cp_role", "")
             self.project_data.characters.append(c)
 
         # 追加关系 — 用映射表修正 from_char_id / to_char_id

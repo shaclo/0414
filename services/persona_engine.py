@@ -147,15 +147,15 @@ class PersonaEngine:
         max_tokens: int = 8192,
         drama_style_block: str = "",
         protagonist_goal: str = "",
-        characters_summary: str = "",
+        characters_summary_with_traits: str = "",
         satisfaction_prompt_injection: str = "",
         hook_prompt_injection: str = "",
         previous_episode_hook: str = "",
-        # v1.1.6 新增 4 个动态注入块
-        cp_interaction_block: str = "",
-        character_arc_progress_block: str = "",
-        stage_density_target_block: str = "",
-        trait_signature_focus_block: str = "",
+        # v1.1.6 新增 4 个动态注入块（名称与 worker.py / env.py 占位符保持一致）
+        cp_suggestion_block: str = "",
+        character_micro_change_requirement: str = "",
+        hook_history_constraint: str = "",
+        scene_continuity_constraint: str = "",
     ) -> list:
         """
         为每个激活的人格构建 AI 调用参数。
@@ -179,13 +179,13 @@ class PersonaEngine:
             .replace("{edge_relations_context}", edge_relations_context or "（本节点无连线）")
             .replace("{previous_confirmed_beats_json}", previous_confirmed_beats_json)
             .replace("{protagonist_goal}", protagonist_goal or "（未设定主角目标）")
-            .replace("{characters_summary}", characters_summary or "（未设定角色）")
+            .replace("{characters_summary_with_traits}", characters_summary_with_traits or "（未设定角色）")
             .replace("{previous_episode_hook}", previous_episode_hook or "（本集为开篇，无前集钩子）")
-            # v1.1.6 新增 4 个动态注入块（默认为空字符串，由 worker 层填充）
-            .replace("{cp_interaction_block}", cp_interaction_block or "")
-            .replace("{character_arc_progress_block}", character_arc_progress_block or "")
-            .replace("{stage_density_target_block}", stage_density_target_block or "")
-            .replace("{trait_signature_focus_block}", trait_signature_focus_block or "")
+            # v1.1.6 新增 4 个动态注入块（由 worker 层填充）
+            .replace("{cp_suggestion_block}", cp_suggestion_block or "")
+            .replace("{character_micro_change_requirement}", character_micro_change_requirement or "")
+            .replace("{hook_history_constraint}", hook_history_constraint or "")
+            .replace("{scene_continuity_constraint}", scene_continuity_constraint or "")
         )
 
         calls = []
@@ -233,16 +233,16 @@ class PersonaEngine:
         max_tokens: int = 8192,
         drama_style_block: str = "",
         protagonist_goal: str = "",
-        characters_summary: str = "",
+        characters_summary_with_traits: str = "",
         provider_pool: list = None,
         satisfaction_prompt_injection: str = "",
         hook_prompt_injection: str = "",
         previous_episode_hook: str = "",
-        # v1.1.6 新增 4 个动态注入块
-        cp_interaction_block: str = "",
-        character_arc_progress_block: str = "",
-        stage_density_target_block: str = "",
-        trait_signature_focus_block: str = "",
+        # v1.1.6 新增 4 个动态注入块（名称与 worker.py / env.py 占位符保持一致）
+        cp_suggestion_block: str = "",
+        character_micro_change_requirement: str = "",
+        hook_history_constraint: str = "",
+        scene_continuity_constraint: str = "",
     ) -> List[dict]:
         """
         执行盲视变异：并行调用所有激活人格。
@@ -266,15 +266,15 @@ class PersonaEngine:
             max_tokens=max_tokens,
             drama_style_block=drama_style_block,
             protagonist_goal=protagonist_goal,
-            characters_summary=characters_summary,
+            characters_summary_with_traits=characters_summary_with_traits,
             satisfaction_prompt_injection=satisfaction_prompt_injection,
             hook_prompt_injection=hook_prompt_injection,
             previous_episode_hook=previous_episode_hook,
             # v1.1.6
-            cp_interaction_block=cp_interaction_block,
-            character_arc_progress_block=character_arc_progress_block,
-            stage_density_target_block=stage_density_target_block,
-            trait_signature_focus_block=trait_signature_focus_block,
+            cp_suggestion_block=cp_suggestion_block,
+            character_micro_change_requirement=character_micro_change_requirement,
+            hook_history_constraint=hook_history_constraint,
+            scene_continuity_constraint=scene_continuity_constraint,
         )
 
         raw_results = await ai_service.parallel_generate(calls, provider_pool=provider_pool)

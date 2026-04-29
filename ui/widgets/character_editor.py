@@ -165,6 +165,14 @@ class CharacterEditor(QWidget):
         self._arc_edit.textChanged.connect(self._emit_change)
         a_form.addRow("📈 角色弧线：", self._arc_edit)
 
+        # v1.1.6 CP 角色标记（血肉阶段 CP 互动模板占位符注入用）
+        self._cp_role_combo = QComboBox()
+        self._cp_role_combo.addItem("无", "")
+        self._cp_role_combo.addItem("A（CP主角）", "A")
+        self._cp_role_combo.addItem("B（CP副角）", "B")
+        self._cp_role_combo.currentIndexChanged.connect(self._emit_change)
+        a_form.addRow("💑 CP角色：", self._cp_role_combo)
+
         self._a_group.setVisible(False)
         gl.addWidget(self._a_group)
 
@@ -226,6 +234,9 @@ class CharacterEditor(QWidget):
         else:
             self._traits_edit.setText(str(traits))
         self._arc_edit.setText(char_dict.get("arc_outline", ""))
+        cp_role_val = char_dict.get("cp_role", "") or ""
+        cp_role_idx = {"": 0, "A": 1, "B": 2}.get(cp_role_val, 0)
+        self._cp_role_combo.setCurrentIndex(cp_role_idx)
         self._a_group.setVisible(imp == "A")
 
         self._block_signals = False
@@ -251,6 +262,7 @@ class CharacterEditor(QWidget):
         self._desire_edit.clear()
         self._traits_edit.clear()
         self._arc_edit.clear()
+        self._cp_role_combo.setCurrentIndex(0)
         self._a_group.setVisible(False)
         self._block_signals = False
         self._set_enabled(False)
@@ -286,6 +298,7 @@ class CharacterEditor(QWidget):
         else:
             d["signature_traits"] = []
         d["arc_outline"] = self._arc_edit.text().strip()
+        d["cp_role"] = self._cp_role_combo.currentData() or ""
         return d
 
     # ------------------------------------------------------------------ #

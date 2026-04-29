@@ -7,3 +7,4 @@ projects/*
 *.pyc
 examplepaper/*
 _update_tmp/
+.claude/".claude/" 
