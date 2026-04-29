@@ -150,6 +150,21 @@ class CharacterEditor(QWidget):
         self._desire_edit.textChanged.connect(self._emit_change)
         a_form.addRow("核心渴望：", self._desire_edit)
 
+        # ── v1.1.6 新增：极致人设字段（A级必填） ──
+        self._traits_edit = QLineEdit()
+        self._traits_edit.setPlaceholderText(
+            "3个标签化爆点，用 + 或顿号分隔，例：呆萌傲娇 + 深情隐忍 + 战力爆表"
+        )
+        self._traits_edit.textChanged.connect(self._emit_change)
+        a_form.addRow("🌟 极致人设：", self._traits_edit)
+
+        self._arc_edit = QLineEdit()
+        self._arc_edit.setPlaceholderText(
+            "粗弧线，用 → 串联3个状态，例：恐惧异变 → 接受非人化 → 主宰命运"
+        )
+        self._arc_edit.textChanged.connect(self._emit_change)
+        a_form.addRow("📈 角色弧线：", self._arc_edit)
+
         self._a_group.setVisible(False)
         gl.addWidget(self._a_group)
 
@@ -204,6 +219,13 @@ class CharacterEditor(QWidget):
         self._stress_edit.setPlainText(char_dict.get("stress_reaction", ""))
         self._fear_edit.setPlainText(char_dict.get("core_fear", ""))
         self._desire_edit.setPlainText(char_dict.get("core_desire", ""))
+        # v1.1.6 新增字段
+        traits = char_dict.get("signature_traits", []) or []
+        if isinstance(traits, list):
+            self._traits_edit.setText(" + ".join(traits))
+        else:
+            self._traits_edit.setText(str(traits))
+        self._arc_edit.setText(char_dict.get("arc_outline", ""))
         self._a_group.setVisible(imp == "A")
 
         self._block_signals = False
@@ -227,6 +249,8 @@ class CharacterEditor(QWidget):
         self._stress_edit.clear()
         self._fear_edit.clear()
         self._desire_edit.clear()
+        self._traits_edit.clear()
+        self._arc_edit.clear()
         self._a_group.setVisible(False)
         self._block_signals = False
         self._set_enabled(False)
@@ -252,6 +276,16 @@ class CharacterEditor(QWidget):
             d["stress_reaction"] = self._stress_edit.toPlainText().strip()
             d["core_fear"] = self._fear_edit.toPlainText().strip()
             d["core_desire"] = self._desire_edit.toPlainText().strip()
+        # v1.1.6 新增字段（A/B 级建议填写，C 级一般为空）
+        traits_raw = self._traits_edit.text().strip()
+        if traits_raw:
+            # 支持多种分隔符：+ ／ 、 / | , ；
+            import re
+            parts = [p.strip() for p in re.split(r"[+\u3001/\|,;\uff1b]+", traits_raw) if p.strip()]
+            d["signature_traits"] = parts[:3]   # 最多 3 个
+        else:
+            d["signature_traits"] = []
+        d["arc_outline"] = self._arc_edit.text().strip()
         return d
 
     # ------------------------------------------------------------------ #
@@ -274,5 +308,6 @@ class CharacterEditor(QWidget):
             self._age_edit, self._position_edit, self._personality_edit,
             self._motivation_edit, self._appearance_edit, self._notes_edit,
             self._bg_edit, self._stress_edit, self._fear_edit, self._desire_edit,
+            self._traits_edit, self._arc_edit,
         ]:
             w.setEnabled(enabled)

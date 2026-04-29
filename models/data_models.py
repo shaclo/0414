@@ -40,7 +40,12 @@ class HaugeStage(Enum):
 
 @dataclass
 class CausalEvent:
-    """因果事件 — Story Beat 中的最小叙事单元"""
+    """因果事件 — Story Beat 中的最小叙事单元（v1.1.6 升级）。
+
+    v1.1.6 新增字段：
+        twist_type     — none | 反转 | 信息突破 | 立场翻转 | 秘密暴露
+        tau_estimate   — AI 自评因果贡献度（0~1，要求 ≥0.1，<0.05 视为水分）
+    """
     event_id: int                       # 事件序号（Beat 内唯一）
     action: str                         # 事件描述
     causal_impact: str                  # 因果影响说明
@@ -48,18 +53,32 @@ class CausalEvent:
     ite_score: float = -1.0             # ITE 分数（-1 表示尚未计算）
     ite_verdict: str = ""               # 关键 | 重要 | 普通 | 冗余
     is_pruned: bool = False             # 是否被 ITE 蒸馏剔除
+    # v1.1.6 新增字段
+    twist_type: str = "none"            # none | 反转 | 信息突破 | 立场翻转 | 秘密暴露
+    tau_estimate: float = -1.0          # AI 自评 τ 值（要求 ≥0.1）
+    serves_core_conflict: str = ""      # 该事件如何服务于核心冲突
 
     def to_dict(self) -> dict:
         return asdict(self)
 
     @classmethod
     def from_dict(cls, data: dict) -> "CausalEvent":
-        return cls(**data)
+        valid = {f for f in cls.__dataclass_fields__}
+        filtered = {k: v for k, v in data.items() if k in valid}
+        return cls(**filtered)
 
 
 @dataclass
 class StoryBeat:
-    """故事节拍 — 论文中的核心数据单元 (JSON Schema 对齐)"""
+    """故事节拍 — 论文中的核心数据单元（v1.1.6 升级 JSON Schema）。
+
+    v1.1.6 新增 4 个字段（输出验收硬指标）：
+        character_micro_change — 本集 A 级角色的微变化点（动作/台词外化，禁止内心独白）
+        twist_summary          — 本集 ≥1 处转折点的简述（与 causal_events.twist_type 配合使用）
+        cp_interaction_used    — 本集采用的 CP 互动模板（仅 has_cp_main_line=True 时填写）
+                                  格式：{"id": "genre_004", "rendered_text": "..."}
+        density_score          — 自评因果事件密度（int，要求 ≥3）
+    """
     beat_id: int                        # 全局唯一 ID
     target_node_id: str                 # 所属 CPG 节点 ID
     persona_name: str                   # 生成该 Beat 的人格名称
@@ -70,6 +89,12 @@ class StoryBeat:
     rationale: str = ""                 # 人格创作理由
     is_selected: bool = False           # 是否被用户选中
     user_edited: bool = False           # 是否被用户手动修改过
+    # v1.1.6 新增字段
+    character_micro_change: str = ""    # 本集 A 级角色的微变化点
+    twist_summary: str = ""             # 本集转折点简述
+    cp_interaction_used: Optional[dict] = None
+    # 例：{"id": "genre_004", "rendered_text": "...", "hook_type": "反转钩"}
+    density_score: int = 0              # 自评密度分（≥3 为合格）
 
     def to_dict(self) -> dict:
         d = asdict(self)
@@ -81,7 +106,10 @@ class StoryBeat:
         events = [CausalEvent.from_dict(e) for e in data.get("causal_events", [])]
         data = dict(data)  # 浅拷贝
         data["causal_events"] = events
-        return cls(**data)
+        # 兼容旧存档：过滤未知字段，缺失字段使用默认值
+        valid = {f for f in cls.__dataclass_fields__}
+        filtered = {k: v for k, v in data.items() if k in valid}
+        return cls(**filtered)
 
 
 @dataclass
@@ -120,27 +148,94 @@ class QAPair:
 
 @dataclass
 class CPGNode:
-    """CPG 图中的节点"""
-    node_id: str                        # 如 "Ep1"
+    """
+    CPG 图中的节点 (v1.1.6 颗粒度升级)。
+
+    设计思路（v1.1.6 hybrid 方案）：
+        - **node_id 仍为集级别**（"Ep1"/"Ep2"...），保证下游 confirmed_beats /
+          screenplay_texts / hook_selections / RAG 索引兼容旧版本。
+        - **节点内部新增 event_units 字段**，承载事件级因果颗粒（每集 2-4 个独立因果事件，
+          每个事件可独立成戏，禁止动作切片堆叠）。这是真正解决"7 集打 1 个怪"密度问题的关键。
+        - 旧字段 event_summaries（List[str]）保留向后兼容；新存档由 worker 自动从
+          event_units 同步生成 event_summaries。
+        - main_scene 用于"同一主场景最多跨 2 集"约束。
+
+    示例 event_unit:
+        {
+          "unit_id": "Ep1-A",
+          "action": "林夏发现石台符文藏家族徽记",
+          "twist_type": "信息突破",
+          "tau_estimate": 0.35,
+          "causal_impact": "为反派身份揭露铺垫"
+        }
+    """
+    node_id: str                        # 集级 ID，如 "Ep1"
     title: str                          # 节点标题
     hauge_stage_id: int                 # Hauge 阶段 ID (1-6)
     setting: str = ""                   # 时空环境
     characters: List[str] = field(default_factory=list)
-    event_summaries: List[str] = field(default_factory=list)  # 骨架中的事件摘要
+    event_summaries: List[str] = field(default_factory=list)  # 旧字段：纯字符串事件摘要
     emotional_tone: str = ""            # 情感基调
     confirmed_beat: Optional[dict] = None   # 确认后的 StoryBeat (dict 形式)
     status: str = "pending"             # pending | in_progress | confirmed
+    # ---- v1.1.6 新增字段 ----
+    event_units: List[dict] = field(default_factory=list)
+    # 事件级因果单元列表（每集 2-4 个）；为空时表示节点尚未升级到 v1.1.6 schema
+    main_scene: str = ""                # 本集主场景（如 "古殿深处"），用于场景多样性校验
+    episode_hook: str = ""              # 本集结尾钩子（旧版本可能放在其他位置，此处统一）
+    opening_hook: str = ""              # 本集开篇承接（同上）
 
     def to_dict(self) -> dict:
         return asdict(self)
 
     @classmethod
     def from_dict(cls, data: dict) -> "CPGNode":
-        return cls(**data)
+        # 兼容旧存档：过滤未知字段，缺失字段使用默认值
+        valid_fields = {f for f in cls.__dataclass_fields__}
+        filtered = {k: v for k, v in data.items() if k in valid_fields}
+        return cls(**filtered)
 
     @property
     def hauge_stage(self) -> HaugeStage:
         return HaugeStage.from_stage_id(self.hauge_stage_id)
+
+    @property
+    def episode_id(self) -> str:
+        """v1.1.6 hybrid 方案下，node_id 即 episode_id。保留方法是为了 UI 兼容。"""
+        return self.node_id or ""
+
+    @property
+    def has_event_units(self) -> bool:
+        """是否已升级到 v1.1.6 schema（带事件级因果单元）。"""
+        return bool(self.event_units)
+
+    @property
+    def density_score(self) -> int:
+        """因果事件密度（v1.1.6 验收指标 A1）。"""
+        return len(self.event_units) if self.event_units else len(self.event_summaries)
+
+
+@dataclass
+class EventUnit:
+    """
+    事件级因果单元 (v1.1.6 新增)。
+    一集内的最小独立因果单元，每集 2-4 个，每个都能独立成戏。
+    """
+    unit_id: str                        # 如 "Ep1-A"
+    action: str                         # 事件描述
+    twist_type: str = "none"            # none | 反转 | 信息突破 | 立场翻转 | 秘密暴露
+    tau_estimate: float = -1.0          # AI 自评因果贡献度（要求 ≥0.1，<0.05 视为冗余）
+    causal_impact: str = ""             # 因果影响（推动后续什么剧情）
+    is_pruned: bool = False             # ITE 裁剪标记
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "EventUnit":
+        valid_fields = {f for f in cls.__dataclass_fields__}
+        filtered = {k: v for k, v in data.items() if k in valid_fields}
+        return cls(**filtered)
 
 
 @dataclass
@@ -188,7 +283,18 @@ class HaugeStageData:
 
 @dataclass
 class Character:
-    """角色 — 人物设定系统的核心数据单元"""
+    """
+    角色 — 人物设定系统的核心数据单元（v1.1.6 升级）。
+
+    v1.1.6 新增字段（用于"极致人设"叙事策略）：
+        signature_traits   — 标签化爆点列表（最多 3 个，A 级角色必填 3 个）
+                             例：阿肆 = ["呆萌傲娇", "深情隐忍", "战力爆表"]
+        arc_outline        — 粗弧线描述
+                             例：林夏 = "惊恐 → 接受非人化 → 主宰"
+        cp_role            — CP 主角色标记（"A" / "B" / ""）
+                             用于血肉阶段从 cp_interaction_templates.json 抽样时
+                             识别 {role_a} / {role_b} 占位符的注入对象
+    """
     char_id: str                        # 如 "char_001"
     name: str                           # 角色姓名
     role_type: str = "配角"             # 主角 | 反派 | 辅助 | 配角 | 群演
@@ -199,6 +305,11 @@ class Character:
     motivation: str = ""                # 核心动机（最想达成什么）
     appearance: str = ""                # 关键外貌特征
     notes: str = ""                     # 备注（自由文本）
+    importance_level: str = "C"         # A | B | C（角色重要性等级）
+    # v1.1.6 新增字段
+    signature_traits: List[str] = field(default_factory=list)  # 最多 3 个标签化爆点
+    arc_outline: str = ""               # 粗弧线描述
+    cp_role: str = ""                   # CP 角色：A | B | ""（仅在 has_cp_main_line=True 时有意义）
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -220,6 +331,10 @@ class Character:
             parts.append(f"动机:{self.motivation}")
         if self.appearance:
             parts.append(f"外貌:{self.appearance}")
+        if self.signature_traits:
+            parts.append(f"极致人设:{ '+'.join(self.signature_traits) }")
+        if self.arc_outline:
+            parts.append(f"弧线:{self.arc_outline}")
         return "  ".join(parts)
 
 

@@ -863,6 +863,9 @@ class Phase2Skeleton(QWidget):
                     "emotional_tone":  n.get("emotional_tone", ""),
                     "episode_hook":    n.get("episode_hook", ""),
                     "opening_hook":    n.get("opening_hook", ""),
+                    # v1.1.6 新增字段
+                    "event_units":     n.get("event_units", []),
+                    "main_scene":      n.get("main_scene", ""),
                     "status":          "pending",
                 })
 
@@ -875,6 +878,9 @@ class Phase2Skeleton(QWidget):
         self.project_data.cpg_nodes  = nodes
         self.project_data.cpg_edges  = result.get("causal_edges", [])
         self.project_data.hauge_stages = result.get("hauge_stages", [])
+        # v1.1.6：保存 schema 版本
+        if result.get("cpg_schema_version"):
+            self.project_data.cpg_schema_version = result["cpg_schema_version"]
         self.project_data.push_history("generate_skeleton")
         # 全量生成完成，自动标记全部节点为已确认
         self.project_data.skeleton_confirmed_eps = [n.get("node_id") for n in nodes]
@@ -884,6 +890,49 @@ class Phase2Skeleton(QWidget):
         self.status_message.emit(
             f"CPG 骨架完成: {len(nodes)} 集/节点, {len(self.project_data.cpg_edges)} 条边"
         )
+
+        # v1.1.6：弹出 ITE / 场景 / CP 关键词审查报告（如有）
+        self._show_v116_skeleton_report(result.get("_meta") or {})
+
+    # ---------------- v1.1.6 骨架审查报告 ---------------- #
+    def _show_v116_skeleton_report(self, meta: dict):
+        """显示 ITE 闭环 / 场景多样性 / 阶段隔离 三类骨架审查报告（仅信息提示）。"""
+        if not meta:
+            return
+        ite = meta.get("ite_report") or {}
+        scene_warnings = meta.get("scene_warnings") or []
+        cp_violations = meta.get("cp_violations") or []
+        if not ite.get("merge_suggestions") and not scene_warnings and not cp_violations \
+                and not (ite.get("stage_warnings") or []):
+            return  # 无任何告警，不打扰
+        lines = []
+        if ite:
+            s = ite.get("summary", {})
+            lines.append(
+                f"【ITE 闭环】总事件 {s.get('total_units', 0)}、"
+                f"冗余 {s.get('redundant_count', 0)} ({s.get('redundant_ratio', 0)*100:.1f}%)、"
+                f"高冲击 {s.get('high_impact_count', 0)}"
+            )
+            for sg in (ite.get("merge_suggestions") or [])[:8]:
+                lines.append(
+                    f"  • 合并建议：{sg.get('from_unit')} ~ {sg.get('to_unit')}"
+                    f"（共 {sg.get('count')} 个）— {sg.get('reason')}"
+                )
+            for w in (ite.get("stage_warnings") or [])[:5]:
+                lines.append(f"  • 阶段警告：{w}")
+        if scene_warnings:
+            lines.append("\n【场景多样性】")
+            for w in scene_warnings[:8]:
+                lines.append(f"  • {w}")
+        if cp_violations:
+            lines.append("\n【阶段隔离铁律 — 检测到 CP 关键词】")
+            for w in cp_violations[:8]:
+                lines.append(f"  • {w}")
+        text = "\n".join(lines)
+        try:
+            QMessageBox.information(self, "v1.1.6 骨架审查报告", text)
+        except Exception:
+            pass
 
     # ------------------------------------------------------------------ #
     # 进入 Phase 3

@@ -112,6 +112,123 @@ class ITECalculator:
         """提取结构性警告"""
         return ite_result.get("structural_warnings", [])
 
+    # ================================================================
+    # v1.1.6 新增：骨架阶段事件级 τ 裁剪闭环
+    # 利用 CPG 节点 event_units[i].tau_estimate（AI 自评）做离线裁剪，
+    # 不需要再调一次 LLM，速度快、可在骨架生成完成后即时执行。
+    # ================================================================
+
+    REDUNDANT_TAU_THRESHOLD = 0.05      # τ < 0.05 视为冗余事件
+    HIGH_IMPACT_TAU_THRESHOLD = 0.15    # 相邻 Hauge 阶段间至少 1 个 τ ≥ 0.15
+    REDUNDANT_RUN_LENGTH = 3            # 连续 ≥3 个冗余事件即触发合并建议
+
+    @classmethod
+    def compress_redundant_nodes(cls, cpg_nodes: list) -> dict:
+        """
+        v1.1.6 骨架阶段 ITE 闭环裁剪。
+
+        输入：扁平 CPG 节点列表（每个节点含 event_units[i].tau_estimate）
+        输出：
+          {
+            "redundant_units": [...],      # τ<0.05 的事件级单元
+            "merge_suggestions": [...],    # 连续 ≥3 个冗余 → 建议合并
+            "stage_warnings": [...],       # 相邻 Hauge 阶段无高冲击事件警告
+            "summary": {
+              "total_units": N,
+              "redundant_count": K,
+              "redundant_ratio": K/N,
+              "high_impact_count": H,
+            }
+          }
+        """
+        all_units: list[dict] = []
+        # 展开为带元信息的事件单元序列（保留集级与 Hauge 阶段信息）
+        for node in cpg_nodes or []:
+            node_id = node.get("node_id", "")
+            stage_id = node.get("hauge_stage_id", 0)
+            for u in node.get("event_units", []) or []:
+                all_units.append({
+                    "node_id": node_id,
+                    "stage_id": stage_id,
+                    "unit_id": u.get("unit_id", ""),
+                    "action": u.get("action", ""),
+                    "tau": float(u.get("tau_estimate", -1.0)),
+                    "twist_type": u.get("twist_type", "none"),
+                })
+
+        redundant: list[dict] = []
+        for u in all_units:
+            if 0 <= u["tau"] < cls.REDUNDANT_TAU_THRESHOLD:
+                redundant.append(u)
+
+        # 检测连续 ≥REDUNDANT_RUN_LENGTH 个冗余 unit（按 all_units 排列顺序）
+        merge_suggestions: list[dict] = []
+        run_start: Optional[int] = None
+        for i, u in enumerate(all_units):
+            is_redundant = 0 <= u["tau"] < cls.REDUNDANT_TAU_THRESHOLD
+            if is_redundant:
+                if run_start is None:
+                    run_start = i
+            else:
+                if run_start is not None and (i - run_start) >= cls.REDUNDANT_RUN_LENGTH:
+                    merge_suggestions.append({
+                        "from_unit": all_units[run_start]["unit_id"],
+                        "to_unit": all_units[i - 1]["unit_id"],
+                        "from_node": all_units[run_start]["node_id"],
+                        "to_node": all_units[i - 1]["node_id"],
+                        "count": i - run_start,
+                        "reason": (
+                            f"连续 {i - run_start} 个事件 τ<{cls.REDUNDANT_TAU_THRESHOLD}，"
+                            f"建议压缩为 1 个事件以提升信息密度。"
+                        ),
+                    })
+                run_start = None
+        if run_start is not None and (len(all_units) - run_start) >= cls.REDUNDANT_RUN_LENGTH:
+            merge_suggestions.append({
+                "from_unit": all_units[run_start]["unit_id"],
+                "to_unit": all_units[-1]["unit_id"],
+                "from_node": all_units[run_start]["node_id"],
+                "to_node": all_units[-1]["node_id"],
+                "count": len(all_units) - run_start,
+                "reason": (
+                    f"末尾连续 {len(all_units) - run_start} 个事件 τ<{cls.REDUNDANT_TAU_THRESHOLD}，"
+                    f"建议压缩。"
+                ),
+            })
+
+        # 相邻 Hauge 阶段间的高冲击事件覆盖检查
+        stage_warnings: list[str] = []
+        stages_seen = sorted({u["stage_id"] for u in all_units if u["stage_id"]})
+        for sid in stages_seen:
+            stage_units = [u for u in all_units if u["stage_id"] == sid]
+            high_impact = [u for u in stage_units
+                           if u["tau"] >= cls.HIGH_IMPACT_TAU_THRESHOLD
+                           or u.get("twist_type", "none") not in ("none", "")]
+            if not high_impact and stage_units:
+                stage_warnings.append(
+                    f"Hauge 阶段 {sid} 缺少高冲击事件（所有 τ<{cls.HIGH_IMPACT_TAU_THRESHOLD} 且无 twist）"
+                )
+
+        high_impact_count = sum(
+            1 for u in all_units
+            if u["tau"] >= cls.HIGH_IMPACT_TAU_THRESHOLD or u.get("twist_type", "none") not in ("none", "")
+        )
+
+        total = len(all_units)
+        ratio = (len(redundant) / total) if total else 0.0
+
+        return {
+            "redundant_units": redundant,
+            "merge_suggestions": merge_suggestions,
+            "stage_warnings": stage_warnings,
+            "summary": {
+                "total_units": total,
+                "redundant_count": len(redundant),
+                "redundant_ratio": round(ratio, 3),
+                "high_impact_count": high_impact_count,
+            },
+        }
+
 
 # 全局单例
 ite_calculator = ITECalculator()

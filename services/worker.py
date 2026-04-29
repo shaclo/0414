@@ -13,6 +13,7 @@ from services.ai_service import ai_service
 from services.persona_engine import persona_engine
 from services.ite_calculator import ite_calculator
 from services.rag_controller import rag_controller
+from services.cp_interaction_engine import CPInteractionEngine
 from env import (
     SYSTEM_PROMPT_SOCRATIC, USER_PROMPT_SOCRATIC,
     SYSTEM_PROMPT_WORLD_EXTRACT, USER_PROMPT_WORLD_EXTRACT,
@@ -26,6 +27,199 @@ from env import (
 logger = logging.getLogger(__name__)
 
 from services.logger_service import app_logger
+
+
+# ============================================================
+# v1.1.6 Schema 归一化辅助函数
+# 用途：把 AI 返回的 event_units 同步生成 event_summaries（旧字段兼容），
+#       同时验证场景多样性、钩子配比、阶段隔离铁律。
+# ============================================================
+
+# 阶段隔离铁律：骨架阶段禁用的 CP 关键词
+_BANNED_CP_KEYWORDS_IN_SKELETON = [
+    "撩拨", "吃醋", "调情", "亲吻", "拥抱", "护妻揽腰",
+    "双向奔赴", "贴耳低语", "情侣式互动", "缠绵热吻",
+    "搂着腰", "捏脸", "撒娇", "心动",
+]
+
+
+def _format_chars_summary(characters: list) -> str:
+    """
+    v1.1.6 — 角色摘要格式化（注入到 prompt 中）。
+    在原有信息的基础上加入 signature_traits / arc_outline / cp_role。
+    """
+    if not characters:
+        return "（未设定角色）"
+    lines: list[str] = []
+    for c in characters:
+        base = (
+            f"- [{c.get('importance_level','C')}/{c.get('role_type','配角')}] "
+            f"{c.get('name','')}（{c.get('gender','未知')}，"
+            f"{c.get('age','未知')}岁，{c.get('position','')}）: "
+            f"{c.get('personality','')} / 动机: {c.get('motivation','')}"
+        )
+        traits = c.get("signature_traits") or []
+        if traits:
+            base += f" / 极致人设: {' + '.join(traits)}"
+        arc = c.get("arc_outline") or ""
+        if arc:
+            base += f" / 弧线: {arc}"
+        cp_role = c.get("cp_role") or ""
+        if cp_role:
+            base += f" / CP角色: {cp_role}"
+        lines.append(base)
+    return "\n".join(lines)
+
+
+def _normalize_skeleton_v1_1_6(result: dict) -> dict:
+    """
+    将 AI 返回的骨架结果归一化到 v1.1.6 schema：
+      1. 若节点含 event_units 而 event_summaries 为空，从 event_units.action 同步生成；
+      2. 给结果打上 cpg_schema_version=2 标识；
+      3. 扫描骨架阶段是否含 CP 关键词（仅日志警告，不阻塞流程，避免误杀）；
+      4. 同场景停留校验（main_scene 连续 ≥3 集相同时给出警告）；
+      5. ITE 闭环裁剪报告（基于 event_units[i].tau_estimate 离线扫描）。
+
+    返回归一化后的结果（原地修改并返回，附加 _ite_report / _scene_warnings / _cp_violations）。
+    """
+    if not isinstance(result, dict):
+        return result
+
+    cp_violations: list[str] = []
+    has_event_units = False
+    flat_nodes: list[dict] = []  # 扁平节点列表，用于 ITE 裁剪
+
+    for stage in result.get("hauge_stages", []) or []:
+        for node in stage.get("nodes", []) or []:
+            units = node.get("event_units") or []
+            summaries = node.get("event_summaries") or []
+            if units:
+                has_event_units = True
+                # 旧字段同步：从 event_units 抽取 action 文本
+                if not summaries:
+                    node["event_summaries"] = [
+                        (u.get("action") or "").strip()
+                        for u in units
+                        if u.get("action")
+                    ]
+            # 阶段隔离铁律扫描（仅警告）
+            scan_text = " ".join([
+                node.get("opening_hook", "") or "",
+                node.get("episode_hook", "") or "",
+                " ".join(node.get("event_summaries", []) or []),
+                " ".join(
+                    (u.get("action") or "") for u in units
+                ),
+            ])
+            for kw in _BANNED_CP_KEYWORDS_IN_SKELETON:
+                if kw in scan_text:
+                    cp_violations.append(
+                        f"{node.get('node_id', '?')} 含 CP 关键词「{kw}」"
+                    )
+                    break
+            # 收集扁平节点（带 hauge_stage_id 信息）
+            flat = dict(node)
+            flat["hauge_stage_id"] = stage.get("stage_id", flat.get("hauge_stage_id", 0))
+            flat_nodes.append(flat)
+
+    # 标记 schema 版本
+    if has_event_units:
+        result["cpg_schema_version"] = 2
+
+    # 同场景停留校验（v1.1.6 P0-3）
+    scene_warnings = _detect_scene_continuity_violations(flat_nodes)
+
+    # ITE 闭环裁剪（v1.1.6 P0-2）
+    ite_report = None
+    if has_event_units:
+        try:
+            ite_report = ite_calculator.compress_redundant_nodes(flat_nodes)
+        except Exception as exc:
+            logger.warning("ITE 离线裁剪失败：%s", exc)
+
+    # 把元数据附加到结果上（不影响 AI 调用，仅供 UI 消费）
+    result["_meta"] = result.get("_meta") or {}
+    if ite_report is not None:
+        result["_meta"]["ite_report"] = ite_report
+    if scene_warnings:
+        result["_meta"]["scene_warnings"] = scene_warnings
+    if cp_violations:
+        result["_meta"]["cp_violations"] = cp_violations[:20]
+
+    if cp_violations:
+        logger.warning(
+            "骨架阶段隔离铁律警告：检测到 %d 个节点含 CP 关键词（应在血肉阶段补充）：\n%s",
+            len(cp_violations), "\n".join(cp_violations[:10])
+        )
+    if scene_warnings:
+        logger.warning(
+            "骨架场景多样性警告（共 %d 项）：\n%s",
+            len(scene_warnings), "\n".join(scene_warnings[:10])
+        )
+    if ite_report and ite_report.get("merge_suggestions"):
+        logger.info(
+            "ITE 闭环：%d 个冗余事件、%d 处合并建议、%d 处阶段警告",
+            ite_report["summary"]["redundant_count"],
+            len(ite_report["merge_suggestions"]),
+            len(ite_report["stage_warnings"]),
+        )
+
+    return result
+
+
+def _detect_scene_continuity_violations(flat_nodes: list[dict]) -> list[str]:
+    """
+    v1.1.6 P0-3 — 检测同一 main_scene 连续 ≥3 集出现的情况，返回警告列表。
+    """
+    warnings: list[str] = []
+    run_start = -1
+    run_scene = ""
+    for i, node in enumerate(flat_nodes):
+        scene = (node.get("main_scene") or "").strip()
+        if not scene:
+            run_start = -1
+            run_scene = ""
+            continue
+        if scene == run_scene:
+            length = i - run_start + 1
+            if length == 3:
+                warnings.append(
+                    f"{flat_nodes[run_start].get('node_id','?')} ~ "
+                    f"{node.get('node_id','?')} 共 {length} 集停留在「{scene}」"
+                    "，请切换地点（同一主场景最多跨 2 集）"
+                )
+            elif length > 3:
+                warnings[-1] = (
+                    f"{flat_nodes[run_start].get('node_id','?')} ~ "
+                    f"{node.get('node_id','?')} 共 {length} 集停留在「{scene}」"
+                    "，请切换地点（同一主场景最多跨 2 集）"
+                )
+        else:
+            run_start = i
+            run_scene = scene
+    return warnings
+
+
+def _normalize_skeleton_segment_v1_1_6(result: dict) -> dict:
+    """
+    分段生成的归一化（result 顶层是 {"nodes": [...]} 结构）。
+    """
+    if not isinstance(result, dict):
+        return result
+    has_event_units = False
+    for node in result.get("nodes", []) or []:
+        units = node.get("event_units") or []
+        if units:
+            has_event_units = True
+            if not node.get("event_summaries"):
+                node["event_summaries"] = [
+                    (u.get("action") or "").strip()
+                    for u in units
+                    if u.get("action")
+                ]
+    if has_event_units:
+        result.setdefault("_meta", {})["cpg_schema_version"] = 2
+    return result
 
 
 class BaseWorker(QThread):
@@ -189,12 +383,16 @@ class CPGSkeletonWorker(BaseWorker):
             max_tokens=self.ai_params.get("max_tokens", 65536),
         )
 
+        # v1.1.6 schema 归一化：event_units → event_summaries 同步 + 阶段隔离扫描
+        result = _normalize_skeleton_v1_1_6(result)
+
         stages = result.get("hauge_stages", [])
         node_count = sum(len(s.get("nodes", [])) for s in stages)
+        schema_ver = result.get("cpg_schema_version", 1)
         app_logger.log_ai_result(
             module="骨架生成-Worker（单次）",
             action="CPG 骨架生成完成",
-            result_summary=f"生成 {node_count} 个节点，{len(result.get('causal_edges', []))} 条因果边",
+            result_summary=f"生成 {node_count} 个节点，{len(result.get('causal_edges', []))} 条因果边，schema v{schema_ver}",
             result_detail=json.dumps(result, ensure_ascii=False, indent=2),
         )
         self.finished.emit(result)
@@ -327,15 +525,12 @@ class CPGSkeletonWorker(BaseWorker):
             "hauge_stages": all_stages,
             "causal_edges": all_edges,
         }
+        # v1.1.6 schema 归一化
+        merged = _normalize_skeleton_v1_1_6(merged)
         self.finished.emit(merged)
 
     def _build_chars_summary(self) -> str:
-        return "\n".join(
-            f"- [{c.get('importance_level','C')}/{c.get('role_type','配角')}] "
-            f"{c.get('name','')}（{c.get('gender','未知')}，{c.get('age','未知')}岁，{c.get('position','')}）: "
-            f"{c.get('personality','')} / 动机: {c.get('motivation','')}"
-            for c in self.characters
-        ) or "（未设定角色）"
+        return _format_chars_summary(self.characters)
 
     def _build_system_prompt(self) -> str:
         system_prompt = (
@@ -421,13 +616,8 @@ class SegmentSkeletonWorker(BaseWorker):
                         f"3. 观众看到第 {self.start_ep} 集开头时，必须感觉是上一集最后一秒的**无缝延续**"
                     )
 
-            # 构建角色摘要（含完整信息）
-            chars_summary = "\n".join(
-                f"- [{c.get('importance_level','C')}/{c.get('role_type','配角')}] "
-                f"{c.get('name','')}（{c.get('gender','未知')}，{c.get('age','未知')}岁，{c.get('position','')}）: "
-                f"{c.get('personality','')} / 动机: {c.get('motivation','')}"
-                for c in self.characters
-            ) or "（未设定角色）"
+            # 构建角色摘要（v1.1.6：含 signature_traits / arc_outline）
+            chars_summary = _format_chars_summary(self.characters)
 
             system_prompt = (
                 SYSTEM_PROMPT_SKELETON_SEGMENT
@@ -491,11 +681,14 @@ class SegmentSkeletonWorker(BaseWorker):
                 max_tokens=self.ai_params.get("max_tokens", 16384),
             )
 
+            # v1.1.6 schema 归一化（分段版）
+            result = _normalize_skeleton_segment_v1_1_6(result)
             nodes = result.get("nodes", [])
+            schema_ver = result.get("_meta", {}).get("cpg_schema_version", 1)
             app_logger.log_ai_result(
                 module="骨架-分段生成",
                 action=f"分段骨架完成：第 {self.start_ep}~{self.end_ep} 集",
-                result_summary=f"生成 {len(nodes)} 个节点",
+                result_summary=f"生成 {len(nodes)} 个节点，schema v{schema_ver}",
                 result_detail=json.dumps(result, ensure_ascii=False, indent=2),
             )
             self.finished.emit(result)
@@ -567,6 +760,8 @@ class VariationWorker(BaseWorker):
         satisfaction_prompt_injection: str = "",
         hook_prompt_injection: str = "",
         previous_episode_hook: str = "",
+        cp_engine: CPInteractionEngine = None,
+        project_data=None,
     ):
         super().__init__()
         self.sparkle = sparkle
@@ -583,6 +778,46 @@ class VariationWorker(BaseWorker):
         self.satisfaction_prompt_injection = satisfaction_prompt_injection
         self.hook_prompt_injection = hook_prompt_injection
         self.previous_episode_hook = previous_episode_hook
+        self.cp_engine = cp_engine
+        self.project_data = project_data
+
+    def _build_character_micro_change_requirement(self, target_node):
+        # Build character micro change requirement dynamically
+        char_lines = []
+        for char in self.characters:
+            if char.get("importance_level") == "A":
+                arc = char.get("arc_outline") if char.get("arc_outline") else "未知"
+                char_lines.append(f"- A级角色「{char.get('name')}」当前 arc_outline: {arc}")
+        if char_lines:
+            char_lines.append("- 必须有 1 处微变化，通过具体动作或台词外化，禁止内心独白。")
+            return "## 本集人物变化要求\n" + "\n".join(char_lines)
+        return "## 本集人物变化要求\n- 无A级角色，按设定发挥"
+
+    def _build_hook_history_constraint(self):
+        if not self.project_data:
+            return "## 钩子配比约束\n- 自由发挥，但注意后续需记录"
+        hook_history = getattr(self.project_data, "cp_hook_history", [])
+        if not hook_history:
+            return "## 钩子配比约束\n- 自由发挥，但注意后续需记录"
+        last_hooks = ", ".join(hook_history[-3:])
+        return f"## 钩子配比约束\n- 最近 3 集已用钩子类型: [{last_hooks}]\n- 本集需避开最近连续出现的类型"
+
+    def _build_scene_continuity_constraint(self):
+        # find recent scenes from cpg nodes
+        recent_scenes = []
+        for node in reversed(self.cpg_nodes):
+            if node.get("node_id") == self.target_node.get("node_id"):
+                continue
+            if node.get("main_scene"):
+                recent_scenes.append(node.get("main_scene"))
+            if len(recent_scenes) >= 2:
+                break
+        if len(recent_scenes) >= 2 and recent_scenes[0] == recent_scenes[1]:
+            return f"## 场景切换硬约束\n- 最近 2 集主场景: [{recent_scenes[0]}, {recent_scenes[1]}]\n- 本集禁止使用主场景: {recent_scenes[0]}（已连续 2 集），必须切换到新地点。"
+        elif recent_scenes:
+            scenes_str = ", ".join(recent_scenes)
+            return f"## 场景切换硬约束\n- 最近 1-2 集主场景: [{scenes_str}]\n- 如无必要，可不切换，但注意上限 2 集。"
+        return "## 场景切换硬约束\n- 自由选择主场景，注意连贯性。"
 
     def run(self):
         try:
@@ -630,12 +865,18 @@ class VariationWorker(BaseWorker):
                     edge_lines.append(line)
             edge_relations_context = "\n".join(edge_lines) if edge_lines else "（本节点无连线）"
 
-            # 角色概要注入（含完整信息：重要性、角色类型、性别、年龄、身份、性格、动机）
-            characters_summary = "\n".join(
-                f"- [{c.get('importance_level','C')}/{c.get('role_type','配角')}] {c.get('name','')}（{c.get('gender', '未知')}，{c.get('age', '未知')}岁，{c.get('position', '')}）: "
-                f"{c.get('personality','')} / 动机: {c.get('motivation','')}"
-                for c in self.characters
-            ) or "（未设定角色）"
+            # 角色概要注入（v1.1.6：含 signature_traits / arc_outline）
+            characters_summary_with_traits = _format_chars_summary(self.characters)
+            
+            cp_suggestion_block = ""
+            if self.project_data and getattr(self.project_data, "has_cp_main_line", False) and self.cp_engine:
+                cp_suggestion = self.cp_engine.sample(self.target_node, self.project_data, stage="flesh")
+                if cp_suggestion:
+                    cp_suggestion_block = f"## CP 互动建议（必须采用，可改写不可省略）\n- 模板 ID: {cp_suggestion['id']}\n- 模板原文: {cp_suggestion['raw_template']}\n- 已渲染: {cp_suggestion['rendered_text']}\n- 钩子类型: {cp_suggestion['hook_type']}\n- 嵌入要求: 必须嵌入本集某个具体因果事件，占本集篇幅 ≤30%"
+
+            character_micro_change_requirement = self._build_character_micro_change_requirement(self.target_node)
+            hook_history_constraint = self._build_hook_history_constraint()
+            scene_continuity_constraint = self._build_scene_continuity_constraint()
 
             # 提取主角核心目标（从角色表中找 importance_level=A 的主角）
             protagonist_goal = ""
@@ -670,11 +911,15 @@ class VariationWorker(BaseWorker):
                         max_tokens=self.ai_params.get("max_tokens", 8192),
                         drama_style_block=self.drama_style_block,
                         protagonist_goal=protagonist_goal,
-                        characters_summary=characters_summary,
+                        characters_summary_with_traits=characters_summary_with_traits,
                         provider_pool=self.provider_pool,
                         satisfaction_prompt_injection=self.satisfaction_prompt_injection,
                         hook_prompt_injection=self.hook_prompt_injection,
                         previous_episode_hook=self.previous_episode_hook,
+                        cp_suggestion_block=cp_suggestion_block,
+                        character_micro_change_requirement=character_micro_change_requirement,
+                        hook_history_constraint=hook_history_constraint,
+                        scene_continuity_constraint=scene_continuity_constraint,
                     )
                 )
             finally:

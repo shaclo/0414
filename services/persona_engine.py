@@ -151,6 +151,11 @@ class PersonaEngine:
         satisfaction_prompt_injection: str = "",
         hook_prompt_injection: str = "",
         previous_episode_hook: str = "",
+        # v1.1.6 新增 4 个动态注入块
+        cp_interaction_block: str = "",
+        character_arc_progress_block: str = "",
+        stage_density_target_block: str = "",
+        trait_signature_focus_block: str = "",
     ) -> list:
         """
         为每个激活的人格构建 AI 调用参数。
@@ -176,6 +181,11 @@ class PersonaEngine:
             .replace("{protagonist_goal}", protagonist_goal or "（未设定主角目标）")
             .replace("{characters_summary}", characters_summary or "（未设定角色）")
             .replace("{previous_episode_hook}", previous_episode_hook or "（本集为开篇，无前集钩子）")
+            # v1.1.6 新增 4 个动态注入块（默认为空字符串，由 worker 层填充）
+            .replace("{cp_interaction_block}", cp_interaction_block or "")
+            .replace("{character_arc_progress_block}", character_arc_progress_block or "")
+            .replace("{stage_density_target_block}", stage_density_target_block or "")
+            .replace("{trait_signature_focus_block}", trait_signature_focus_block or "")
         )
 
         calls = []
@@ -228,6 +238,11 @@ class PersonaEngine:
         satisfaction_prompt_injection: str = "",
         hook_prompt_injection: str = "",
         previous_episode_hook: str = "",
+        # v1.1.6 新增 4 个动态注入块
+        cp_interaction_block: str = "",
+        character_arc_progress_block: str = "",
+        stage_density_target_block: str = "",
+        trait_signature_focus_block: str = "",
     ) -> List[dict]:
         """
         执行盲视变异：并行调用所有激活人格。
@@ -255,6 +270,11 @@ class PersonaEngine:
             satisfaction_prompt_injection=satisfaction_prompt_injection,
             hook_prompt_injection=hook_prompt_injection,
             previous_episode_hook=previous_episode_hook,
+            # v1.1.6
+            cp_interaction_block=cp_interaction_block,
+            character_arc_progress_block=character_arc_progress_block,
+            stage_density_target_block=stage_density_target_block,
+            trait_signature_focus_block=trait_signature_focus_block,
         )
 
         raw_results = await ai_service.parallel_generate(calls, provider_pool=provider_pool)

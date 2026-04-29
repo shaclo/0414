@@ -5,7 +5,7 @@
 
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-    QTextEdit, QPushButton, QSplitter, QMessageBox, QComboBox,
+    QTextEdit, QPushButton, QSplitter, QMessageBox, QComboBox, QCheckBox
 )
 from PySide6.QtCore import Qt, Signal
 
@@ -87,6 +87,10 @@ class Phase1Genesis(QWidget):
         self._genre_desc.setStyleSheet("color: #7f8c8d;")
         genre_row.addWidget(self._genre_desc, 1)
         il.addLayout(genre_row)
+
+        self._has_cp_checkbox = QCheckBox("本剧本含男女主主线（启用 CP 互动模板）")
+        self._has_cp_checkbox.setChecked(False)
+        il.addWidget(self._has_cp_checkbox)
 
         self._ai_settings_1 = AISettingsPanel(
             suggested_temp=SUGGESTED_TEMPERATURES["socratic"]
@@ -180,6 +184,7 @@ class Phase1Genesis(QWidget):
             if self._genre_combo.itemData(i) == genre:
                 self._genre_combo.setCurrentIndex(i)
                 break
+        self._has_cp_checkbox.setChecked(getattr(self.project_data, "has_cp_main_line", False))
 
     # ------------------------------------------------------------------ #
     # 视图切换
@@ -376,6 +381,7 @@ class Phase1Genesis(QWidget):
     def _on_lock_world(self):
         qa_pairs  = self._qa_panel.get_qa_pairs()
         variables = self._var_table.get_variables()
+        self.project_data.has_cp_main_line = self._has_cp_checkbox.isChecked()
 
         if not variables:
             reply = QMessageBox.question(

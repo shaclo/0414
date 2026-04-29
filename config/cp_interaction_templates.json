@@ -1,0 +1,2708 @@
+{
+    "meta_info": {
+        "version": "v1.1.6_program",
+        "adapt_system_version": "v1.1.5及以上",
+        "total_templates": 293,
+        "variable_description": {
+            "{role_a}": "CP核心角色A（程序动态注入角色名）",
+            "{role_b}": "CP核心角色B（程序动态注入角色名）",
+            "{scene}": "当前单集场景（程序动态注入）",
+            "{prop}": "剧情关键道具（程序动态注入）",
+            "{villain}": "反派/第三方冲突角色（程序动态注入）",
+            "{core_setting}": "题材核心设定（如巫祝血祭/重生复仇/商战逆袭，程序动态注入）",
+            "{plot_node}": "当前Hauge阶段剧情节点（程序动态注入）"
+        },
+        "applicable_scene": "仅在血肉阶段（Phase 4 Beat 生成）调用，骨架与扩写阶段禁用（v1.1.6.2 修正）",
+        "stage_whitelist": ["flesh"],
+        "stage_blacklist": ["genesis", "characters", "skeleton", "expansion", "lock"],
+        "core_principle": "单条模板≤2句话，适配竖屏短剧镜头语言，所有互动均服务于剧情推进"
+    },
+    "core_basic_library": {
+        "description": "全题材通用基础CP互动库，5大分类，共100条模板",
+        "teasing_tentative": {
+            "description": "撩拨试探型，适配Hauge阶段1-2，共20条",
+            "templates": [
+                {
+                    "id": "base_001",
+                    "content": "{role_a}指尖划过{role_b}的下颌线，歪头轻笑：\"帮我搞定{plot_node}，想要什么报酬，都可以谈\"",
+                    "adapt_tags": [
+                        "hook_type：动机钩",
+                        "hauge_phase：1",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_002",
+                    "content": "{role_a}抬手挡住{role_b}凑过来的脸，耳尖泛红却强装镇定：\"分寸感懂吗？离我远点\"",
+                    "adapt_tags": [
+                        "hook_type：反转钩",
+                        "hauge_phase：1",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_003",
+                    "content": "{role_a}盯着{role_b}的眼睛，一字一句：\"我看你挺顺眼的，要不要跟我搭个伙，好处少不了你的\"",
+                    "adapt_tags": [
+                        "hook_type：动机钩",
+                        "hauge_phase：1",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_004",
+                    "content": "{role_a}接住差点摔倒的{role_b}，俯身贴在对方耳边：\"投怀送抱，可是要负责的\"",
+                    "adapt_tags": [
+                        "hook_type：反转钩",
+                        "hauge_phase：1",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_005",
+                    "content": "{role_a}把{role_b}堵在{scene}的墙角，指尖点在对方胸口：\"躲什么？我又不会吃了你\"",
+                    "adapt_tags": [
+                        "hook_type：动机钩",
+                        "hauge_phase：1",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_006",
+                    "content": "{role_a}把{role_b}的手按在自己心口，看着对方慌乱的眼神轻笑：\"我的心跳，只有你能乱\"",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：1",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_007",
+                    "content": "{role_a}抢过{role_b}手里的{prop}，仰头用了一口，擦着嘴角笑：\"你的东西，我都想尝尝\"",
+                    "adapt_tags": [
+                        "hook_type：动机钩",
+                        "hauge_phase：1",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_008",
+                    "content": "{role_a}替{role_b}挡开围上来的{villain}，回头挑眉：\"怎么谢我？不如以身相许？\"",
+                    "adapt_tags": [
+                        "hook_type：反转钩",
+                        "hauge_phase：1",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_009",
+                    "content": "{role_a}蹲在受伤的{role_b}面前，指尖轻轻碰了碰对方的伤口：\"疼吗？疼的话，就服软，我帮你\"",
+                    "adapt_tags": [
+                        "hook_type：动机钩",
+                        "hauge_phase：1",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_010",
+                    "content": "{role_a}把{role_b}的发丝别到耳后，声音低沉：\"记住我的名字，以后你会经常喊的\"",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：1",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_011",
+                    "content": "{villain}围堵的喘息间隙，{role_a}把{role_b}死死护在身后，指尖擦过对方沾血的喉结：\"救了你这条命，以后就得听我的\"",
+                    "adapt_tags": [
+                        "hook_type：反转钩",
+                        "hauge_phase：2",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_012",
+                    "content": "爆炸的烟尘里，{role_a}把{role_b}圈在怀里，低头看着对方惊魂未定的脸轻笑：\"怕了？怕就抱紧点\"",
+                    "adapt_tags": [
+                        "hook_type：危机钩",
+                        "hauge_phase：2",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_013",
+                    "content": "{plot_node}的间隙，{role_a}靠在{role_b}怀里喘着气，抬头咬了咬对方的下巴：\"刚才你护我的样子，还挺帅\"",
+                    "adapt_tags": [
+                        "hook_type：反转钩",
+                        "hauge_phase：2",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_014",
+                    "content": "追杀的脚步声越来越近，{role_a}把{role_b}按在{scene}的暗巷墙上，用身体挡住对方，贴耳低语：\"别出声，不然我们都得死\"",
+                    "adapt_tags": [
+                        "hook_type：危机钩",
+                        "hauge_phase：2",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_015",
+                    "content": "{role_a}替{role_b}包扎伤口，指尖故意用力，看着对方皱眉的样子笑：\"知道疼了？下次还敢不敢一个人冲上去\"",
+                    "adapt_tags": [
+                        "hook_type：动机钩",
+                        "hauge_phase：2",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_016",
+                    "content": "{role_a}擦去{role_b}脸上的污渍，拇指摩挲着对方的唇角：\"脸都花了，不过就算这样，也好看\"",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：2",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_017",
+                    "content": "{scene}的灯突然熄灭，{role_b}下意识扑进{role_a}怀里，{role_a}环住对方的腰，轻笑：\"原来天不怕地不怕的你，怕黑啊\"",
+                    "adapt_tags": [
+                        "hook_type：反转钩",
+                        "hauge_phase：2",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_018",
+                    "content": "{role_a}把{role_b}的手按在自己腰上，迎着对方震惊的眼神笑：\"装我搭档，搞定对面{villain}，事后给你报酬\"",
+                    "adapt_tags": [
+                        "hook_type：动机钩",
+                        "hauge_phase：2",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_019",
+                    "content": "{role_a}接住从高处跳下来的{role_b}，稳稳落地，低头看着对方：\"就这么信我？不怕我接不住你？\"",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：2",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_020",
+                    "content": "{role_a}把沾了自己印记的{prop}塞进{role_b}手里，指尖相触时轻笑：\"这是我的护命符，给你了，可得好好收着\"",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：2",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "content": "{role_a}将{role_b}逼到桌边，双手撑在桌沿，低声笑问：\"这点程度就受不了了？\"",
+                    "adapt_tags": [
+                        "hook_type：反转钩",
+                        "hauge_phase：1",
+                        "genre：全题材通用"
+                    ],
+                    "id": "base_101"
+                },
+                {
+                    "content": "{role_b}故意把水洒在{role_a}衬衫上，眼神无辜却带着挑衅：\"哎呀，不小心的。\"",
+                    "adapt_tags": [
+                        "hook_type：动机钩",
+                        "hauge_phase：1",
+                        "genre：全题材通用"
+                    ],
+                    "id": "base_102"
+                },
+                {
+                    "content": "{role_a}修长的手指缠住{role_b}的一缕发丝把玩：\"你的心跳声，大得我全都听见了。\"",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：2",
+                        "genre：全题材通用"
+                    ],
+                    "id": "base_103"
+                },
+                {
+                    "content": "两人共撑一把伞，{role_a}故意把伞倾斜过去，自己淋湿了半边肩膀却浑不在意。\"",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：2",
+                        "genre：全题材通用"
+                    ],
+                    "id": "base_104"
+                },
+                {
+                    "content": "{role_b}踮起脚尖凑近{role_a}耳边吹气：\"如果我说，我是故意的呢？\"",
+                    "adapt_tags": [
+                        "hook_type：动机钩",
+                        "hauge_phase：1",
+                        "genre：全题材通用"
+                    ],
+                    "id": "base_105"
+                },
+                {
+                    "content": "{role_a}的手掌覆在{role_b}手背上，带着她一起握住{prop}：\"教了这么多次还不会，是想让我一直教你吗？\"",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：2",
+                        "genre：全题材通用"
+                    ],
+                    "id": "base_106"
+                },
+                {
+                    "content": "{role_b}轻挑{role_a}的下巴，眼中满是戏谑：\"看你这副正经的样子，真想撕下你的伪装。\"",
+                    "adapt_tags": [
+                        "hook_type：反转钩",
+                        "hauge_phase：2",
+                        "genre：全题材通用"
+                    ],
+                    "id": "base_107"
+                },
+                {
+                    "content": "{role_a}借着拿东西的动作，将{role_b}完全圈在怀里，却迟迟不退开。\"",
+                    "adapt_tags": [
+                        "hook_type：动机钩",
+                        "hauge_phase：1",
+                        "genre：全题材通用"
+                    ],
+                    "id": "base_108"
+                }
+            ]
+        },
+        "jealousy_tug": {
+            "description": "吃醋拉扯型，适配Hauge阶段2-4，共20条",
+            "templates": [
+                {
+                    "id": "base_021",
+                    "content": "{role_b}为查案和{villain}单独见面，{role_a}全程冷脸跟在身后，转头就默默摆平了{villain}给{role_b}挖的坑，回头只淡淡说一句：\"路过\"",
+                    "adapt_tags": [
+                        "hook_type：动机钩",
+                        "hauge_phase：2",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_022",
+                    "content": "{role_b}看到{role_a}和{villain}站在一起说话，转头就把对方送的{prop}扣下，红着眼问：\"你接近我，到底是为了什么？\"",
+                    "adapt_tags": [
+                        "hook_type：动机钩",
+                        "hauge_phase：4",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_023",
+                    "content": "{role_a}看到{role_b}收了{villain}送的东西，当场把东西扔进垃圾桶，把{role_b}按在墙上，哑声说：\"你的东西，只能我送\"",
+                    "adapt_tags": [
+                        "hook_type：反转钩",
+                        "hauge_phase：2",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_024",
+                    "content": "{role_b}夸了{villain}一句厉害，{role_a}当场就演示了一遍更厉害的操作，完事了还嘴硬：\"这有什么难的\"",
+                    "adapt_tags": [
+                        "hook_type：反转钩",
+                        "hauge_phase：2",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_025",
+                    "content": "{role_a}前一晚还和{role_b}闹别扭，第二天就看到{role_b}和{villain}有说有笑，当场黑着脸把{role_b}拽走，关上门问：\"我和他，谁更重要？\"",
+                    "adapt_tags": [
+                        "hook_type：动机钩",
+                        "hauge_phase：4",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_026",
+                    "content": "{role_b}看到{role_a}给{villain}递东西，当场就把自己的{prop}塞给{role_a}，盯着对方说：\"用我的，别人的东西，不干净\"",
+                    "adapt_tags": [
+                        "hook_type：反转钩",
+                        "hauge_phase：2",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_027",
+                    "content": "{role_a}听到别人议论{role_b}和{villain}的绯闻，当场就站出来把{role_b}护在身后，官宣：\"这是我的人，谁再乱说话，后果自负\"",
+                    "adapt_tags": [
+                        "hook_type：反转钩",
+                        "hauge_phase：3",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_028",
+                    "content": "{role_b}整整一天没理{role_a}，{role_a}憋不住了，蹲在{role_b}面前，拉着对方的衣角委屈巴巴：\"你别不理我，我错了，以后再也不跟别人说话了\"",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：4",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_029",
+                    "content": "{role_a}看到{role_b}用了{villain}给的{prop}，当场就把{prop}毁了，重新给对方做了一个满是自己印记的，冷着脸说：\"以后，只能用我给你的\"",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：2",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_030",
+                    "content": "{role_b}看到{role_a}和{villain}站在一起，当场红了眼，转身就走，{role_a}追上去死死抱住对方：\"你听我解释，不是你想的那样\"",
+                    "adapt_tags": [
+                        "hook_type：动机钩",
+                        "hauge_phase：2",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_031",
+                    "content": "{role_a}在酒局上被人灌酒，{role_b}直接走过去抢过酒杯一饮而尽，搂着{role_a}的胳膊对众人笑：\"他的酒，我替他喝，谁再有意见，冲我来\"",
+                    "adapt_tags": [
+                        "hook_type：反转钩",
+                        "hauge_phase：2",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_032",
+                    "content": "{role_b}给受伤的{villain}包扎，{role_a}全程盯着，等{villain}走了，立刻把自己的手划破，递到{role_b}面前：\"我也受伤了，你也得给我包\"",
+                    "adapt_tags": [
+                        "hook_type：反转钩",
+                        "hauge_phase：2",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_033",
+                    "content": "{role_a}听到{villain}说{role_b}的坏话，当场就把{villain}的黑料公之于众，冷着脸说：\"这是我放在心尖上的人，轮不到你指指点点\"",
+                    "adapt_tags": [
+                        "hook_type：反转钩",
+                        "hauge_phase：3",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_034",
+                    "content": "{role_b}看到{role_a}藏着{villain}的东西，当场就把东西烧了，看着对方震惊的脸笑：\"你的眼里，只能有我一个人\"",
+                    "adapt_tags": [
+                        "hook_type：动机钩",
+                        "hauge_phase：4",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_035",
+                    "content": "{role_a}明明吃醋吃到爆炸，却还是嘴硬说不在乎，{role_b}故意逗他，说要去找{villain}，{role_a}当场就把对方按在怀里，哑声说：\"不准去，你只能留在我身边\"",
+                    "adapt_tags": [
+                        "hook_type：反转钩",
+                        "hauge_phase：2",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_036",
+                    "content": "{role_b}看到{role_a}和{villain}站在一起，当场就和对方决裂，把所有{prop}都还给对方，红着眼说：\"我们两清了\"",
+                    "adapt_tags": [
+                        "hook_type：动机钩",
+                        "hauge_phase：4",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_037",
+                    "content": "{role_a}明明吃醋吃到爆炸，却还是嘴硬说不在乎，晚上睡觉的时候，却还是默默把{role_b}搂进怀里，在对方耳边低语：\"你只能是我的\"",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：2",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_038",
+                    "content": "{role_b}在众人面前夸了{villain}一句，{role_a}当场就把{role_b}扛起来带走，全场哗然，回头对众人说：\"我的搭档，只能夸我\"",
+                    "adapt_tags": [
+                        "hook_type：反转钩",
+                        "hauge_phase：3",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_039",
+                    "content": "{role_a}发现{role_b}的{prop}里，有{villain}的印记，当场就把{prop}融了，用自己的核心力量重新炼了一枚，冷着脸说：\"以后，你的命，只能我护着\"",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：3",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_040",
+                    "content": "{role_b}看到{role_a}为了救{villain}受伤，当场就转身离开，{role_a}不顾伤口追上去，死死抓住对方的手：\"我救他，只是因为他和你有关，我心里只有你\"",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：4",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "content": "{role_b}当着{role_a}的面收下别人的礼物，{role_a}当场冷脸离开，转头就捏碎了手里的杯子。\"",
+                    "adapt_tags": [
+                        "hook_type：动机钩",
+                        "hauge_phase：3",
+                        "genre：全题材通用"
+                    ],
+                    "id": "base_109"
+                },
+                {
+                    "content": "{role_a}看到{role_b}对{villain}笑靥如花，猛地将她拽进无人角落：\"对谁都笑得这么甜，你当我是死人吗？\"",
+                    "adapt_tags": [
+                        "hook_type：反转钩",
+                        "hauge_phase：2",
+                        "genre：全题材通用"
+                    ],
+                    "id": "base_110"
+                },
+                {
+                    "content": "{role_b}故意在{role_a}面前提起前任，{role_a}忍无可忍地吻住她：\"现在，你脑子里只能有我。\"",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：3",
+                        "genre：全题材通用"
+                    ],
+                    "id": "base_111"
+                },
+                {
+                    "content": "{role_a}不仅扔掉了别人送{role_b}的{prop}，还换上了一个极其相似但印着自己专属标记的。\"",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：2",
+                        "genre：全题材通用"
+                    ],
+                    "id": "base_112"
+                },
+                {
+                    "content": "{role_b}气鼓鼓地撇清关系，{role_a}却一把揽住她的腰对外宣示主权：\"不好意思，她名花有主了。\"",
+                    "adapt_tags": [
+                        "hook_type：反转钩",
+                        "hauge_phase：3",
+                        "genre：全题材通用"
+                    ],
+                    "id": "base_113"
+                },
+                {
+                    "content": "听说{role_a}要去相亲，{role_b}直接杀到现场坐到他腿上：\"怎么，家花没有野花香？\"",
+                    "adapt_tags": [
+                        "hook_type：反转钩",
+                        "hauge_phase：4",
+                        "genre：全题材通用"
+                    ],
+                    "id": "base_114"
+                },
+                {
+                    "content": "{role_a}一边帮{role_b}擦掉唇边的酒渍，一边盯着刚刚给她敬酒的人冷笑。\"",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：2",
+                        "genre：全题材通用"
+                    ],
+                    "id": "base_115"
+                },
+                {
+                    "content": "{role_b}发现{role_a}身上有别人的香水味，什么也没说，转身就把门反锁了。\"",
+                    "adapt_tags": [
+                        "hook_type：动机钩",
+                        "hauge_phase：3",
+                        "genre：全题材通用"
+                    ],
+                    "id": "base_116"
+                }
+            ]
+        },
+        "life_and_death_bond": {
+            "description": "生死羁绊型，适配Hauge阶段3-5，共20条",
+            "templates": [
+                {
+                    "id": "base_041",
+                    "content": "{role_b}被{core_setting}反噬，必须杀了{role_a}才能活，刀架在对方脖子上却下不去手，{role_a}反而把刀刃往自己心口按：\"要杀要剐，我都认\"",
+                    "adapt_tags": [
+                        "hook_type：危机钩",
+                        "hauge_phase：4",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_042",
+                    "content": "{role_b}为了保护{role_a}，当众和对方决裂，转头却在无人处攥碎了{role_a}送的{prop}，指尖流血也不肯松手",
+                    "adapt_tags": [
+                        "hook_type：动机钩",
+                        "hauge_phase：4",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_043",
+                    "content": "{role_a}为了护{role_b}周全，假意投靠{villain}，和{role_b}刀剑相向，却在擦肩而过时低声说：\"信我，等我\"",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：4",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_044",
+                    "content": "{role_b}明明爱{role_a}入骨，却因为{core_setting}的诅咒不能和对方在一起，一次次把对方推开，{role_a}却一次次靠近：\"就算是死，我也要和你在一起\"",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：3",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_045",
+                    "content": "{role_a}为了给{role_b}报仇，不惜以身犯险，{role_b}知道后，狠狠给了对方一巴掌，红着眼说：\"你要是死了，我这辈子都不会原谅你\"",
+                    "adapt_tags": [
+                        "hook_type：反转钩",
+                        "hauge_phase：4",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_046",
+                    "content": "{role_b}因为{core_setting}的设定，明明知道{role_a}是唯一护着自己的人，却因为怕重蹈覆辙，一次次躲开对方，{role_a}却死死跟着：\"这一次，我不会再让你一个人\"",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：1",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_047",
+                    "content": "两人共用一条命，{role_a}受伤{role_b}同步疼，{role_b}在{role_a}濒死时，用自己的半条命换对方醒过来，醒来第一句是：\"欠我的，用一辈子还\"",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：3",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_048",
+                    "content": "{role_a}明明知道{role_b}接近他是为了{plot_node}，却还是心甘情愿被对方利用，甚至帮对方布局，只在对方看不见的地方低语：\"只要你想要，我都给你\"",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：2",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_049",
+                    "content": "{role_b}被{villain}威胁，必须和{role_a}分手才能保住对方的命，{role_b}笑着对{role_a}说分手，转身就哭到崩溃，{role_a}却早就知道一切，默默在对方身后护着",
+                    "adapt_tags": [
+                        "hook_type：动机钩",
+                        "hauge_phase：4",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_050",
+                    "content": "{role_a}为了不让{role_b}卷入{core_setting}的阴谋，故意对对方恶语相向，把人赶走，{role_b}却在对方被围攻时，带着{prop}回来救场：\"你想赶我走？没门\"",
+                    "adapt_tags": [
+                        "hook_type：反转钩",
+                        "hauge_phase：4",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_051",
+                    "content": "{role_b}明明已经动心，却还是逼着自己清醒，对{role_a}说：\"我们只是合作关系，别多想\"，{role_a}却笑着说：\"没关系，我可以等，等到你愿意接受我的那天\"",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：2",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_052",
+                    "content": "{role_a}被{villain}下了咒，会忘记最爱的人，他在彻底失忆前，把{role_b}的名字刻在自己的骨头上，哑声说：\"就算忘了全世界，我也不会忘了你\"",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：4",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_053",
+                    "content": "{role_b}为了{plot_node}，不惜利用{role_a}的感情，事成之后却发现自己早就爱上了对方，{role_a}却拿着她的利用证据，红着眼问：\"你对我，到底有没有过真心？\"",
+                    "adapt_tags": [
+                        "hook_type：动机钩",
+                        "hauge_phase：3",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_054",
+                    "content": "两人身处敌对阵营，在战场上刀剑相向，却在无人处偷偷见面，{role_a}抱着{role_b}说：\"等{plot_node}结束，我就带你走，去一个没人认识我们的地方\"",
+                    "adapt_tags": [
+                        "hook_type：动机钩",
+                        "hauge_phase：4",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_055",
+                    "content": "{role_b}被下了咒，每次靠近{role_a}就会魂飞魄散，她一次次躲开对方，{role_a}却一次次冲破咒术的阻拦，走到她面前：\"就算是魂飞魄散，我也要和你在一起\"",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：3",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_056",
+                    "content": "{role_a}为了保住{role_b}的命，亲手把对方推给{villain}，{role_b}的仪式当天，{role_a}却闯了进来，把{role_b}按在怀里吻下去，哑声说：\"我后悔了，你不能嫁给别人\"",
+                    "adapt_tags": [
+                        "hook_type：反转钩",
+                        "hauge_phase：5",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_057",
+                    "content": "{role_b}明明恨{role_a}入骨，却在对方被{villain}追杀时，还是忍不住救了他，{role_a}看着她，轻笑：\"你还是在乎我的，对不对？\"",
+                    "adapt_tags": [
+                        "hook_type：动机钩",
+                        "hauge_phase：2",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_058",
+                    "content": "{role_a}为了破解{role_b}身上的{core_setting}诅咒，不惜以自己的寿命为代价，{role_b}知道后，哭着求他停下，{role_a}却摸着她的头笑：\"能护你周全，我死而无憾\"",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：5",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_059",
+                    "content": "{role_b}为了{plot_node}，一心只想完成目标，拒绝了{role_a}所有的示好，{role_a}却在她被{villain}围堵时，替她挡下了致命一击，濒死之际问她：\"这一次，你能不能给我一次机会？\"",
+                    "adapt_tags": [
+                        "hook_type：危机钩",
+                        "hauge_phase：3",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_060",
+                    "content": "两人明明相爱，却因为{core_setting}的恩怨不能在一起，在{scene}对峙，{role_b}哭着让他走，{role_a}却把唯一的{prop}递给她，自己留在危险里说：\"我不走，除非你跟我一起走\"",
+                    "adapt_tags": [
+                        "hook_type：动机钩",
+                        "hauge_phase：4",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "content": "{role_b}陷入沉睡，{role_a}守在床边寸步不离，嗓音沙哑：\"只要你醒来，命都给你。\"",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：4",
+                        "genre：全题材通用"
+                    ],
+                    "id": "base_117"
+                },
+                {
+                    "content": "刀山火海中，{role_a}将唯一的生路留给{role_b}，自己孤身挡住万千敌军。\"",
+                    "adapt_tags": [
+                        "hook_type：危机钩",
+                        "hauge_phase：5",
+                        "genre：全题材通用"
+                    ],
+                    "id": "base_118"
+                },
+                {
+                    "content": "{role_b}不顾反噬强行运转核心力量，只为了救下濒死的{role_a}：\"没有你，我要这力量何用！\"",
+                    "adapt_tags": [
+                        "hook_type：动机钩",
+                        "hauge_phase：5",
+                        "genre：全题材通用"
+                    ],
+                    "id": "base_119"
+                },
+                {
+                    "content": "{role_a}替{role_b}喝下那杯明知有毒的酒，笑着抹去她眼角的泪：\"真甜。\"",
+                    "adapt_tags": [
+                        "hook_type：危机钩",
+                        "hauge_phase：4",
+                        "genre：全题材通用"
+                    ],
+                    "id": "base_120"
+                },
+                {
+                    "content": "所有人都放弃了{role_b}，唯有{role_a}背着她一步步爬出绝地，留下一路血印。\"",
+                    "adapt_tags": [
+                        "hook_type：动机钩",
+                        "hauge_phase：4",
+                        "genre：全题材通用"
+                    ],
+                    "id": "base_121"
+                },
+                {
+                    "content": "{role_b}拔出刺中自己的利刃，反手刺入{villain}的心脏，倒在{role_a}怀里：\"我给你报仇了。\"",
+                    "adapt_tags": [
+                        "hook_type：反转钩",
+                        "hauge_phase：5",
+                        "genre：全题材通用"
+                    ],
+                    "id": "base_122"
+                },
+                {
+                    "content": "{role_a}强行剥离自己的灵魂本源注入{role_b}体内，换取她睁开眼睛的那一刻。\"",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：5",
+                        "genre：全题材通用"
+                    ],
+                    "id": "base_123"
+                },
+                {
+                    "content": "绝境中，两人背靠着背弹尽粮绝，却相视大笑：\"黄泉路上也不寂寞了。\"",
+                    "adapt_tags": [
+                        "hook_type：反转钩",
+                        "hauge_phase：5",
+                        "genre：全题材通用"
+                    ],
+                    "id": "base_124"
+                }
+            ]
+        },
+        "mutual_commitment": {
+            "description": "双向奔赴型，适配Hauge阶段5-6，共20条",
+            "templates": [
+                {
+                    "id": "base_061",
+                    "content": "{scene}即将坍塌，{role_a}把{role_b}推出去的瞬间，{role_b}反而扑回来抱住对方：\"要活一起活，要死一起死\"",
+                    "adapt_tags": [
+                        "hook_type：危机钩",
+                        "hauge_phase：5",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_062",
+                    "content": "两人面对终极大反派{villain}，背靠背站定，{role_b}笑：\"怕吗？\"，{role_a}回：\"有你在，不怕\"",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：5",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_063",
+                    "content": "{role_b}被{villain}诬陷，所有人都不信她，只有{role_a}站出来，把她护在身后，{role_b}握紧了手里的{prop}，和对方并肩而立：\"谢谢你，这一次，我们一起面对\"",
+                    "adapt_tags": [
+                        "hook_type：反转钩",
+                        "hauge_phase：3",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_064",
+                    "content": "{role_a}为了救{role_b}，不惜自毁核心力量，{role_b}醒来后，用自己的半条命换回了对方的力量，两人醒来后，看着对方苍白的脸，不约而同笑了出来",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：3",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_065",
+                    "content": "{role_b}第一次对{role_a}敞开心扉，说出了{core_setting}的核心秘密，{role_a}抱着她说：\"不管你是谁，从哪里来，我都会陪着你\"",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：3",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_066",
+                    "content": "两人被{villain}困在{scene}里，没有水没有食物，却都把最后一点资源留给对方，{role_a}摸着{role_b}的头说：\"放心，我一定会带你出去\"，{role_b}点头：\"我信你\"",
+                    "adapt_tags": [
+                        "hook_type：动机钩",
+                        "hauge_phase：4",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_067",
+                    "content": "{role_b}为了破解{core_setting}，要去闯九死一生的{scene}，{role_a}二话不说，收拾好东西陪她一起去：\"你去哪，我就去哪，生死都陪着你\"",
+                    "adapt_tags": [
+                        "hook_type：动机钩",
+                        "hauge_phase：5",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_068",
+                    "content": "{role_a}被全网抹黑，所有人都骂他，只有{role_b}站出来，拿出证据替他澄清，{role_a}看着直播里的{role_b}，红了眼，在她下播后，紧紧抱住她：\"谢谢你，一直相信我\"",
+                    "adapt_tags": [
+                        "hook_type：反转钩",
+                        "hauge_phase：4",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_069",
+                    "content": "两人在{core_setting}的乱世里走散，找了对方十年，再次相遇时，在人潮汹涌的街头，不约而同奔向对方，紧紧抱在一起，泪流满面",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：6",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_070",
+                    "content": "{role_b}被{core_setting}反噬，彻底失控，{role_a}却扔掉武器，张开双臂抱住她，任由她的攻击刺进自己的身体，哑声说：\"我不会伤你，就算是死，我也要陪着你\"",
+                    "adapt_tags": [
+                        "hook_type：危机钩",
+                        "hauge_phase：5",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_071",
+                    "content": "{role_a}为了{plot_node}，布了十年的局，却在最后关头，为了保护{role_b}，放弃了计划，笑着对她说：\"目标哪有你重要\"",
+                    "adapt_tags": [
+                        "hook_type：反转钩",
+                        "hauge_phase：5",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_072",
+                    "content": "两人在{scene}完成仪式，没有宾客，没有旁人，只有彼此，{role_a}把唯一的{prop}塞给{role_b}，{role_b}把自己的披风裹在对方身上，相视一笑，眼里只有彼此",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：6",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_073",
+                    "content": "{role_b}的{core_setting}力量失控，即将引来天罚，{role_a}毫不犹豫，和她结下同生共死契，和她一起面对，笑着说：\"天上地下，我都陪着你\"",
+                    "adapt_tags": [
+                        "hook_type：危机钩",
+                        "hauge_phase：5",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_074",
+                    "content": "{role_a}创业失败，身无分文，所有人都离他而去，只有{role_b}陪在他身边，拿出自己所有的积蓄给他，说：\"没关系，大不了我们从头再来，我陪着你\"",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：4",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_075",
+                    "content": "两人被{villain}追杀，跑到悬崖边，前无去路后有追兵，他们相视一笑，手牵着手，一起跳下了悬崖，哪怕是死，也不分开",
+                    "adapt_tags": [
+                        "hook_type：危机钩",
+                        "hauge_phase：5",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_076",
+                    "content": "{role_b}因为{core_setting}的设定，前世被人害死，{role_a}守了她的坟墓一辈子，这一世{role_b}找到{role_a}，对方哪怕不记得她，还是第一眼就爱上了她，抱着她说：\"我好像，等了你很久很久\"",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：6",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_077",
+                    "content": "{role_a}为了保护{role_b}，双目失明，{role_b}不离不弃，每天陪着他，牵着他的手走路，{role_a}摸着她的脸说：\"就算看不见，我也能认出你的声音，你的温度\"",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：4",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_078",
+                    "content": "两人在{core_setting}的大阵里，即将被吞噬，他们把彼此的本命血融在一起，激活了上古阵法，背靠背并肩而立，一起对抗危机",
+                    "adapt_tags": [
+                        "hook_type：反转钩",
+                        "hauge_phase：5",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_079",
+                    "content": "{role_b}放弃了自己的身份地位，{role_a}放弃了自己的大好前程，他们一起逃离了{scene}，在小城里过着平凡的日子，相视一笑，只要有彼此在，就够了",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：6",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_080",
+                    "content": "终局之战结束，{plot_node}完成，{role_a}放弃了至高权力，{role_b}放弃了核心力量，他们一起归隐山林，日出而作，日落而息，相守一生",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：6",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "content": "{role_a}在万人唾骂中走向受刑的{role_b}，与她一同跪下：\"我与她同罪。\"",
+                    "adapt_tags": [
+                        "hook_type：反转钩",
+                        "hauge_phase：5",
+                        "genre：全题材通用"
+                    ],
+                    "id": "base_125"
+                },
+                {
+                    "content": "{role_b}跨越千山万水终于找到{role_a}，第一句话却是：\"你瘦了。\"",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：4",
+                        "genre：全题材通用"
+                    ],
+                    "id": "base_126"
+                },
+                {
+                    "content": "{role_a}放弃唾手可得的无上权力，转身牵起{role_b}的手：\"江山不及你万分之一。\"",
+                    "adapt_tags": [
+                        "hook_type：反转钩",
+                        "hauge_phase：6",
+                        "genre：全题材通用"
+                    ],
+                    "id": "base_127"
+                },
+                {
+                    "content": "两人同时在不同的地方为对方准备了惊喜，见面时相视一笑，一切尽在不言中。\"",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：4",
+                        "genre：全题材通用"
+                    ],
+                    "id": "base_128"
+                },
+                {
+                    "content": "{role_b}毫不犹豫地在协议上签字放弃一切，只为了换取{role_a}的平安。\"",
+                    "adapt_tags": [
+                        "hook_type：动机钩",
+                        "hauge_phase：5",
+                        "genre：全题材通用"
+                    ],
+                    "id": "base_129"
+                },
+                {
+                    "content": "决战前夜，{role_a}为{role_b}梳理长发，郑重地许下承诺：\"等一切结束，我们就成婚。\"",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：5",
+                        "genre：全题材通用"
+                    ],
+                    "id": "base_130"
+                },
+                {
+                    "content": "{role_b}不仅理解了{role_a}的苦衷，还默默替他扫清了背后的障碍。\"",
+                    "adapt_tags": [
+                        "hook_type：反转钩",
+                        "hauge_phase：4",
+                        "genre：全题材通用"
+                    ],
+                    "id": "base_131"
+                },
+                {
+                    "content": "在最终的胜利仪式上，{role_a}将象征荣誉的{prop}亲自戴在了{role_b}的脖子上。\"",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：6",
+                        "genre：全题材通用"
+                    ],
+                    "id": "base_132"
+                }
+            ]
+        },
+        "dislocation_contrast": {
+            "description": "错位反差型，适配全Hauge阶段，共20条",
+            "templates": [
+                {
+                    "id": "base_081",
+                    "content": "人前是杀伐果断的{core_setting}掌权者，人后却被{role_b}按在墙上捏脸，红着耳根不敢反抗",
+                    "adapt_tags": [
+                        "hook_type：反转钩",
+                        "hauge_phase：2",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_082",
+                    "content": "平时一直是{role_a}护着{role_b}，结果{role_a}重伤虚弱，{role_b}瞬间黑化，一招团灭{villain}，回头抱着{role_a}轻声哄：\"别怕，我护着你\"",
+                    "adapt_tags": [
+                        "hook_type：反转钩",
+                        "hauge_phase：4",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_083",
+                    "content": "人前是冷酷无情的上位者，人后却蹲在{role_b}面前，给对方处理伤口，听她数落，一点脾气都没有",
+                    "adapt_tags": [
+                        "hook_type：反转钩",
+                        "hauge_phase：2",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_084",
+                    "content": "平时连蚂蚁都不敢踩的软性子，在{role_a}被人欺负时，瞬间变身，把对方骂得狗血淋头，回头对着{role_a}又变回了温柔的样子",
+                    "adapt_tags": [
+                        "hook_type：反转钩",
+                        "hauge_phase：2",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_085",
+                    "content": "所有人都以为{role_a}是个手无缚鸡之力的废柴，只有{role_b}知道，他是隐藏的顶级高手，{role_a}在她面前，永远是那个温温柔柔的样子",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：3",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_086",
+                    "content": "平时在公司里说一不二的决策者，在家里却被{role_b}管得服服帖帖，对方让他往东，他不敢往西，还乐在其中",
+                    "adapt_tags": [
+                        "hook_type：反转钩",
+                        "hauge_phase：2",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_087",
+                    "content": "{role_b}一直以为{role_a}是需要她保护的弱者，结果在她被{villain}围攻时，{role_a}一招秒杀全场，擦着她脸上的污渍笑：\"现在知道，谁才是你的靠山了？\"",
+                    "adapt_tags": [
+                        "hook_type：反转钩",
+                        "hauge_phase：3",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_088",
+                    "content": "人前是高冷禁欲的专业人士，人后却被{role_b}按在{scene}的柜子上吻，红着脸不敢推开对方，只会小声说：\"别闹，还有人呢\"",
+                    "adapt_tags": [
+                        "hook_type：反转钩",
+                        "hauge_phase：2",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_089",
+                    "content": "平时吊儿郎当的痞性子，在{role_b}遇到危险时，瞬间变得沉稳可靠，替她挡下所有风雨，把她护得好好的",
+                    "adapt_tags": [
+                        "hook_type：反转钩",
+                        "hauge_phase：4",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_090",
+                    "content": "{role_b}一直以为自己是在保护{role_a}，结果到最后才发现，一直都是{role_a}在暗中护着她，替她摆平了所有麻烦",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：3",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_091",
+                    "content": "人前是叱咤风云的行业大佬，人后却给{role_b}洗袜子、做饭、梳头发，对方说什么就是什么，一点架子都没有",
+                    "adapt_tags": [
+                        "hook_type：反转钩",
+                        "hauge_phase：2",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_092",
+                    "content": "平时唯唯诺诺的受气包，在{role_b}被人欺负时，瞬间变身，把对方怼得哑口无言，回头对着{role_b}又变回温柔的样子",
+                    "adapt_tags": [
+                        "hook_type：反转钩",
+                        "hauge_phase：2",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_093",
+                    "content": "{role_b}一直以为{role_a}是个穷小子，结果在她被富二代羞辱时，{role_a}直接亮出自己的顶级身份，把对方狠狠打脸，回头对她笑：\"对不起，瞒了你这么久\"",
+                    "adapt_tags": [
+                        "hook_type：反转钩",
+                        "hauge_phase：3",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_094",
+                    "content": "平时疯疯癫癫的跳脱性子，在{role_a}遇到危险时，瞬间变得冷静理智，布下完美的局，救了对方，事后又变回疯疯癫癫的样子，好像什么都没发生过",
+                    "adapt_tags": [
+                        "hook_type：反转钩",
+                        "hauge_phase：4",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_095",
+                    "content": "所有人都以为{role_a}是反派，只有{role_b}相信他，结果到最后才发现，{role_a}一直是卧底，他做的所有坏事，都是为了保护{role_b}",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：5",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_096",
+                    "content": "人前是端庄优雅的名门之后，人后却翻墙爬树、喝酒打架，{role_a}撞见她的真面目，她不仅不慌，还拉着对方一起翻墙",
+                    "adapt_tags": [
+                        "hook_type：反转钩",
+                        "hauge_phase：1",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_097",
+                    "content": "平时连重话都不敢对{role_b}说的人，在{role_b}作死要去闯危险的{scene}时，瞬间黑了脸，把她扛回家，关上门狠狠教育了一顿，事后又红着眼给她道歉",
+                    "adapt_tags": [
+                        "hook_type：动机钩",
+                        "hauge_phase：4",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_098",
+                    "content": "{role_b}一直以为{role_a}是个不懂风情的木头，结果在她生日当天，{role_a}给她准备了巨大的惊喜，把她所有的喜好都记得清清楚楚",
+                    "adapt_tags": [
+                        "hook_type：反转钩",
+                        "hauge_phase：3",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_099",
+                    "content": "是令人闻风丧胆的活阎王，却唯独对{role_b}温柔，把所有的好都给了她，在她面前，永远没有一点脾气",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：1",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "base_100",
+                    "content": "是人人惧怕的{core_setting}执行者，被所有人嫌弃，只有{role_a}不怕她，把她当成普通人一样疼，她在对方面前，终于卸下了所有防备，哭着抱住了对方",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：2",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "content": "在外杀伐果断的大佬，在家却戴着粉色围裙给{role_b}烤小饼干，被烫到还要索要抱抱。\"",
+                    "adapt_tags": [
+                        "hook_type：反转钩",
+                        "hauge_phase：2",
+                        "genre：全题材通用"
+                    ],
+                    "id": "base_133"
+                },
+                {
+                    "content": "平时温婉可人的{role_b}，在{role_a}被欺负时，抄起酒瓶就砸向了混混的头。\"",
+                    "adapt_tags": [
+                        "hook_type：反转钩",
+                        "hauge_phase：3",
+                        "genre：全题材通用"
+                    ],
+                    "id": "base_134"
+                },
+                {
+                    "content": "高岭之花的{role_a}喝醉后，竟然抱着{role_b}的大腿撒娇叫姐姐，死活不肯松手。\"",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：2",
+                        "genre：全题材通用"
+                    ],
+                    "id": "base_135"
+                },
+                {
+                    "content": "胆小如鼠的{role_b}，在密室逃脱里却为了护住{role_a}，闭着眼睛跟NPC对骂。\"",
+                    "adapt_tags": [
+                        "hook_type：反转钩",
+                        "hauge_phase：2",
+                        "genre：全题材通用"
+                    ],
+                    "id": "base_136"
+                },
+                {
+                    "content": "智商超群的{role_a}，却在给{role_b}扎头发这件事上屡战屡败，最后气得差点剪刀伺候。\"",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：3",
+                        "genre：全题材通用"
+                    ],
+                    "id": "base_137"
+                },
+                {
+                    "content": "冷酷无情的杀手{role_b}，实际上是个一看到毛茸茸的小动物走不动道的重度绒毛控。\"",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：2",
+                        "genre：全题材通用"
+                    ],
+                    "id": "base_138"
+                },
+                {
+                    "content": "一直表现得像个废物的{role_a}，在关键时刻单手解开了世界级密码锁，深藏功与名。\"",
+                    "adapt_tags": [
+                        "hook_type：反转钩",
+                        "hauge_phase：4",
+                        "genre：全题材通用"
+                    ],
+                    "id": "base_139"
+                },
+                {
+                    "content": "脾气火爆的{role_b}在{role_a}面前永远像只温顺的小猫，连说话都不敢大声。\"",
+                    "adapt_tags": [
+                        "hook_type：反转钩",
+                        "hauge_phase：2",
+                        "genre：全题材通用"
+                    ],
+                    "id": "base_140"
+                }
+            ]
+        }
+    },
+    "genre_exclusive_library": {
+        "description": "短剧主流题材专属CP互动库，6大分类，共72条模板",
+        "fantasy_thriller": {
+            "description": "奇幻/惊悚/巫蛊/灵异题材，适配《巫祝血祭》类剧本，共12条",
+            "templates": [
+                {
+                    "id": "genre_001",
+                    "content": "{role_b}被邪灵侵蚀心智，双目赤红要挥刀伤人，{role_a}从身后死死环住她，把{prop}塞进她手心，用自己的血在她手腕画下护魂符，哑声说：\"别怕，我带你回家\"",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：2",
+                        "genre：奇幻/惊悚"
+                    ]
+                },
+                {
+                    "id": "genre_002",
+                    "content": "{role_a}把自己的本命{prop}塞到{role_b}手里，指尖相触时灵力共振，{role_b}瞬间看到了他尘封三百年的前世记忆碎片",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：3",
+                        "genre：奇幻/惊悚"
+                    ]
+                },
+                {
+                    "id": "genre_003",
+                    "content": "{role_b}被{core_setting}的血祭诅咒缠身，活不过二十岁，{role_a}用自己的心头血为引，替她扛下了所有诅咒，自己却一夜白头",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：5",
+                        "genre：奇幻/惊悚"
+                    ]
+                },
+                {
+                    "id": "genre_004",
+                    "content": "{role_b}被离魂附体，{role_a}却一眼认出她，握住她的手喊出了只有两人才知道的暗号，{role_b}瞬间清醒，眼里满是震惊",
+                    "adapt_tags": [
+                        "hook_type：反转钩",
+                        "hauge_phase：4",
+                        "genre：奇幻/惊悚"
+                    ]
+                },
+                {
+                    "id": "genre_005",
+                    "content": "两人闯过巫祝禁地的生死门，门后显示的未来里，没有彼此，他们相视一笑，手牵着手，转身走出了禁地，哪怕逆天改命，也要在一起",
+                    "adapt_tags": [
+                        "hook_type：动机钩",
+                        "hauge_phase：5",
+                        "genre：奇幻/惊悚"
+                    ]
+                },
+                {
+                    "id": "genre_006",
+                    "content": "{role_b}的魂魄被{villain}勾走，{role_a}不惜闯阴曹地府，也要把她的魂魄带回来，哪怕付出折寿十年的代价",
+                    "adapt_tags": [
+                        "hook_type：动机钩",
+                        "hauge_phase：4",
+                        "genre：奇幻/惊悚"
+                    ]
+                },
+                {
+                    "id": "genre_007",
+                    "content": "{role_a}是{role_b}用自己的血和魂炼出来的{prop}，本该听她的所有命令，却在她要牺牲自己封印邪灵时，第一次违抗了她的命令，替她走进了封印大阵",
+                    "adapt_tags": [
+                        "hook_type：危机钩",
+                        "hauge_phase：5",
+                        "genre：奇幻/惊悚"
+                    ]
+                },
+                {
+                    "id": "genre_008",
+                    "content": "{role_b}是上古巫祝的转世，{role_a}是她前世的护法，找了她三百年，再次相遇时，{role_a}单膝跪地，俯首称臣：\"属下参见尊上，这一世，属下定护您周全\"",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：1",
+                        "genre：奇幻/惊悚"
+                    ]
+                },
+                {
+                    "id": "genre_009",
+                    "content": "两人被邪灵困在幻境里，幻境里他们过着平凡幸福的日子，{role_a}先清醒过来，却不忍心叫醒{role_b}，直到{role_b}主动抱着他说：\"再美好的幻境，也不如和你一起面对的现实\"",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：4",
+                        "genre：奇幻/惊悚"
+                    ]
+                },
+                {
+                    "id": "genre_010",
+                    "content": "{role_a}被{villain}下了噬心咒，每次动情就会心如刀绞，他却还是一次次靠近{role_b}，哪怕疼到浑身发抖，也要抱着对方",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：3",
+                        "genre：奇幻/惊悚"
+                    ]
+                },
+                {
+                    "id": "genre_011",
+                    "content": "两人是千年的宿敌，本该不死不休，却在面对共同的敌人{villain}时，并肩作战，{role_a}替{role_b}挡下致命一击，笑着说：\"我们的恩怨，等解决了他，再慢慢算\"",
+                    "adapt_tags": [
+                        "hook_type：危机钩",
+                        "hauge_phase：5",
+                        "genre：奇幻/惊悚"
+                    ]
+                },
+                {
+                    "id": "genre_012",
+                    "content": "血祭大阵开启，{role_b}必须以身献祭才能封印邪灵，{role_a}却在最后一刻，把她推了出去，自己走进了大阵，隔着阵法对她笑：\"好好活着，忘了我\"",
+                    "adapt_tags": [
+                        "hook_type：危机钩",
+                        "hauge_phase：5",
+                        "genre：奇幻/惊悚"
+                    ]
+                },
+                {
+                    "content": "{role_a}用自己的灵血喂养被邪祟侵蚀的{role_b}，哪怕自己虚弱到站不稳。\"",
+                    "adapt_tags": [
+                        "hook_type：危机钩",
+                        "hauge_phase：4",
+                        "genre：奇幻/惊悚"
+                    ],
+                    "id": "genre_073"
+                },
+                {
+                    "content": "{role_b}的狐妖尾巴不小心露了出来，{role_a}非但不怕，反而好奇地捏了捏：\"手感不错。\"",
+                    "adapt_tags": [
+                        "hook_type：反转钩",
+                        "hauge_phase：2",
+                        "genre：奇幻/惊悚"
+                    ],
+                    "id": "genre_074"
+                },
+                {
+                    "content": "百鬼夜行之夜，{role_a}将画满符咒的符纸贴在{role_b}额头：\"屏住呼吸，别睁眼。\"",
+                    "adapt_tags": [
+                        "hook_type：危机钩",
+                        "hauge_phase：3",
+                        "genre：奇幻/惊悚"
+                    ],
+                    "id": "genre_075"
+                },
+                {
+                    "content": "{role_b}打破了禁忌封印，{role_a}挡在她身前直面天罚：\"一切因果，我替她背。\"",
+                    "adapt_tags": [
+                        "hook_type：危机钩",
+                        "hauge_phase：5",
+                        "genre：奇幻/惊悚"
+                    ],
+                    "id": "genre_076"
+                },
+                {
+                    "content": "两人在诡异的古宅中醒来，{role_a}第一反应是紧紧捂住{role_b}的嘴，指了指窗外的血影。\"",
+                    "adapt_tags": [
+                        "hook_type：危机钩",
+                        "hauge_phase：2",
+                        "genre：奇幻/惊悚"
+                    ],
+                    "id": "genre_077"
+                },
+                {
+                    "content": "{role_b}发现一直保护自己的{role_a}，其实没有心跳，体温冰冷如死尸。\"",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：3",
+                        "genre：奇幻/惊悚"
+                    ],
+                    "id": "genre_078"
+                }
+            ]
+        },
+        "rebirth_revenge": {
+            "description": "重生/复仇/逆袭/商战题材，共12条",
+            "templates": [
+                {
+                    "id": "genre_013",
+                    "content": "{role_b}重生后第一次见到{role_a}，直接扑进他怀里，喊出了只有前世两人才知道的昵称，{role_a}瞬间僵住，眼里满是疑惑和震动",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：1",
+                        "genre：重生/复仇"
+                    ]
+                },
+                {
+                    "id": "genre_014",
+                    "content": "{role_b}为了复仇假意接近{villain}，{role_a}一眼看穿了她的计划，暗中配合她演戏，散场后在她耳边说：\"下次做这种事，先告诉我，我陪你\"",
+                    "adapt_tags": [
+                        "hook_type：动机钩",
+                        "hauge_phase：2",
+                        "genre：重生/复仇"
+                    ]
+                },
+                {
+                    "id": "genre_015",
+                    "content": "{role_b}重生后，一心只想复仇，拒绝了{role_a}所有的示好，却在深夜里，看到{role_a}默默替她摆平了前世害死她的{villain}",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：2",
+                        "genre：重生/复仇"
+                    ]
+                },
+                {
+                    "id": "genre_016",
+                    "content": "前世{role_a}为了救{role_b}而死，这一世{role_b}重生，拼尽全力护着他，不让他重蹈覆辙，{role_a}看着她一次次奋不顾身的样子，红着眼问：\"你是不是有什么事瞒着我？\"",
+                    "adapt_tags": [
+                        "hook_type：动机钩",
+                        "hauge_phase：3",
+                        "genre：重生/复仇"
+                    ]
+                },
+                {
+                    "id": "genre_017",
+                    "content": "{role_b}在{villain}的宴会上，当众揭穿了对方的阴谋，拿出了他们害死自己亲人的证据，{role_a}全程站在她身边，替她撑腰，冷脸看着众人：\"她的话，就是我的话\"",
+                    "adapt_tags": [
+                        "hook_type：反转钩",
+                        "hauge_phase：5",
+                        "genre：重生/复仇"
+                    ]
+                },
+                {
+                    "id": "genre_018",
+                    "content": "{role_b}重生后，抢了前世属于{villain}的商机，赚得盆满钵满，{role_a}看着她意气风发的样子，笑着说：\"果然，我看中的人，从来都不简单\"",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：2",
+                        "genre：重生/复仇"
+                    ]
+                },
+                {
+                    "id": "genre_019",
+                    "content": "前世{role_b}到死都不知道，{role_a}默默爱了她一辈子，这一世重生，她主动走向{role_a}，笑着对他说：\"这一世，换我来爱你\"",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：3",
+                        "genre：重生/复仇"
+                    ]
+                },
+                {
+                    "id": "genre_020",
+                    "content": "{role_b}被{villain}设计，陷入绝境，所有人都以为她完了，只有{role_a}相信她，拿出自己所有的身家，替她翻盘，对她说：\"就算全世界都不信你，我也信你\"",
+                    "adapt_tags": [
+                        "hook_type：反转钩",
+                        "hauge_phase：4",
+                        "genre：重生/复仇"
+                    ]
+                },
+                {
+                    "id": "genre_021",
+                    "content": "{role_b}重生后，第一次对{role_a}坦白了自己重生的秘密，{role_a}没有震惊，只是抱着她说：\"没关系，不管你是谁，我都会陪着你，一起报仇\"",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：3",
+                        "genre：重生/复仇"
+                    ]
+                },
+                {
+                    "id": "genre_022",
+                    "content": "大仇得报，{role_b}站在亲人的墓碑前，泪流满面，{role_a}从身后抱住她，轻声说：\"都结束了，以后，我陪你好好过日子\"",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：6",
+                        "genre：重生/复仇"
+                    ]
+                },
+                {
+                    "id": "genre_023",
+                    "content": "{role_a}布了十年的局，只为了给{role_b}报仇，却在最后关头，为了保护{role_b}，放弃了自己的计划，笑着对她说：\"报仇哪有你重要\"",
+                    "adapt_tags": [
+                        "hook_type：反转钩",
+                        "hauge_phase：5",
+                        "genre：重生/复仇"
+                    ]
+                },
+                {
+                    "id": "genre_024",
+                    "content": "大仇得报，{role_a}把所有的家产都转到了{role_b}名下，单膝跪地，拿着{prop}，笑着说：\"以前，我活着是为了报仇，现在，我活着，是为了你\"",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：6",
+                        "genre：重生/复仇"
+                    ]
+                },
+                {
+                    "content": "{role_b}重生后步步为营，{role_a}却在她身后递上一把更快的刀：\"别脏了手，用这个。\"",
+                    "adapt_tags": [
+                        "hook_type：反转钩",
+                        "hauge_phase：2",
+                        "genre：重生/复仇"
+                    ],
+                    "id": "genre_079"
+                },
+                {
+                    "content": "看着仇人家破人亡，{role_a}从背后抱住浑身颤抖的{role_b}：\"结束了，我们回家。\"",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：5",
+                        "genre：重生/复仇"
+                    ],
+                    "id": "genre_080"
+                },
+                {
+                    "content": "{role_b}假意向渣男示好，{role_a}在暗处捏碎了高脚杯，鲜血顺着指缝流下。\"",
+                    "adapt_tags": [
+                        "hook_type：动机钩",
+                        "hauge_phase：3",
+                        "genre：重生/复仇"
+                    ],
+                    "id": "genre_081"
+                },
+                {
+                    "content": "前世害死{role_b}的毒药再次出现，{role_a}毫不犹豫地夺过一饮而尽：\"这次，换我替你死。\"",
+                    "adapt_tags": [
+                        "hook_type：反转钩",
+                        "hauge_phase：5",
+                        "genre：重生/复仇"
+                    ],
+                    "id": "genre_082"
+                },
+                {
+                    "content": "{role_b}向{role_a}坦白了重生的秘密，他却红了眼眶：\"原来前世，你一个人受了这么多苦。\"",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：4",
+                        "genre：重生/复仇"
+                    ],
+                    "id": "genre_083"
+                },
+                {
+                    "content": "{role_a}布下天罗地网，只为逼前世辜负了{role_b}的那些人下跪认错。\"",
+                    "adapt_tags": [
+                        "hook_type：反转钩",
+                        "hauge_phase：4",
+                        "genre：重生/复仇"
+                    ],
+                    "id": "genre_084"
+                }
+            ]
+        },
+        "modern_sweet": {
+            "description": "现言/甜宠/都市/校园题材，共12条",
+            "templates": [
+                {
+                    "id": "genre_025",
+                    "content": "{role_b}随口提的一句喜好，{role_a}默默记了好几年，在她生日当天全部兑现，{role_b}红着眼问：\"你怎么记得这么清楚\"，{role_a}笑：\"你的事，我都记得\"",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：3",
+                        "genre：现言/甜宠"
+                    ]
+                },
+                {
+                    "id": "genre_026",
+                    "content": "{role_a}嘴上说着\"别烦我\"，却在{role_b}熬夜加班时，默默给她煮了夜宵，收拾好了乱糟糟的桌子，放下东西就走，被{role_b}抓到，还嘴硬\"路过顺便\"",
+                    "adapt_tags": [
+                        "hook_type：反转钩",
+                        "hauge_phase：2",
+                        "genre：现言/甜宠"
+                    ]
+                },
+                {
+                    "id": "genre_027",
+                    "content": "{role_b}生理期疼得打滚，{role_a}二话不说，开车半个多小时过来，给她煮红糖姜茶，暖肚子，照顾了她一整晚，第二天顶着黑眼圈去上班",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：2",
+                        "genre：现言/甜宠"
+                    ]
+                },
+                {
+                    "id": "genre_028",
+                    "content": "{role_b}第一次去{role_a}家，发现他的冰箱里，全是她爱吃的东西，衣柜里，全是她的尺码的衣服，{role_a}挠挠头笑：\"我早就准备好了，等你来\"",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：3",
+                        "genre：现言/甜宠"
+                    ]
+                },
+                {
+                    "id": "genre_029",
+                    "content": "{role_b}在同学聚会上被人灌酒，{role_a}直接走过去，把她护在身后，替她喝了所有的酒，冷着脸对众人说：\"她不能喝酒，有什么事冲我来\"",
+                    "adapt_tags": [
+                        "hook_type：反转钩",
+                        "hauge_phase：2",
+                        "genre：现言/甜宠"
+                    ]
+                },
+                {
+                    "id": "genre_030",
+                    "content": "外面下着大雨，{role_b}没带伞，给{role_a}发了个消息，{role_a}十分钟就出现在她公司楼下，撑着一把大伞，把她整个人护在怀里，自己半边身子都淋湿了",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：2",
+                        "genre：现言/甜宠"
+                    ]
+                },
+                {
+                    "id": "genre_031",
+                    "content": "{role_b}失眠，{role_a}每天晚上都给她打电话，给她讲故事，直到她睡着，自己才挂电话，哪怕第二天要早起上班，也从来没有间断过",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：2",
+                        "genre：现言/甜宠"
+                    ]
+                },
+                {
+                    "id": "genre_032",
+                    "content": "{role_a}在万众瞩目的颁奖典礼上，拿着奖杯，对着镜头说：\"这个奖，我要送给一个人，谢谢你，出现在我的生命里，我的女孩\"，镜头给到台下的{role_b}，她泪流满面",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：6",
+                        "genre：现言/甜宠"
+                    ]
+                },
+                {
+                    "id": "genre_033",
+                    "content": "{role_b}和{role_a}吵架，摔门而出，走了半天，发现{role_a}一直跟在她身后，她停下脚步，回头瞪他：\"你跟着我干嘛？\"，{role_a}委屈巴巴：\"我怕你一个人不安全，你去哪，我去哪\"",
+                    "adapt_tags": [
+                        "hook_type：反转钩",
+                        "hauge_phase：4",
+                        "genre：现言/甜宠"
+                    ]
+                },
+                {
+                    "id": "genre_034",
+                    "content": "{role_a}在海边给{role_b}准备了盛大的求婚仪式，单膝跪地，拿着戒指，红着眼说：\"你愿意嫁给我吗？从遇见你的那天起，我的未来里，就全是你\"",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：6",
+                        "genre：现言/甜宠"
+                    ]
+                },
+                {
+                    "id": "genre_035",
+                    "content": "{role_b}工作被领导刁难，躲在楼梯间哭，{role_a}找到她，把她搂进怀里，第二天就帮她解决了所有麻烦，对她说：\"以后受了委屈，第一时间告诉我，我给你撑腰\"",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：4",
+                        "genre：现言/甜宠"
+                    ]
+                },
+                {
+                    "id": "genre_036",
+                    "content": "跨年的烟花下，{role_a}抱着{role_b}，在她耳边说：\"今年有你，明年有你，年年都有你\"",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：6",
+                        "genre：现言/甜宠"
+                    ]
+                },
+                {
+                    "content": "{role_a}包下整座游乐场，只为陪{role_b}坐一次没有外人打扰的旋转木马。\"",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：3",
+                        "genre：现言/甜宠"
+                    ],
+                    "id": "genre_085"
+                },
+                {
+                    "content": "{role_b}工作受委屈，{role_a}二话不说直接把那家公司收购了送给她出气。\"",
+                    "adapt_tags": [
+                        "hook_type：反转钩",
+                        "hauge_phase：4",
+                        "genre：现言/甜宠"
+                    ],
+                    "id": "genre_086"
+                },
+                {
+                    "content": "半夜想吃城南的馄饨，{role_a}驱车两小时只为给她带回还冒着热气的宵夜。\"",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：2",
+                        "genre：现言/甜宠"
+                    ],
+                    "id": "genre_087"
+                },
+                {
+                    "content": "{role_b}抱怨鞋子磨脚，{role_a}当街脱下自己的平底鞋给她换上，自己穿着高跟鞋搞笑地走路。\"",
+                    "adapt_tags": [
+                        "hook_type：反转钩",
+                        "hauge_phase：2",
+                        "genre：现言/甜宠"
+                    ],
+                    "id": "genre_088"
+                },
+                {
+                    "content": "跨年倒数时刻，{role_a}在漫天烟火中吻上{role_b}的唇：\"新年快乐，我的女孩。\"",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：6",
+                        "genre：现言/甜宠"
+                    ],
+                    "id": "genre_089"
+                },
+                {
+                    "content": "{role_b}随口一提喜欢某只绝版包包，第二天醒来发现床头摆满了不同颜色的同款。\"",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：3",
+                        "genre：现言/甜宠"
+                    ],
+                    "id": "genre_090"
+                }
+            ]
+        },
+        "republican_romance": {
+            "description": "民国/虐恋/谍战/军阀题材，共12条",
+            "templates": [
+                {
+                    "id": "genre_037",
+                    "content": "战火纷飞的街头，炮弹在身边炸开，{role_a}把{role_b}死死护在怀里，用身体挡住飞溅的弹片，哑声说：\"别怕，有我在，我不会让你有事\"",
+                    "adapt_tags": [
+                        "hook_type：危机钩",
+                        "hauge_phase：2",
+                        "genre：民国/谍战"
+                    ]
+                },
+                {
+                    "id": "genre_038",
+                    "content": "两人身处不同阵营，在舞会上假装不认识，擦肩而过时，{role_a}偷偷把一张纸条塞到{role_b}手里，纸条上写着：\"今晚三点，老地方见，小心\"",
+                    "adapt_tags": [
+                        "hook_type：动机钩",
+                        "hauge_phase：2",
+                        "genre：民国/谍战"
+                    ]
+                },
+                {
+                    "id": "genre_039",
+                    "content": "{role_b}是地下党，{role_a}是军阀大帅，他明明知道她的身份，却还是一次次护着她，替她摆平所有麻烦，只在无人处对她说：\"只要你在我身边，就算是与全世界为敌，我也不怕\"",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：3",
+                        "genre：民国/谍战"
+                    ]
+                },
+                {
+                    "id": "genre_040",
+                    "content": "{role_a}上战场前，把自己的贴身{prop}塞给{role_b}，摸着她的头说：\"等我回来，我就娶你\"，{role_b}抱着他，哭着说：\"我等你，你一定要活着回来\"",
+                    "adapt_tags": [
+                        "hook_type：动机钩",
+                        "hauge_phase：5",
+                        "genre：民国/虐恋"
+                    ]
+                },
+                {
+                    "id": "genre_041",
+                    "content": "{role_b}为了掩护{role_a}的身份，被{villain}抓了起来，受尽酷刑，却一个字都没说，{role_a}来救她的时候，她已经奄奄一息，却还是笑着对他说：\"我没给你丢脸\"",
+                    "adapt_tags": [
+                        "hook_type：危机钩",
+                        "hauge_phase：4",
+                        "genre：民国/谍战"
+                    ]
+                },
+                {
+                    "id": "genre_042",
+                    "content": "城破了，敌军打进来了，{role_a}把{role_b}送上了离开的火车，自己却转身拿起枪，走向战场，{role_b}在火车上哭着喊他的名字，他却没有回头",
+                    "adapt_tags": [
+                        "hook_type：危机钩",
+                        "hauge_phase：5",
+                        "genre：民国/虐恋"
+                    ]
+                },
+                {
+                    "id": "genre_043",
+                    "content": "两人在乱世里走散，{role_a}找了{role_b}十年，再次相遇时，她已经嫁给了别人，他看着她幸福的样子，默默转身离开，只在她看不见的地方，继续护着她",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：6",
+                        "genre：民国/虐恋"
+                    ]
+                },
+                {
+                    "id": "genre_044",
+                    "content": "{role_a}被{villain}陷害，要被枪决，{role_b}不顾一切，冲到刑场，抱着他说：\"要杀他，先杀我\"，{role_a}红着眼说：\"你傻不傻？\"，{role_b}笑：\"能和你一起死，我不怕\"",
+                    "adapt_tags": [
+                        "hook_type：危机钩",
+                        "hauge_phase：5",
+                        "genre：民国/虐恋"
+                    ]
+                },
+                {
+                    "id": "genre_045",
+                    "content": "抗战胜利了，{role_a}却失踪了，{role_b}等了他一辈子，直到白发苍苍，也没有等到他回来，却不知道，{role_a}早就牺牲在了胜利的前一天，临死前，手里还攥着她的照片",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：6",
+                        "genre：民国/虐恋"
+                    ]
+                },
+                {
+                    "id": "genre_046",
+                    "content": "大雪纷飞的除夕夜，外面炮火连天，屋里只有他们两个人，{role_a}抱着{role_b}，在她耳边说：\"等战争结束了，我们就去江南，买一座小院子，种满你喜欢的花，安安稳稳过一辈子\"",
+                    "adapt_tags": [
+                        "hook_type：动机钩",
+                        "hauge_phase：4",
+                        "genre：民国/虐恋"
+                    ]
+                },
+                {
+                    "id": "genre_047",
+                    "content": "两人在秘密据点接头，外面全是搜查的特务，{role_a}把{role_b}藏在柜子里，自己出去引开敌人，临走前在她额头印下一个吻：\"等我回来\"",
+                    "adapt_tags": [
+                        "hook_type：危机钩",
+                        "hauge_phase：4",
+                        "genre：民国/谍战"
+                    ]
+                },
+                {
+                    "id": "genre_048",
+                    "content": "乱世里，{role_a}给了{role_b}一个家，在所有人都抛弃她的时候，他把她护在身后，对她说：\"有我在，就没人敢欺负你\"",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：1",
+                        "genre：民国/虐恋"
+                    ]
+                },
+                {
+                    "content": "枪林弹雨中，{role_a}用军大衣将{role_b}裹得严严实实，自己后背却中了一弹。\"",
+                    "adapt_tags": [
+                        "hook_type：危机钩",
+                        "hauge_phase：4",
+                        "genre：民国/谍战"
+                    ],
+                    "id": "genre_091"
+                },
+                {
+                    "content": "{role_b}穿着旗袍在台上唱戏，{role_a}坐在台下，用茶水在桌上写下接头暗号。\"",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：2",
+                        "genre：民国/谍战"
+                    ],
+                    "id": "genre_092"
+                },
+                {
+                    "content": "登报脱离关系的那天，{role_a}在雨中站了整整一夜，看着{role_b}的窗户彻夜未眠。\"",
+                    "adapt_tags": [
+                        "hook_type：动机钩",
+                        "hauge_phase：4",
+                        "genre：民国/虐恋"
+                    ],
+                    "id": "genre_093"
+                },
+                {
+                    "content": "为了拿到情报，{role_b}被迫委身于仇人，{role_a}咬碎了牙却只能假装不认识她。\"",
+                    "adapt_tags": [
+                        "hook_type：动机钩",
+                        "hauge_phase：3",
+                        "genre：民国/虐恋"
+                    ],
+                    "id": "genre_094"
+                },
+                {
+                    "content": "城破在即，{role_a}将唯一一张通往海外的船票塞进{role_b}手里，转身走向战场。\"",
+                    "adapt_tags": [
+                        "hook_type：危机钩",
+                        "hauge_phase：5",
+                        "genre：民国/虐恋"
+                    ],
+                    "id": "genre_095"
+                },
+                {
+                    "content": "多年后相逢，他成了汉奸，她成了暗杀他的特务，枪口相对，谁都下不去手。\"",
+                    "adapt_tags": [
+                        "hook_type：危机钩",
+                        "hauge_phase：5",
+                        "genre：民国/谍战"
+                    ],
+                    "id": "genre_096"
+                }
+            ]
+        },
+        "period_rural": {
+            "description": "年代/乡村/致富/逆袭题材，共12条",
+            "templates": [
+                {
+                    "id": "genre_049",
+                    "content": "{role_b}被婆家欺负，被丈夫抛弃，全村人都看她笑话，只有{role_a}站出来，帮她盖房子，带她搞养殖致富，对她说：\"别怕，以后我护着你，没人敢再欺负你\"",
+                    "adapt_tags": [
+                        "hook_type：反转钩",
+                        "hauge_phase：2",
+                        "genre：年代/乡村"
+                    ]
+                },
+                {
+                    "id": "genre_050",
+                    "content": "{role_a}辛辛苦苦赚的钱，被家里人抢走给弟弟娶媳妇，{role_b}二话不说，带着{role_a}去把钱要了回来，对着他家里人说：\"他的钱，是他一分一分赚来的，你们谁也别想抢\"",
+                    "adapt_tags": [
+                        "hook_type：反转钩",
+                        "hauge_phase：2",
+                        "genre：年代/乡村"
+                    ]
+                },
+                {
+                    "id": "genre_051",
+                    "content": "全村人都反对{role_b}搞大棚蔬菜，说她不务正业，只有{role_a}相信她，拿出自己所有的积蓄支持她，帮她搭大棚，没日没夜地干活，最后蔬菜大丰收，他们相视一笑，眼里全是星光",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：3",
+                        "genre：年代/乡村"
+                    ]
+                },
+                {
+                    "id": "genre_052",
+                    "content": "{role_b}被人贩子拐走，{role_a}骑着自行车，追了三天三夜，终于把她救了回来，抱着浑身是伤的{role_b}，哭着说：\"对不起，我来晚了，以后我再也不会让你离开我的视线\"",
+                    "adapt_tags": [
+                        "hook_type：危机钩",
+                        "hauge_phase：4",
+                        "genre：年代/乡村"
+                    ]
+                },
+                {
+                    "id": "genre_053",
+                    "content": "他们靠着自己的努力，成了村里的万元户，盖了新房子，{role_a}在新房子里，给{role_b}戴上了{prop}，红着脸说：\"以前你跟着我受苦了，以后，我一定让你过上最好的日子\"",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：6",
+                        "genre：年代/乡村"
+                    ]
+                },
+                {
+                    "id": "genre_054",
+                    "content": "{role_b}被村里的长舌妇嚼舌根，{role_a}当场就站出来，把那些人骂得哑口无言，把{role_b}护在身后，对她说：\"别听他们胡说，你怎么样都好\"",
+                    "adapt_tags": [
+                        "hook_type：反转钩",
+                        "hauge_phase：2",
+                        "genre：年代/乡村"
+                    ]
+                },
+                {
+                    "id": "genre_055",
+                    "content": "高考恢复了，{role_b}想考大学，家里人都反对，只有{role_a}支持她，每天给她送饭，帮她干农活，让她安心复习，对她说：\"你放心去考，家里有我\"",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：3",
+                        "genre：年代/乡村"
+                    ]
+                },
+                {
+                    "id": "genre_056",
+                    "content": "闹饥荒的年代，{role_a}把自己唯一的半个窝头给了{role_b}，自己却饿晕了过去，{role_b}抱着他，哭着说：\"你怎么这么傻\"",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：4",
+                        "genre：年代/乡村"
+                    ]
+                },
+                {
+                    "id": "genre_057",
+                    "content": "{role_b}的丈夫战死沙场，留下她和孩子，村里人都劝她改嫁，只有{role_a}默默帮她照顾孩子，打理家里的田地，一照顾就是一辈子",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：6",
+                        "genre：年代/乡村"
+                    ]
+                },
+                {
+                    "id": "genre_058",
+                    "content": "{role_a}去城里打工，第一个月发了工资，全部都给{role_b}买了东西，自己一分钱都没留，笑着对她说：\"城里的好东西，都想给你买\"",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：2",
+                        "genre：年代/乡村"
+                    ]
+                },
+                {
+                    "id": "genre_059",
+                    "content": "下大雨，{role_b}家的房子漏了，{role_a}冒着大雨，爬上屋顶给她修房子，淋得浑身湿透，却笑着对她说：\"修好了，今晚不会漏雨了\"",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：2",
+                        "genre：年代/乡村"
+                    ]
+                },
+                {
+                    "id": "genre_060",
+                    "content": "改革开放了，{role_a}带着{role_b}去城里做生意，起早贪黑，吃了无数的苦，终于站稳了脚跟，{role_a}握着{role_b}的手说：\"苦日子终于过去了，以后都是好日子\"",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：6",
+                        "genre：年代/乡村"
+                    ]
+                },
+                {
+                    "content": "{role_a}把省吃俭用攒下的白面馒头悄悄塞给{role_b}，自己却啃着野菜团子。\"",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：2",
+                        "genre：年代/乡村"
+                    ],
+                    "id": "genre_097"
+                },
+                {
+                    "content": "{role_b}考上大学全村轰动，{role_a}默默背起行囊去砖窑搬砖，只为了供她读书。\"",
+                    "adapt_tags": [
+                        "hook_type：动机钩",
+                        "hauge_phase：3",
+                        "genre：年代/乡村"
+                    ],
+                    "id": "genre_098"
+                },
+                {
+                    "content": "面对村里的流言蜚语，{role_a}直接在广播站用大喇叭向{role_b}表白，震动全村。\"",
+                    "adapt_tags": [
+                        "hook_type：反转钩",
+                        "hauge_phase：3",
+                        "genre：年代/乡村"
+                    ],
+                    "id": "genre_099"
+                },
+                {
+                    "content": "{role_b}做生意赔了底朝天，{role_a}拿出压箱底的存折：\"没事，大不了回村种地，我养你。\"",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：4",
+                        "genre：年代/乡村"
+                    ],
+                    "id": "genre_100"
+                },
+                {
+                    "content": "过年买不到肉，{role_a}大冬天去冰窟窿里捞鱼，冻得瑟瑟发抖只为给{role_b}熬碗鱼汤。\"",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：2",
+                        "genre：年代/乡村"
+                    ],
+                    "id": "genre_101"
+                },
+                {
+                    "content": "{role_a}用赚来的第一笔大钱，给{role_b}买了一辆凤凰牌自行车，载着她在田野里兜风。\"",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：5",
+                        "genre：年代/乡村"
+                    ],
+                    "id": "genre_102"
+                }
+            ]
+        },
+        "urban_counterattack": {
+            "description": "都市/逆袭/赘婿/神医/龙王题材，共12条",
+            "templates": [
+                {
+                    "id": "genre_061",
+                    "content": "{role_b}在家族宴会上被亲戚羞辱，说她嫁了个没用的{role_a}，{role_a}当场亮出自己世界首富的身份，把所有羞辱过{role_b}的人，全部狠狠打脸，搂着{role_b}说：\"我的女人，轮不到你们指指点点\"",
+                    "adapt_tags": [
+                        "hook_type：反转钩",
+                        "hauge_phase：3",
+                        "genre：都市/逆袭"
+                    ]
+                },
+                {
+                    "id": "genre_062",
+                    "content": "{role_b}的爷爷病危，所有名医都束手无策，所有人都骂{role_a}是个没用的废物，{role_a}却当场施展绝世医术，把老爷子从鬼门关拉了回来，全场震惊",
+                    "adapt_tags": [
+                        "hook_type：反转钩",
+                        "hauge_phase：2",
+                        "genre：都市/逆袭"
+                    ]
+                },
+                {
+                    "id": "genre_063",
+                    "content": "{role_b}的公司濒临破产，所有人都离她而去，只有{role_a}不离不弃，一个电话，就让世界顶级财团给她的公司注资百亿，{role_b}震惊地看着他，他笑着说：\"你的事，就是我的事\"",
+                    "adapt_tags": [
+                        "hook_type：反转钩",
+                        "hauge_phase：4",
+                        "genre：都市/逆袭"
+                    ]
+                },
+                {
+                    "id": "genre_064",
+                    "content": "{role_b}被黑恶势力绑架，{role_a}单枪匹马闯进去，一招秒杀所有绑匪，把{role_b}护在怀里，哑声说：\"对不起，我来晚了，以后，我再也不会让你受到一点伤害\"",
+                    "adapt_tags": [
+                        "hook_type：危机钩",
+                        "hauge_phase：4",
+                        "genre：都市/逆袭"
+                    ]
+                },
+                {
+                    "id": "genre_065",
+                    "content": "{role_a}隐忍三年，终于在{role_b}和他的结婚三周年纪念日，亮出了自己的真实身份，把所有欺负过{role_b}的人，全部踩在脚下，单膝跪地对{role_b}说：\"老婆，这三年，让你受委屈了，以后，我给你全世界\"",
+                    "adapt_tags": [
+                        "hook_type：反转钩",
+                        "hauge_phase：3",
+                        "genre：都市/逆袭"
+                    ]
+                },
+                {
+                    "id": "genre_066",
+                    "content": "{role_b}被竞争对手设计，陷入商业危机，{role_a}默默帮她布好了局，反手把对手搞垮，对她说：\"谁敢动我的人，我就让他万劫不复\"",
+                    "adapt_tags": [
+                        "hook_type：反转钩",
+                        "hauge_phase：5",
+                        "genre：都市/逆袭"
+                    ]
+                },
+                {
+                    "id": "genre_067",
+                    "content": "所有人都以为{role_a}是个吃软饭的赘婿，只有{role_b}知道，他是隐藏的顶级大佬，在她遇到危险的时候，永远会第一时间出现，护她周全",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：3",
+                        "genre：都市/逆袭"
+                    ]
+                },
+                {
+                    "id": "genre_068",
+                    "content": "{role_b}被人诬陷，身败名裂，{role_a}拿出所有证据，帮她洗清冤屈，把诬陷她的人送进了监狱，抱着她说：\"有我在，没人能冤枉你\"",
+                    "adapt_tags": [
+                        "hook_type：反转钩",
+                        "hauge_phase：4",
+                        "genre：都市/逆袭"
+                    ]
+                },
+                {
+                    "id": "genre_069",
+                    "content": "{role_a}被丈母娘当众羞辱，让他和{role_b}离婚，他当场拿出千亿资产证明，丈母娘瞬间变脸，全场鸦雀无声",
+                    "adapt_tags": [
+                        "hook_type：反转钩",
+                        "hauge_phase：3",
+                        "genre：都市/逆袭"
+                    ]
+                },
+                {
+                    "id": "genre_070",
+                    "content": "{role_b}被富二代当众调戏，{role_a}当场就把对方打趴下，亮出自己的顶级身份，对方吓得跪地求饶，{role_a}搂着{role_b}说：\"我的女人，你也敢动？\"",
+                    "adapt_tags": [
+                        "hook_type：反转钩",
+                        "hauge_phase：2",
+                        "genre：都市/逆袭"
+                    ]
+                },
+                {
+                    "id": "genre_071",
+                    "content": "{role_a}隐藏身份三年，只为了守在{role_b}身边，护她周全，在她最危难的时候，他挺身而出，为她撑起了一片天",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：4",
+                        "genre：都市/逆袭"
+                    ]
+                },
+                {
+                    "id": "genre_072",
+                    "content": "终局，{role_a}放弃了自己的千亿帝国，只想和{role_b}过平凡的日子，对她说：\"荣华富贵，都不如你在我身边\"",
+                    "adapt_tags": [
+                        "hook_type：信息钩",
+                        "hauge_phase：6",
+                        "genre：都市/逆袭"
+                    ]
+                },
+                {
+                    "content": "{role_b}被前男友嘲讽买不起名表，{role_a}直接买下整个表行：\"这里的表，每天换着戴。\"",
+                    "adapt_tags": [
+                        "hook_type：反转钩",
+                        "hauge_phase：3",
+                        "genre：都市/逆袭"
+                    ],
+                    "id": "genre_103"
+                },
+                {
+                    "content": "家族联姻逼迫{role_b}嫁给老头，{role_a}带领直升机编队空降订婚宴抢亲。\"",
+                    "adapt_tags": [
+                        "hook_type：反转钩",
+                        "hauge_phase：4",
+                        "genre：都市/逆袭"
+                    ],
+                    "id": "genre_104"
+                },
+                {
+                    "content": "丈母娘摔碗让{role_a}滚出去，他转身拉开车门，一列劳斯莱斯车队早已等候多时。\"",
+                    "adapt_tags": [
+                        "hook_type：反转钩",
+                        "hauge_phase：3",
+                        "genre：都市/逆袭"
+                    ],
+                    "id": "genre_105"
+                },
+                {
+                    "content": "{role_b}公司陷入绝境，{role_a}一个电话，世界顶级投资大鳄连夜飞来求着送钱。\"",
+                    "adapt_tags": [
+                        "hook_type：反转钩",
+                        "hauge_phase：4",
+                        "genre：都市/逆袭"
+                    ],
+                    "id": "genre_106"
+                },
+                {
+                    "content": "一直被当成废物的{role_a}，在医学泰斗面前随手指出了一个穴位，震惊整个医学界。\"",
+                    "adapt_tags": [
+                        "hook_type：反转钩",
+                        "hauge_phase：2",
+                        "genre：都市/神医"
+                    ],
+                    "id": "genre_107"
+                },
+                {
+                    "content": "{role_b}被黑帮围堵，{role_a}点燃一根烟，三秒内放倒了所有人，连发丝都没乱。\"",
+                    "adapt_tags": [
+                        "hook_type：危机钩",
+                        "hauge_phase：4",
+                        "genre：都市/龙王"
+                    ],
+                    "id": "genre_108"
+                }
+            ]
+        }
+    },
+    "hook_linked_library": {
+        "description": "CP互动+单集钩子联动库，互动本身就是单集结尾钩子，严格匹配系统钩子配比，共24条模板",
+        "information_hook": {
+            "description": "信息钩，占比≥30%，共9条",
+            "templates": [
+                {
+                    "id": "hook_001",
+                    "content": "{role_a}替{role_b}挡下致命一击，濒死之际在她耳边喊出了{core_setting}里她尘封的真名，{role_b}瞳孔骤震，画面定格",
+                    "adapt_tags": [
+                        "hauge_phase：3",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "hook_002",
+                    "content": "{role_b}第一次对{role_a}敞开心扉，说出了{core_setting}的核心秘密，{role_a}抱着她说：\"其实，我也一样\"，{role_b}瞬间僵住，画面定格",
+                    "adapt_tags": [
+                        "hauge_phase：3",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "hook_003",
+                    "content": "{role_a}在{role_b}的包里，发现了她的卧底身份证明，{role_b}回来时，正看到{role_a}拿着证件，抬头看着她，画面定格",
+                    "adapt_tags": [
+                        "hauge_phase：3",
+                        "genre：谍战/悬疑"
+                    ]
+                },
+                {
+                    "id": "hook_004",
+                    "content": "两人闯过生死阵，阵眼显示的真相里，{role_a}就是当年害死{role_b}全族的凶手，{role_b}手里的刀瞬间掉在地上，看着{role_a}，画面定格",
+                    "adapt_tags": [
+                        "hauge_phase：4",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "hook_005",
+                    "content": "{role_a}给{role_b}戴上{prop}，{prop}碰到{role_b}的瞬间，激活了她身上的{core_setting}血脉，{role_b}看着自己发光的双手，又看着{role_a}了然的眼神，画面定格",
+                    "adapt_tags": [
+                        "hauge_phase：2",
+                        "genre：奇幻/惊悚"
+                    ]
+                },
+                {
+                    "id": "hook_006",
+                    "content": "{role_b}在{role_a}的书房里，发现了他藏了十年的日记，里面全是她的名字，记录了他爱了她整整十年的秘密，{role_b}泪流满面，{role_a}正站在门口看着她，画面定格",
+                    "adapt_tags": [
+                        "hauge_phase：3",
+                        "genre：现言/甜宠"
+                    ]
+                },
+                {
+                    "id": "hook_007",
+                    "content": "{villain}笑着对{role_b}说：\"你以为他真的爱你吗？他接近你，就是为了你的{core_setting}核心力量，他就是{villain}的人\"，{role_b}回头看着{role_a}，画面定格",
+                    "adapt_tags": [
+                        "hauge_phase：4",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "hook_008",
+                    "content": "{role_a}拿出一枚和{role_b}一模一样的{prop}，笑着说：\"这是我母亲留给我的，她说，这是和我未来伴侣的定情信物，一对的\"，{role_b}看着自己的{prop}，瞬间震惊，画面定格",
+                    "adapt_tags": [
+                        "hauge_phase：2",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "hook_009",
+                    "content": "{role_a}笑着对{role_b}说：\"你以为你重生，是意外吗？是我用自己的十年寿命，换你重来一次的机会\"，{role_b}瞬间泪流满面，画面定格",
+                    "adapt_tags": [
+                        "hauge_phase：3",
+                        "genre：重生/复仇"
+                    ]
+                },
+                {
+                    "content": "{role_b}在整理{role_a}遗物时，发现了一个带锁的盒子，打开一看，里面全是她从小到大的照片，画面定格。\"",
+                    "adapt_tags": [
+                        "hauge_phase：5",
+                        "genre：全题材通用"
+                    ],
+                    "id": "hook_025"
+                },
+                {
+                    "content": "{role_a}无意间触碰了{role_b}背上的伤疤，脑海中突然闪过一段陌生的前世记忆，他震惊地看着她，画面定格。\"",
+                    "adapt_tags": [
+                        "hauge_phase：3",
+                        "genre：奇幻/惊悚"
+                    ],
+                    "id": "hook_026"
+                },
+                {
+                    "content": "DNA检测报告出来了，{role_a}不敢置信地看着上面的结果：{role_b}竟然是他找了二十年的亲生妹妹，画面定格。\"",
+                    "adapt_tags": [
+                        "hauge_phase：4",
+                        "genre：都市/虐恋"
+                    ],
+                    "id": "hook_027"
+                },
+                {
+                    "content": "{role_b}听到{villain}称呼{role_a}为“少主”，震惊之余手中的玻璃杯滑落摔碎，画面定格。\"",
+                    "adapt_tags": [
+                        "hauge_phase：3",
+                        "genre：悬疑/复仇"
+                    ],
+                    "id": "hook_028"
+                },
+                {
+                    "content": "{role_a}解开了密码本的最后一页，上面只写了一句话：\"不要相信{role_b}\"，画面定格。\"",
+                    "adapt_tags": [
+                        "hauge_phase：4",
+                        "genre：谍战/悬疑"
+                    ],
+                    "id": "hook_029"
+                },
+                {
+                    "content": "监控录像恢复，{role_b}清楚地看到推她下楼的那双手，戴着和{role_a}一模一样的戒指，画面定格。\"",
+                    "adapt_tags": [
+                        "hauge_phase：4",
+                        "genre：悬疑/复仇"
+                    ],
+                    "id": "hook_030"
+                }
+            ]
+        },
+        "reverse_hook": {
+            "description": "反转钩，占比≥20%，共6条",
+            "templates": [
+                {
+                    "id": "hook_010",
+                    "content": "{role_b}举刀对着{role_a}，哭着说：\"我要杀了你，为我全族报仇\"，{role_a}却扔掉武器，张开双臂笑着说：\"好，能死在你手里，我心甘情愿\"，{role_b}却突然转身，一刀刺向了{role_a}身后的{villain}，画面定格",
+                    "adapt_tags": [
+                        "hauge_phase：5",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "hook_011",
+                    "content": "{role_a}当众宣布和{role_b}解除合作，全场哗然，{role_b}红着眼看着他，他却突然单膝跪地，拿出{prop}：\"解除合作，是因为我想和你过一辈子\"，画面定格",
+                    "adapt_tags": [
+                        "hauge_phase：6",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "hook_012",
+                    "content": "所有人都以为{role_a}是{villain}的人，看着他把{role_b}绑到{villain}面前，结果他却反手把{villain}制服，笑着对{role_b}说：\"演了这么久，终于可以收网了\"，画面定格",
+                    "adapt_tags": [
+                        "hauge_phase：5",
+                        "genre：谍战/悬疑"
+                    ]
+                },
+                {
+                    "id": "hook_013",
+                    "content": "{role_b}一直以为{role_a}是需要她保护的弱者，结果在她被{villain}围攻时，{role_a}一招秒杀全场，擦着她脸上的污渍笑：\"现在知道，谁才是你的靠山了？\"，画面定格",
+                    "adapt_tags": [
+                        "hauge_phase：3",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "hook_014",
+                    "content": "{role_b}哭着和{role_a}说分手，说自己从来没有爱过他，{role_a}却笑着抱住她：\"没关系，我知道你是被{villain}威胁了，我都知道\"，{role_b}瞬间僵住，画面定格",
+                    "adapt_tags": [
+                        "hauge_phase：4",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "hook_015",
+                    "content": "{role_b}被{villain}围堵，眼看就要丧命，平时一直唯唯诺诺的{role_a}，突然爆发出惊人的战力，一招秒杀所有{villain}，{role_b}震惊到说不出话，画面定格",
+                    "adapt_tags": [
+                        "hauge_phase：3",
+                        "genre：都市/逆袭"
+                    ]
+                },
+                {
+                    "content": "{role_a}毫不犹豫地在放弃财产协议上签字，下一秒却拿出了一份将公司全权转移给{role_b}的文件，画面定格。\"",
+                    "adapt_tags": [
+                        "hauge_phase：5",
+                        "genre：都市/商战"
+                    ],
+                    "id": "hook_031"
+                },
+                {
+                    "content": "所有人都以为{role_b}喝下了毒药，她却擦了擦嘴角，冷笑着看向真正的中毒者{villain}，画面定格。\"",
+                    "adapt_tags": [
+                        "hauge_phase：4",
+                        "genre：全题材通用"
+                    ],
+                    "id": "hook_032"
+                },
+                {
+                    "content": "{role_a}假意投诚，却在接过{villain}兵符的瞬间，反手一刀斩落其头颅，全场震骇，画面定格。\"",
+                    "adapt_tags": [
+                        "hauge_phase：5",
+                        "genre：玄幻/权谋"
+                    ],
+                    "id": "hook_033"
+                },
+                {
+                    "content": "婚礼现场，新郎{role_a}牵起了伴娘{role_b}的手，对全场宣布：\"她才是我的新娘\"，画面定格。\"",
+                    "adapt_tags": [
+                        "hauge_phase：3",
+                        "genre：都市/逆袭"
+                    ],
+                    "id": "hook_034"
+                },
+                {
+                    "content": "面对枪口，{role_b}不仅没躲，反而主动迎上枪口，枪膛里发出的却是空包弹的闷响，她笑了：\"你果然没放子弹\"，画面定格。\"",
+                    "adapt_tags": [
+                        "hauge_phase：4",
+                        "genre：悬疑/谍战"
+                    ],
+                    "id": "hook_035"
+                }
+            ]
+        },
+        "motivation_hook": {
+            "description": "动机钩，占比≥20%，共6条",
+            "templates": [
+                {
+                    "id": "hook_016",
+                    "content": "{role_b}当众和{role_a}决裂，转头就把他的本命{prop}交给了{villain}，镜头给到她藏在身后、沾了血的护魂符，画面定格",
+                    "adapt_tags": [
+                        "hauge_phase：4",
+                        "genre：奇幻/惊悚"
+                    ]
+                },
+                {
+                    "id": "hook_017",
+                    "content": "{role_a}和{role_b}告别，说自己要去很远的地方，再也不回来了，{role_b}哭着问他要去哪里，他却只是笑着摸了摸她的头，转身走向了{villain}的大本营，画面定格",
+                    "adapt_tags": [
+                        "hauge_phase：4",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "hook_018",
+                    "content": "{role_b}明明很爱{role_a}，却还是亲手把他推给了{villain}，看着他们站在一起的样子，{role_b}偷偷攥紧了手里的绝症诊断书，画面定格",
+                    "adapt_tags": [
+                        "hauge_phase：4",
+                        "genre：现言/虐恋"
+                    ]
+                },
+                {
+                    "id": "hook_019",
+                    "content": "{role_a}对着{role_b}的睡颜，轻声说：\"对不起，骗了你这么久\"，然后在她额头印下一个吻，拿起枪，转身走出了门，画面定格",
+                    "adapt_tags": [
+                        "hauge_phase：5",
+                        "genre：谍战/民国"
+                    ]
+                },
+                {
+                    "id": "hook_020",
+                    "content": "{role_b}笑着答应了{villain}的要求，要嫁给对方，{role_a}红着眼问她为什么，她却只是冷冷地说：\"因为他能给我想要的，你不能\"，镜头给到她藏在袖子里的刀，画面定格",
+                    "adapt_tags": [
+                        "hauge_phase：5",
+                        "genre：重生/复仇"
+                    ]
+                },
+                {
+                    "id": "hook_021",
+                    "content": "{role_a}把{role_b}护在身后，对着{villain}说：\"我答应你的要求，放了她\"，{role_b}震惊地看着他，他却没有回头，画面定格",
+                    "adapt_tags": [
+                        "hauge_phase：4",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "content": "{role_b}眼睁睁看着亲人被害，她捡起地上的长剑，眼底最后一丝温柔褪去，化为彻底的冰冷，画面定格。\"",
+                    "adapt_tags": [
+                        "hauge_phase：2",
+                        "genre：重生/复仇"
+                    ],
+                    "id": "hook_036"
+                },
+                {
+                    "content": "{role_a}烧毁了所有的退路，转身对{role_b}说：\"要么一起生，要么一起死，选吧\"，画面定格。\"",
+                    "adapt_tags": [
+                        "hauge_phase：4",
+                        "genre：全题材通用"
+                    ],
+                    "id": "hook_037"
+                },
+                {
+                    "content": "得知真相后的{role_b}，擦干眼泪，穿上了一身红裙，走向了仇人的宴会大门，画面定格。\"",
+                    "adapt_tags": [
+                        "hauge_phase：3",
+                        "genre：都市/复仇"
+                    ],
+                    "id": "hook_038"
+                },
+                {
+                    "content": "{role_a}为了得到拯救{role_b}的解药，毫不犹豫地向昔日的仇敌屈膝下跪，画面定格。\"",
+                    "adapt_tags": [
+                        "hauge_phase：4",
+                        "genre：全题材通用"
+                    ],
+                    "id": "hook_039"
+                },
+                {
+                    "content": "{role_b}在{role_a}的茶里下了安眠药，看着他昏睡过去，带上装备独自走入黑夜，画面定格。\"",
+                    "adapt_tags": [
+                        "hauge_phase：4",
+                        "genre：全题材通用"
+                    ],
+                    "id": "hook_040"
+                }
+            ]
+        },
+        "crisis_hook": {
+            "description": "危机钩，占比≤30%，共3条",
+            "templates": [
+                {
+                    "id": "hook_022",
+                    "content": "{scene}即将坍塌，{role_a}把{role_b}推出去的瞬间，自己留在了坍塌的密室里，最后一句是\"等我，我一定回来找你\"，画面定格在{role_b}崩溃的脸上",
+                    "adapt_tags": [
+                        "hauge_phase：5",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "id": "hook_023",
+                    "content": "{role_b}被{core_setting}反噬，彻底失控，利爪刺进了{role_a}的心脏，{role_a}却还是抱着她，哑声说：\"别怕，我在\"，画面定格在男主流血的胸口",
+                    "adapt_tags": [
+                        "hauge_phase：5",
+                        "genre：奇幻/惊悚"
+                    ]
+                },
+                {
+                    "id": "hook_024",
+                    "content": "{villain}的枪对准了{role_b}，{role_a}毫不犹豫地挡在她身前，枪声响起，{role_a}倒在{role_b}怀里，画面定格",
+                    "adapt_tags": [
+                        "hauge_phase：5",
+                        "genre：全题材通用"
+                    ]
+                },
+                {
+                    "content": "定时炸弹还剩最后三秒，{role_a}和{role_b}剪断了红蓝两根线，计时器却突然加速，画面定格。\"",
+                    "adapt_tags": [
+                        "hauge_phase：4",
+                        "genre：悬疑/谍战"
+                    ],
+                    "id": "hook_041"
+                },
+                {
+                    "content": "电梯门打开，门外不是熟悉的走廊，而是深不见底的万丈悬崖，{role_b}一脚踏空被{role_a}死死抓住，画面定格。\"",
+                    "adapt_tags": [
+                        "hauge_phase：3",
+                        "genre：无限流/悬疑"
+                    ],
+                    "id": "hook_042"
+                },
+                {
+                    "content": "{role_a}刚刚击退了兽潮，却发现{role_b}的双眼已经被黑暗物质完全侵蚀，失去了理智，画面定格。\"",
+                    "adapt_tags": [
+                        "hauge_phase：4",
+                        "genre：奇幻/惊悚"
+                    ],
+                    "id": "hook_043"
+                },
+                {
+                    "content": "飞机剧烈颠簸，氧气面罩落下，{role_a}将唯一一个好用的面罩扣在了{role_b}脸上，自己却开始窒息，画面定格。\"",
+                    "adapt_tags": [
+                        "hauge_phase：5",
+                        "genre：都市/虐恋"
+                    ],
+                    "id": "hook_044"
+                },
+                {
+                    "content": "大门缓缓关闭，丧尸潮涌来，{role_b}在门内，{role_a}在门外，隔着玻璃绝望相望，画面定格。\"",
+                    "adapt_tags": [
+                        "hauge_phase：4",
+                        "genre：末世/惊悚"
+                    ],
+                    "id": "hook_045"
+                }
+            ]
+        }
+    },
+    "forbidden_rules": [
+        "绝对禁止生成无剧情推进、无人设落地、无钩子设计的纯撒糖灌水互动，所有互动必须服务于主线剧情",
+        "绝对禁止生成与角色人设标签不符的OOC互动，必须严格匹配角色signature_traits字段",
+        "绝对禁止生成超过2句话的慢节奏长描写互动，所有互动必须1-2句话完成，适配竖屏短剧镜头语言",
+        "绝对禁止生成纯内心独白的CP互动，所有情绪、关系变化必须通过台词、动作外化呈现",
+        "绝对禁止连续3集生成同类型的CP互动，必须严格遵循钩子配比和Hauge阶段适配规则",
+        "绝对禁止生成与题材调性不符的互动，如惊悚血祭场景强行插入无意义甜宠撩拨",
+        "绝对禁止生成挤压主线剧情篇幅的互动，单集CP互动不得超过单集内容的30%，核心篇幅必须留给剧情推进",
+        "绝对禁止生成违背公序良俗、低俗擦边的互动内容",
+        "绝对禁止生成与系统Hauge六阶段节奏不符的互动，如铺垫阶段强行插入终局双向奔赴内容",
+        "绝对禁止生成与单集CPG事件节点无关的互动，所有互动必须嵌入因果事件链，服务于剧情推进"
+    ]
+}

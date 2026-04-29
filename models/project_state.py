@@ -52,6 +52,11 @@ class ProjectData:
     skeleton_confirmed_eps: List[str] = field(default_factory=list)  # 已确认的骨架节点 ID
     hook_selections: Dict[str, List[str]] = field(default_factory=dict)  # 每集钩子选择 {"Ep1": ["hook_id1", ...], ...}
     ch1_versions: List[dict] = field(default_factory=list)  # 第一章候选版本列表（供后续切换）
+    # v1.1.6 新增：CPG 节点 Schema 版本
+    #   1 = 旧版（1 集 = 1 节点，node_id 形如 "Ep1"）
+    #   2 = 新版（1 集 = 1-4 事件级节点，node_id 形如 "Ep1-A" / "Ep1-B"）
+    # 旧项目加载时若无该字段则视为 1，避免误识别
+    cpg_schema_version: int = 1
 
     # ----- Phase 2: 人物 -----
     characters: List[dict] = field(default_factory=list)           # Character 列表

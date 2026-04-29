@@ -1471,6 +1471,24 @@ class Phase3Flesh(QWidget):
                 lines.append(f"  • {e}")
             lines.append("")
 
+        # 人物微变化与新属性
+        micro_change = beat.get("character_micro_change", "")
+        twist_summary = beat.get("twist_summary", "")
+        density_score = beat.get("density_score", "")
+        cp_interaction = beat.get("cp_interaction_used", {})
+        
+        if micro_change or twist_summary or density_score or cp_interaction:
+            lines.append("✨ 剧本增强 (v1.1.6)")
+            if density_score:
+                lines.append(f"  • 密度评分: {density_score}")
+            if twist_summary:
+                lines.append(f"  • 转折摘要: {twist_summary}")
+            if micro_change:
+                lines.append(f"  • A级角色微变化: {micro_change}")
+            if cp_interaction:
+                lines.append(f"  • CP互动 (模板 {cp_interaction.get('id','')}): {cp_interaction.get('rendered_text','')}")
+            lines.append("")
+
         # 因果事件链
         events = beat.get("causal_events", [])
         if events:
@@ -1481,6 +1499,8 @@ class Phase3Flesh(QWidget):
                 action = e.get("action", "")
                 impact = e.get("causal_impact", "")
                 prev = e.get("connects_to_previous", "")
+                twist_type = e.get("twist_type", "")
+                tau_estimate = e.get("tau_estimate", "")
                 # 序号图标
                 num_icons = {
                     1: "❶", 2: "❷", 3: "❸", 4: "❹", 5: "❺",
@@ -1492,6 +1512,10 @@ class Phase3Flesh(QWidget):
                     lines.append(f"   → 导致: {impact}")
                 if prev:
                     lines.append(f"   ← 前因: {prev}")
+                if twist_type and twist_type != "none":
+                    lines.append(f"   ← 转折: {twist_type}")
+                if tau_estimate:
+                    lines.append(f"   ← τ值: {tau_estimate}")
                 lines.append("")
 
         # 悬念钩子
